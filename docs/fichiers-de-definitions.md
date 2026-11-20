@@ -566,7 +566,7 @@ Pour que l'aide parte quand la grille entière est jouée juste et revienne apr�
 
 ### Un morceau entier
 
-`flow.demonstration: false` retire l'écoute de la première rencontre, qui dure autant que le contenu : 49 mesures à ♩ = 70 feraient 2 min 48 avant la première note. La vue `figure` garde l'écran à sa taille : la partition défile dans son cadre et suit la ligne jouée, et au-delà de 8 mesures elle est gravée plus petit. Un tour tient au plus 1 024 notes (voir « Ce que vérifier un fichier peut coûter ») : un thème de plusieurs centaines de notes tient en un tour.
+`flow.demonstration: false` retire l'écoute de la première rencontre, qui dure autant que le contenu : 49 mesures à ♩ = 70 feraient 2 min 48 avant la première note. La vue `figure` garde l'écran à sa taille : la partition défile dans son cadre et suit la ligne jouée, et au-delà de 8 mesures elle est gravée plus petit. Un tour tient au plus 1 024 mesures et 1 024 notes (voir « Ce que vérifier un fichier peut coûter ») : un thème de plusieurs centaines de notes tient en un tour.
 
 ### Écrire les notes d'une forme
 
@@ -731,7 +731,7 @@ Une fois le fichier importé et accepté, rien d'autre n'est à faire :
 
 ### La Bibliothèque
 
-La Bibliothèque liste tous les exercices chargés, du catalogue et des fichiers importés, avec ou sans routine. Elle ne trie pas, ne filtre pas et ne recommande rien. Son ordre est celui des routines de l'accueil, chaque routine avec ses exercices dans l'ordre où elle les écrit, chaque exercice une fois ; puis les exercices qu'aucune routine ne liste, dans l'ordre où ils sont lus.
+La Bibliothèque liste tous les exercices chargés, du catalogue et des fichiers importés, avec ou sans routine. Elle ne trie pas, ne filtre pas et ne recommande rien. Son ordre est celui des routines dans l'ordre où elles sont lues, les fermées comprises (l'accueil, lui, ne montre que les ouvertes), chaque routine avec ses exercices dans l'ordre où elle les écrit, chaque exercice une fois ; puis les exercices qu'aucune routine ne liste, dans l'ordre où ils sont lus.
 
 Pour chaque exercice, une ligne dit :
 
@@ -744,7 +744,7 @@ Pour chaque exercice, une ligne dit :
 - **Un exercice de mémoire** a toujours quelque chose à jouer : sa liste `items` est obligatoire. Il se joue en jeu libre, sur les éléments de sa liste.
 - **Un exercice de passages** n'a rien à jouer tant qu'aucun de ses index n'est ouvert (voir `passages.opens`). Dès qu'un index s'ouvre, le lien vient. Un index ouvert dont aucun passage ne se joue lance une séance qui finit aussitôt sur le bilan.
 - **Un autre exercice** se joue comme une séance d'exercice : il lui faut un tour à figure, des `levels`, une capacité sans mémoire, et des éléments ou des figures à servir. Sans cela, il n'a jamais rien à jouer seul.
-- **Un exercice dont on ne peut pas dire s'il se joue** (son ouverture lève une erreur que le chargement n'a pas vue) est listé sans lien, avec « Rien à jouer pour l'instant », et une ligne de la console le dit (`[library] <id>: cannot tell whether it plays`). Les autres exercices restent listés.
+- **Un exercice dont on ne peut pas dire s'il se joue** (le calcul de son ouverture échoue, d'une façon que le chargement n'a pas vue) est listé sans lien, avec « Rien à jouer pour l'instant », et une ligne de la console le dit (`[library] <id>: cannot tell whether it plays`). Les autres exercices restent listés.
 
 Quand une partie du catalogue n'a pas pu être chargée, l'accueil le dit en une ligne, dans toute construction : « Une partie du catalogue n'a pas pu être chargée. » L'accueil et la Bibliothèque listent ce qui reste.
 
@@ -775,22 +775,25 @@ Chaque emplacement de texte de `presentation` (`primary`, `secondary`, `detail`,
 
 ## Ce que vérifier un fichier peut coûter
 
-Vérifier un fichier compile des tours : ceux de chaque élément à chaque niveau, ceux du premier passage de chaque index, ceux des figures qu'un exercice sert. Pour qu'un fichier ne fige pas le démarrage, chaque fichier a un **budget de vérification** de 300 000 unités (`MAX_FILE_CHECK_COST`).
+Vérifier un fichier compile des tours : ceux de chaque élément à chaque niveau, ceux du premier passage de chaque index, ceux des figures qu'un exercice sert. Pour borner ce travail, chaque fichier a un **budget de vérification** de 300 000 unités (`MAX_FILE_CHECK_COST`).
 
-- **Ce qui compte.** Un tour pèse 1, plus une unité par attente, plus une par filtre de ses choix, plus les paramètres qu'il recopie (16 entrées font une unité). Une figure compte aussi ses notes, une fois dépliée. Les niveaux comptent ce que leur lecture recopie : chaque entrée qu'un niveau écrit, et chaque objet des paramètres qu'un de ses chemins traverse, en entier.
+- **Ce qui compte.** Un tour pèse 1, plus une unité par attente, plus une par filtre de ses choix, plus les paramètres qu'il recopie (16 entrées font une unité). Une figure compte aussi ses notes, une fois répétée sur la longueur du tour. Les niveaux comptent tout ce que leur lecture peut recopier : chaque valeur qu'un niveau écrit, à sa taille entière, et, sous chaque clé où entre un de ses chemins, tout ce que les paramètres de l'exercice et le niveau du dessous y tiennent. Ce compte peut être plus haut que le travail fait : c'est voulu, il ne doit jamais être plus bas.
 - **Quand.** Le compte est vérifié avant chaque travail qu'il paie. L'écran vérifie un exercice une seconde fois (l'aperçu) : cette seconde fois compte aussi.
 - **Le refus.** Le premier exercice qui ferait passer le budget, et tous ceux qui le suivent dans le même fichier, sont refusés avec la même phrase : `this file asks more checking than a start can afford (cost <n>, at most 300000)`. Les capacités, les grilles et les exercices déjà acceptés du fichier restent.
 - **Un budget par fichier.** Le catalogue et chaque fichier importé ont chacun le leur. Le nombre de fichiers importés n'est pas borné : un démarrage coûte la somme. Un fichier du catalogue coûte aujourd'hui moins de 1 % du budget.
+- **Ce qui n'est pas promis.** Le but : aucun fichier accepté ne se charge en plus de deux secondes environ. Trois revues ont chacune trouvé un fichier accepté plus lent, écrit pour l'être, et chaque fois la règle a été resserrée ; le but tient sur tous les fichiers essayés depuis, mais il n'est pas prouvé. Un fichier lent ne ralentit que le démarrage de celui qui l'importe, et un chargement qui ne s'est pas terminé est sauté une fois au démarrage suivant (voir « Où et quand »).
 - Les limites d'un exercice (100 niveaux, 2 000 éléments, 20 000 tours à vérifier…) restent. Un exercice qui écrit à la fois 100 niveaux, une échelle de 100 niveaux et une soixantaine de paramètres ou plus à chaque niveau est toujours refusé par le budget.
 
-**Les notes d'un tour à figure.** Une fois sa figure répétée sur la longueur du tour, un tour tient au plus 1 024 notes (`MAX_FIGURE_ROUND_NOTES`), toutes ses figures comptées. La raison : le juge aligne les attaques jouées sur les notes attendues, et ce travail grandit bien plus vite que le nombre de notes (environ une demi-seconde pour 1 000 notes, 3,7 secondes pour 2 000, 26 secondes pour 4 000). Un thème entier de plusieurs centaines de notes tient encore en un tour. Le compte se fait avant de déplier la figure, au chargement comme en jeu, et il arrondit à la boucle entière : un tour dont la dernière boucle est coupée peut être refusé à quelques notes de 1 024. Le refus : `round.expectations[<i>].figure would give <notes> notes over <bars> bars, more than the 1024 notes a figure round may hold`, ou, pour une figure suivante du même tour, `… more than the <reste> notes its round may still hold (at most 1024)`.
+**La longueur d'un tour.** Un tour dure au plus 1 024 mesures (`MAX_ROUND_BARS`), vérifié dès que sa longueur est connue, au chargement comme en jeu : `round.length spans <n> bars, more than the 1024 a round may span`. Rien ne bornait la longueur d'un tour ; une séance dure cinq minutes, et 1 024 mesures durent 51 minutes à ♩ = 80. Une mesure muette écrite au-delà des mesures du tour est refusée : `round.mutedBars writes bar <b>, past the round's <n> bars`. Au chargement, ces refus sont précédés de ce qui a été compilé : l'élément et le niveau (`items[<i>] (<clé>) does not compile at exercise level <l>: …`), la figure et le niveau (`figures ("<id>") …`), ou le membre d'un passage (`passages.members[<rang>] …`).
+
+**Les notes d'un tour à figure.** Une fois sa figure répétée sur la longueur du tour, un tour tient au plus 1 024 notes (`MAX_FIGURE_ROUND_NOTES`), toutes ses figures comptées ; une figure qui couvrirait plus de 1 024 mesures est refusée de même. La raison : le juge aligne les attaques jouées sur les notes attendues, et ce travail grandit bien plus vite que le nombre de notes (environ une demi-seconde pour 1 000 notes, 3,7 secondes pour 2 000, 26 secondes pour 4 000). Un thème entier de plusieurs centaines de notes tient encore en un tour. Le compte se fait avant que la figure soit répétée, au chargement comme en jeu, et il arrondit à la boucle entière : un tour dont la dernière boucle est coupée peut être refusé à quelques notes de 1 024. Le refus : `round.expectations[<i>].figure would give <notes> notes over <bars> bars, more than the 1024 notes a figure round may hold`, ou, pour une figure suivante du même tour, `… more than the <reste> notes its round may still hold (at most 1024)`. Au chargement, quand c'est le reste du budget qui est plus petit, le refus est la phrase du budget.
 
 **Ce que le chargement ne compile pas.** Deux cas ne sont pas vérifiés au chargement :
 
 - un niveau d'échelle au-dessus du premier qui change la longueur d'un tour à figure (le chargement compile les éléments au premier niveau de l'échelle) ;
 - le tour d'un passage à un autre niveau que le niveau 1, ou avec d'autres valeurs de ses paramètres de passage que les premières.
 
-Aucun exercice du catalogue ne fait l'un ou l'autre. Un tel tour, s'il ne se compile pas, échoue en jeu sur une erreur que la séance ne rattrape pas : il ne fige pas l'application.
+Aucun exercice du catalogue ne fait l'un ou l'autre. Un tel tour, s'il ne se compile pas, échoue en jeu sur une erreur que la séance ne rattrape pas. Les deux limites, 1 024 mesures et 1 024 notes, le font échouer vite.
 
 ## Comment un refus se montre
 
