@@ -9,11 +9,11 @@ Les capacités, les grilles, les exercices et les routines s'écrivent dans des 
 - Un fichier importé du même nom remplace le précédent, sans confirmation. Le nom est comparé tel quel, majuscules comprises. Pour corriger un fichier, on le réimporte.
 - Supprimer un fichier demande une confirmation. Il retire ses capacités, ses grilles, ses exercices et ses routines de l'application, mais la progression reste, et se retrouve si l'on réimporte un fichier qui les définit de nouveau. Une progression dont aucun fichier chargé ne donne la définition est gardée et ignorée par les écrans.
 - Un fichier de plus d'un million de caractères n'est pas gardé. Tout autre fichier l'est, même illisible : son refus s'affiche, et on le remplace par une version corrigée.
-- Vérifier un exercice a des limites, pour qu'un seul exercice ne coûte pas des secondes à vérifier à chaque démarrage. Le total d'un fichier n'est pas encore borné : un très gros fichier d'exercices aux limites peut prendre une demi-minute à charger. Un exercice est refusé s'il écrit plus de 100 niveaux (`levels`), une échelle (`params.ladder`) de plus de 100 niveaux, un niveau dont les `params` ont plus de 200 entrées, plus de 2 000 éléments (`items`), ou si ses éléments multipliés par ses niveaux demandent plus de 20 000 tours à vérifier. Le refus nomme le champ, le nombre écrit et la limite.
+- Vérifier un exercice a des limites, pour qu'un seul exercice ne coûte pas des secondes à vérifier à chaque démarrage. Un exercice est refusé s'il écrit plus de 100 niveaux (`levels`), une échelle (`params.ladder`) de plus de 100 niveaux, un niveau dont les `params` ont plus de 200 entrées, plus de 2 000 éléments (`items`), ou si ses éléments (ou, sans éléments, ses figures) multipliés par ses niveaux demandent plus de 20 000 tours à vérifier. Le refus nomme le champ, le nombre écrit et la limite. Un fichier entier a en plus un budget de vérification (voir « Ce que vérifier un fichier peut coûter »).
 - La sauvegarde (réglages) emporte les fichiers importés avec la progression, et les rend à l'import.
 - Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) vide les registres de capacités, de grilles, d'exercices et de routines, puis les remplit : les fichiers de `catalog/`, puis les fichiers importés. Le premier écran attend cette lecture.
 - Si la lecture des fichiers importés échoue, l'application démarre avec le catalogue seul et le dit par un refus, sous le nom `imported files` : `the imported files could not be read: <message>`. La section « Fichiers importés » des réglages montre ce refus au-dessus de la liste.
-- Un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice se joue seul par `/session?exercise=<id>` (voir « Le jeu libre, et un exercice joué seul »), et dans la séance d'une routine qui le nomme (voir « Une routine »). Sur l'accueil, le bloc « Exercices » ne montre que les exercices qui écrivent une `round` avec une figure et des `levels`, sur une capacité sans cartes.
+- Un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice importé se joue seul depuis la Bibliothèque, et dans la séance d'une routine qui le nomme ; une routine importée se montre sur l'accueil (voir « Jouer un fichier importé »).
 - Si le chargement des fichiers importés ne s'est pas terminé la dernière fois, l'application démarre sans eux cette fois-là et le dit ; on peut alors supprimer le dernier fichier ajouté.
 - Aucun dossier du dépôt n'est lu à la construction : un fichier privé se garde où l'on veut, hors du dépôt, et s'importe. Il n'entre jamais dans le catalogue ni dans la construction publiée.
 - Un fichier importé n'est jamais exécuté, et ses textes s'affichent comme du texte.
@@ -185,7 +185,7 @@ Chaque entrée de `items` donne une clé d'élément de l'ensemble `placed-voici
 
 Une capacité de mémoire (`"memory": true`) a une carte par élément : la séance introduit les éléments un à un, les fait revenir, les révise. L'exercice qui la travaille écrit lui-même ce qu'il introduit, dans quel ordre et à quelle condition. Le moteur n'a aucune liste en code.
 
-Un exercice de mémoire importé se joue dans la séance d'une routine qui le nomme (voir « Une routine »), ou seul, en jeu libre, par `/session?exercise=<id>`. Il n'apparaît pas encore sur l'accueil hors d'une routine : il attend la Bibliothèque.
+Un exercice de mémoire importé se joue dans la séance d'une routine qui le nomme (voir « Une routine »), ou seul, en jeu libre, depuis la Bibliothèque (voir « Jouer un fichier importé »).
 
 **La liste.** Un exercice dont la capacité a des cartes écrit `items` : c'est obligatoire. L'ordre de la liste est l'ordre d'introduction : la séance prend le premier élément de la liste qui n'a pas encore de carte, puis le suivant. Un élément ne s'écrit qu'une fois.
 
@@ -301,7 +301,7 @@ Dans le catalogue :
 - `filter "in" has frets [<a>, <b>]: the first is above the second`.
 - Un contenu qui n'est ni `null`, ni `{ "from": … }`, ni un choix : `must be null, { from: derivation } or a selection { family, of?, where?, order?, take? }`.
 
-Trois limites s'ajoutent à celles de la section « Le fichier », pour qu'un choix ne coûte pas des secondes à vérifier à chaque niveau : au plus 16 filtres dans `where` (`has <n> filters, more than 16`), 8 attributs dans `order` (`names <n> attributes, more than 8`), et 64 attentes dans un tour (`round.expectations has <n> entries, more than 64`). Ces limites bornent un tour, pas un fichier : un exercice qui écrit le plus d'éléments, de niveaux et d'attentes permis peut encore prendre une dizaine de secondes à charger.
+Trois limites s'ajoutent à celles de la section « Le fichier », pour qu'un choix ne coûte pas des secondes à vérifier à chaque niveau : au plus 16 filtres dans `where` (`has <n> filters, more than 16`), 8 attributs dans `order` (`names <n> attributes, more than 8`), et 64 attentes dans un tour (`round.expectations has <n> entries, more than 64`). Ces limites bornent un tour ; ce que coûte un fichier entier est borné par son budget de vérification (voir « Ce que vérifier un fichier peut coûter »).
 
 Ce que le joueur ne voit pas changer : une note se reconnaît à sa hauteur seule (le capteur n'entend pas la corde), une forme à ce que le capteur d'accords décide. Les confusions (octave, corde, écart en cases ; autre octave, autre renversement, autre accord) sont celles d'avant. Un tour déjà joué garde son ancien contenu dans la tentative : il n'est pas rejugé.
 
@@ -390,11 +390,12 @@ La séance d'une routine dont les exercices écrivent `passages` les joue chacun
 
 - Chaque passage commence par une mesure comptée, puis ses tours s'enchaînent sans silence.
 - Un passage qui ne peut pas se jouer est sauté : il ne donne aucun membre, plus de 256, un de ses tours ne se compile pas, ou un de ses tours n'admet aucune forme (une zone où un accord n'a pas de forme). La séance essaie alors les valeurs suivantes des paramètres de passage de cet index ; un index sans aucun passage jouable est laissé de côté pour la séance, et un exercice sans index jouable aussi.
+- Les essais ratés d'un index ont un prix borné : quand ses passages injouables ont coûté 1 000 unités de vérification (`MAX_PASSAGE_TRIES`, comptées comme au chargement, voir « Ce que vérifier un fichier peut coûter »), l'index est laissé de côté pour la séance, même s'il lui reste des valeurs à essayer. Un passage jouable est toujours servi, quel que soit son poids. La séance ne s'arrête faute de passage que lorsqu'il ne reste plus rien à jouer. Le pire cas connu : un fichier écrit de sept exercices aux passages lourds qui échouent tous fait attendre environ deux secondes, une fois, avant le premier passage.
 - Une tentative de changement garde son passage (`data.passage` : son identité, son index, son rang, les valeurs de ses paramètres). Le moins récemment joué et la valeur suivante se relisent là. Les tentatives d'avant les passages ne la portent pas : au premier lancement, chaque index repart « jamais joué », la montée repart vers le haut, la zone de la première.
 - Une fois la durée de la séance passée, ou dès que la séance juge le joueur fatigué, aucun passage ne commence ; celui qui est en cours va jusqu'au bout.
 - « On change d'air » (voir « Les niveaux et l'aide ») peut arrêter un passage en son milieu.
 
-Un exercice de passages d'un fichier importé se joue de la même façon : dans la séance d'une routine qui le nomme, ou seul, par `/session?exercise=<id>` (ses passages, sur ses index ouverts). Il n'apparaît pas sous « Exercices », même s'il écrit un tour à figure et des niveaux. La liste « Exercices » ne garde que ce que la séance d'exercice sait servir : les éléments écrits (`items`), sinon des figures lues sur les éléments.
+Un exercice de passages d'un fichier importé se joue de la même façon : dans la séance d'une routine qui le nomme, ou seul, depuis la Bibliothèque (ses passages, sur ses index ouverts).
 
 ### Les niveaux et l'aide
 
@@ -565,7 +566,7 @@ Pour que l'aide parte quand la grille entière est jouée juste et revienne apr�
 
 ### Un morceau entier
 
-`flow.demonstration: false` retire l'écoute de la première rencontre, qui dure autant que le contenu : 49 mesures à ♩ = 70 feraient 2 min 48 avant la première note. La vue `figure` garde l'écran à sa taille : la partition défile dans son cadre et suit la ligne jouée, et au-delà de 8 mesures elle est gravée plus petit.
+`flow.demonstration: false` retire l'écoute de la première rencontre, qui dure autant que le contenu : 49 mesures à ♩ = 70 feraient 2 min 48 avant la première note. La vue `figure` garde l'écran à sa taille : la partition défile dans son cadre et suit la ligne jouée, et au-delà de 8 mesures elle est gravée plus petit. Un tour tient au plus 1 024 notes (voir « Ce que vérifier un fichier peut coûter ») : un thème de plusieurs centaines de notes tient en un tour.
 
 ### Écrire les notes d'une forme
 
@@ -671,6 +672,8 @@ Une routine de mémoire reste montrée dès que le joueur a une carte d'un de se
 - Un bloc porte le titre de la routine. Une routine de mémoire dit ses révisions : « N révisions dues », sinon « Prochaines révisions · … », sinon rien quand aucune carte n'est apprise. Une routine de passages n'a pas cette ligne.
 - « On y revient plus tard » s'ajoute quand un de ses exercices se repose (voir plus bas).
 - Un bloc lance `/session?routine=<id>`. La touche Espace et « Commencer » lancent la première routine montrée.
+- L'accueil ne montre que les routines ouvertes, et rien d'autre : ni la liste des exercices, ni l'écart au temps, ni sa tendance. Quand aucune routine n'est ouverte, il dit « Rien à jouer pour l'instant », avec un lien vers la Bibliothèque, sans « Commencer ».
+- Une routine dont l'ouverture ne peut pas se calculer (un fichier abîmé d'une façon que le chargement n'a pas vue) est tenue pour fermée : elle n'apparaît pas, et seule une ligne de la console le dit (`[home] <id>: cannot tell whether it opens`). Les autres routines restent, et ses exercices restent dans la Bibliothèque.
 
 ### « On change d'air » dans une séance de plusieurs exercices
 
@@ -678,7 +681,7 @@ Un exercice qui écrit `flow.antiBlocking` peut bloquer : quand il échoue encor
 
 - la ligne d'état dit « On change d'air : <exercice> » (et la grille), jusqu'au premier tour de l'exercice suivant ;
 - l'exercice sorti ne revient pas dans cette séance ; une autre grille du même exercice, si ;
-- la séance s'arrête quand il ne reste plus rien à jouer ; le bilan nomme chaque exercice sorti, dans l'ordre, tant que la séance est gardée en mémoire.
+- la séance s'arrête quand il ne reste plus rien à jouer ; le bilan nomme chaque exercice sorti, dans l'ordre, tant que la séance est gardée en mémoire. Quand tous sont sortis, il dit « On change d'air » une seule fois, avec ce qui casse et « Essaie plutôt ».
 
 La fatigue peut finir la séance avant : un joueur qui commence bien puis rate (vingt points de moins entre ses six premières réponses et ses six dernières, sur douze réponses) voit sa séance finir sur la fatigue, et aucun exercice ne sort.
 
@@ -686,8 +689,8 @@ Le repos ne change pas ce que la séance suivante pioche. Seule la séance de pa
 
 ### Le jeu libre, et un exercice joué seul
 
-- **Le jeu libre d'une routine** : `/session?routine=<id>&free=1`, pour une routine de mémoire seulement. Vingt consignes tirées au hasard parmi les éléments que ses exercices listent, qu'ils aient une carte ou non, chacune au niveau que l'élément tient. L'en-tête dit « Jeu libre ». Une tentative sur une carte apprise et laissée assez longtemps compte à froid. Le lien « Bibliothèque » de la navigation mène au jeu libre de la première routine dont tous les exercices sont de mémoire : aujourd'hui `notes`. Une routine de passages en jeu libre ne se lance pas : `Routine <id> is not played freely: its exercises have no memory`.
-- **Un exercice joué seul** : `/session?exercise=<id>`, pour tout exercice qu'un fichier définit. Il n'ouvre que ses propres capteurs. L'en-tête porte son `title`, sinon le nom de sa capacité.
+- **Le jeu libre d'une routine** : `/session?routine=<id>&free=1`, pour une routine de mémoire seulement. Vingt consignes tirées au hasard parmi les éléments que ses exercices listent, qu'ils aient une carte ou non, chacune au niveau que l'élément tient. L'en-tête dit « Jeu libre ». Une tentative sur une carte apprise et laissée assez longtemps compte à froid. Aucun lien ne mène plus à ce jeu libre : l'adresse marche toujours, et la Bibliothèque joue chaque exercice de mémoire seul, en jeu libre. Une routine de passages en jeu libre ne se lance pas : `Routine <id> is not played freely: its exercises have no memory`.
+- **Un exercice joué seul** : `/session?exercise=<id>`, pour tout exercice qu'un fichier définit ; c'est l'adresse où mène la Bibliothèque. Il n'ouvre que ses propres capteurs. L'en-tête porte son `title`, sinon le nom de sa capacité.
   - Un exercice de mémoire se joue en jeu libre, sur les seuls éléments de sa liste ; l'en-tête dit « Jeu libre · <titre> », et son bilan est celui du jeu libre.
   - Un exercice de passages joue ses passages, sur ses index ouverts.
   - Un autre exercice se joue comme une séance d'exercice : il faut un tour à figure, des `levels`, une capacité sans mémoire et des éléments ou des figures à servir. Sinon : `Exercise <id> is not played in an exercise session`.
@@ -719,6 +722,32 @@ Une fois les exercices lus :
 
 Le moteur refuse ce qu'il ne sait pas jouer : une routine qui ne mène à rien d'intéressant n'est pas refusée pour autant.
 
+## Jouer un fichier importé
+
+Une fois le fichier importé et accepté, rien d'autre n'est à faire :
+
+- **Ses routines** se montrent sur l'accueil, après celles du catalogue, dès qu'elles sont ouvertes (voir « Sur l'accueil »). Elles se lancent comme celles du catalogue.
+- **Ses exercices** se jouent seuls depuis la Bibliothèque (le lien « Bibliothèque » de la navigation, `/library`). Ils se jouent aussi dans la séance d'une routine qui les nomme, du même fichier ou d'un autre fichier importé.
+
+### La Bibliothèque
+
+La Bibliothèque liste tous les exercices chargés, du catalogue et des fichiers importés, avec ou sans routine. Elle ne trie pas, ne filtre pas et ne recommande rien. Son ordre est celui des routines de l'accueil, chaque routine avec ses exercices dans l'ordre où elle les écrit, chaque exercice une fois ; puis les exercices qu'aucune routine ne liste, dans l'ordre où ils sont lus.
+
+Pour chaque exercice, une ligne dit :
+
+- son titre (`title`, sinon le nom de sa capacité) ;
+- sous le titre, les titres des routines qui le listent ; « On y revient plus tard » quand il se repose après « On change d'air » ; « Rien à jouer pour l'instant » quand il n'a rien à jouer maintenant ;
+- quand il a quelque chose à jouer, son titre est un lien vers `/session?exercise=<id>`, avec la durée de la séance.
+
+« Rien à jouer pour l'instant » veut dire, selon la sorte d'exercice :
+
+- **Un exercice de mémoire** a toujours quelque chose à jouer : sa liste `items` est obligatoire. Il se joue en jeu libre, sur les éléments de sa liste.
+- **Un exercice de passages** n'a rien à jouer tant qu'aucun de ses index n'est ouvert (voir `passages.opens`). Dès qu'un index s'ouvre, le lien vient. Un index ouvert dont aucun passage ne se joue lance une séance qui finit aussitôt sur le bilan.
+- **Un autre exercice** se joue comme une séance d'exercice : il lui faut un tour à figure, des `levels`, une capacité sans mémoire, et des éléments ou des figures à servir. Sans cela, il n'a jamais rien à jouer seul.
+- **Un exercice dont on ne peut pas dire s'il se joue** (son ouverture lève une erreur que le chargement n'a pas vue) est listé sans lien, avec « Rien à jouer pour l'instant », et une ligne de la console le dit (`[library] <id>: cannot tell whether it plays`). Les autres exercices restent listés.
+
+Quand une partie du catalogue n'a pas pu être chargée, l'accueil le dit en une ligne, dans toute construction : « Une partie du catalogue n'a pas pu être chargée. » L'accueil et la Bibliothèque listent ce qui reste.
+
 ## Comment un fichier est vérifié
 
 Les fichiers du catalogue d'abord, puis les fichiers importés ; dans chaque source, les fichiers dans l'ordre de leur nom :
@@ -726,13 +755,42 @@ Les fichiers du catalogue d'abord, puis les fichiers importés ; dans chaque sou
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
 2. Chaque capacité se lit (`skillFromJson`), chaque grille (`gridFromJson`), chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit) et chaque routine (`routineFromJson` : sa forme, ses limites).
 3. Les capacités de tous les fichiers de la source, puis leurs grilles, rejoignent le registre ; ensuite seulement, les exercices de chaque fichier sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la capacité que l'exercice nomme dans `practices` est définie par un fichier lu jusque-là, et l'application sait montrer son ensemble.
-4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour, passages…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par l'ensemble de sa capacité (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
-5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
+4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour, passages…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par l'ensemble de sa capacité (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau). Un exercice sans `items` ni `passages`, dont le tour lit sa figure sur l'élément, a chacune des figures qu'il sert compilée à chaque niveau (`figures ("<id>") does not compile at exercise level <l>: …`, ou `no figure fits the round at exercise level <l>` quand aucune figure ne remplit le tour à ce niveau).
+5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…). La consigne est d'abord lue dans sa forme, avant ses champs (voir « Une consigne mal écrite »).
 6. L'ouverture des passages (`passages.opens`) nomme une capacité définie, qui a des cartes, et une correspondance qui existe. Les grilles que nomment les passages sont vérifiées avec eux, à l'étape 4.
 7. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient. Pour une capacité ou une grille, ce contrôle se fait quand elle rejoint le registre (étape 3), avant que les exercices du fichier soient vérifiés.
 8. Une fois les exercices de tous les fichiers de la source vérifiés, les routines de chaque fichier : ses exercices existent, ne mêlent pas mémoire et sans mémoire, ne travaillent pas deux fois une capacité, écrivent `passages` quand ils sont sans mémoire, et son ouverture nomme des capacités et des exercices définis (`routineProblem`). Puis son identifiant, comme à l'étape 7.
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.
+
+### Une consigne mal écrite
+
+Chaque emplacement de texte de `presentation` (`primary`, `secondary`, `detail`, `target`, `band`, `preview`) s'écrit comme un texte, ou comme `{ "fr": "…", "en": "…" }` avec les deux langues. Un emplacement écrit dans une seule langue, un nombre ou un objet sans texte est refusé en mots, avec l'emplacement nommé :
+
+- `presentation must be an object` ;
+- `presentation.<emplacement> must be a text or { fr, en }` ;
+- `presentation.aided must be { line?, picture? }` : `aided` écrit comme un texte est refusé, parce qu'il ne dit pas s'il est une ligne ou un dessin. On écrit `{ "picture": "admitted" }` ou `{ "line": "…" }` ;
+- `presentation.aided.line must be a text or { fr, en }` ; `presentation.aided.picture must name a picture` ;
+- `presentation.fading must be { picture }, naming a picture` : `fading` écrit comme un texte, ou sans nom de dessin.
+
+## Ce que vérifier un fichier peut coûter
+
+Vérifier un fichier compile des tours : ceux de chaque élément à chaque niveau, ceux du premier passage de chaque index, ceux des figures qu'un exercice sert. Pour qu'un fichier ne fige pas le démarrage, chaque fichier a un **budget de vérification** de 300 000 unités (`MAX_FILE_CHECK_COST`).
+
+- **Ce qui compte.** Un tour pèse 1, plus une unité par attente, plus une par filtre de ses choix, plus les paramètres qu'il recopie (16 entrées font une unité). Une figure compte aussi ses notes, une fois dépliée. Les niveaux comptent ce que leur lecture recopie : chaque entrée qu'un niveau écrit, et chaque objet des paramètres qu'un de ses chemins traverse, en entier.
+- **Quand.** Le compte est vérifié avant chaque travail qu'il paie. L'écran vérifie un exercice une seconde fois (l'aperçu) : cette seconde fois compte aussi.
+- **Le refus.** Le premier exercice qui ferait passer le budget, et tous ceux qui le suivent dans le même fichier, sont refusés avec la même phrase : `this file asks more checking than a start can afford (cost <n>, at most 300000)`. Les capacités, les grilles et les exercices déjà acceptés du fichier restent.
+- **Un budget par fichier.** Le catalogue et chaque fichier importé ont chacun le leur. Le nombre de fichiers importés n'est pas borné : un démarrage coûte la somme. Un fichier du catalogue coûte aujourd'hui moins de 1 % du budget.
+- Les limites d'un exercice (100 niveaux, 2 000 éléments, 20 000 tours à vérifier…) restent. Un exercice qui écrit à la fois 100 niveaux, une échelle de 100 niveaux et une soixantaine de paramètres ou plus à chaque niveau est toujours refusé par le budget.
+
+**Les notes d'un tour à figure.** Une fois sa figure répétée sur la longueur du tour, un tour tient au plus 1 024 notes (`MAX_FIGURE_ROUND_NOTES`), toutes ses figures comptées. La raison : le juge aligne les attaques jouées sur les notes attendues, et ce travail grandit bien plus vite que le nombre de notes (environ une demi-seconde pour 1 000 notes, 3,7 secondes pour 2 000, 26 secondes pour 4 000). Un thème entier de plusieurs centaines de notes tient encore en un tour. Le compte se fait avant de déplier la figure, au chargement comme en jeu, et il arrondit à la boucle entière : un tour dont la dernière boucle est coupée peut être refusé à quelques notes de 1 024. Le refus : `round.expectations[<i>].figure would give <notes> notes over <bars> bars, more than the 1024 notes a figure round may hold`, ou, pour une figure suivante du même tour, `… more than the <reste> notes its round may still hold (at most 1024)`.
+
+**Ce que le chargement ne compile pas.** Deux cas ne sont pas vérifiés au chargement :
+
+- un niveau d'échelle au-dessus du premier qui change la longueur d'un tour à figure (le chargement compile les éléments au premier niveau de l'échelle) ;
+- le tour d'un passage à un autre niveau que le niveau 1, ou avec d'autres valeurs de ses paramètres de passage que les premières.
+
+Aucun exercice du catalogue ne fait l'un ou l'autre. Un tel tour, s'il ne se compile pas, échoue en jeu sur une erreur que la séance ne rattrape pas : il ne fige pas l'application.
 
 ## Comment un refus se montre
 

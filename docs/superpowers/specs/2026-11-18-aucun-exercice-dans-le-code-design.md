@@ -897,3 +897,138 @@ Ce qui change pour le joueur, et rien d'autre :
 - Plan 4c, `VIEW_PRESENTERS` : au plan 5b.
 - Plan 4c, le banc ouvert : au plan 5b.
 - Plan 4c, « tient toujours » : ce n'est plus vrai, voir le plan 4b ci-dessus.
+
+## Réalisation (plan 5b, 2026-11-20)
+
+Le plan 5b est le dernier du chantier. Il fait le reste du § 8 : un seul bilan, l'accueil sans « Exercices », la Bibliothèque. Il durcit ce qui devait l'être avant qu'un fichier importé joue vraiment : le budget de vérification d'un fichier, le travail borné de la source de passages, le banc ouvert qui tire des passages et des routines.
+
+Avant la première tâche, une décision d'ordre : la Bibliothèque a été construite avant l'accueil. Sinon, entre les deux, les exercices de rythme n'auraient plus été joignables.
+
+Les décisions de ce plan, telles que le code les tient :
+
+- D1 : un bilan, une forme. `SessionSummary.exercises` a une ligne par exercice et par portée joués : les tours joués et réussis, les tours réussis avec une aide au-delà de leur niveau (« dont N avec aide »), le niveau atteint, le tempo du premier et du dernier tour, les passages réussis sur joués, « On change d'air » quand l'exercice est sorti. Les ratés à contester et, tant que la séance est en mémoire, ses séries et les tours à réécouter restent, pour tout exercice. Une séance de mémoire garde en tête son bloc d'avant. Le niveau n'est dit que pour l'exercice joué seul dont le tour écrit une figure : les niveaux des changements sont leurs tempos, déjà dits. Le calcul vit dans `src/lib/domain/session/played.ts`, les ratés dans `misses.ts` ; `GestureSummary`, `ExerciseSummary` et `src/lib/domain/gesture/` sont partis.
+- D2 : un exercice qu'aucun fichier ne définit plus garde sa ligne, avec son identifiant pour titre. Le bilan et l'accueil comptent les mêmes cartes, celles que listent les exercices de la séance : une seule fonction le fait pour les deux (`cardsListedBy`).
+- D3 : l'accueil liste les routines ouvertes, dans l'ordre du registre, et rien d'autre ; Espace lance la première. Deux lignes d'état : un fichier importé refusé, comme avant, et, nouvelle, dans toute construction, « Une partie du catalogue n'a pas pu être chargée. ». Une routine dont le calcul lève est fermée et notée dans la console ; les autres restent.
+- D4 : l'écart au temps et sa tendance ne sont montrés nulle part. `homeStats()`, `HomeStats`, `computeHomeStats`, la tendance et `isNeck` sont supprimés. La page « Progrès » garde la carte du manche.
+- D5b : le lien « Bibliothèque » mène à la Bibliothèque. Le jeu libre mêlé des notes n'a plus de lien ; son adresse, `/session?routine=<id>&free=1`, marche toujours.
+- D5 : la Bibliothèque (`/library`) liste tous les exercices du registre. Pour chacun : son titre (celui de l'exercice, sinon le nom de sa capacité), les routines qui le listent, « On y revient plus tard » quand il se repose, et un lien pour le jouer seul. Un exercice qui n'a rien à jouer maintenant est listé sans lien, avec « Rien à jouer pour l'instant ». Aucun tri, aucun filtre, aucune recommandation. L'ordre a été changé pendant l'exécution (plus bas).
+- D6 : `AppServices.library()` remplace `resting(ids)`. Jouable veut dire : un exercice de mémoire qui liste des éléments, un exercice de passages dont un index est ouvert, ou un exercice que la séance d'exercice sait servir. C'est la règle de `startExercise` (`aloneSourceOf`, dans `domain/exercise/registry.ts`). Le bilan lit encore `exerciseSessionExercises()` pour les liens de « Essaie plutôt ».
+- D7 : chaque fichier a un budget de vérification de 300 000 unités (`MAX_FILE_CHECK_COST`, `domain/exercise/checkCost.ts`). Un tour compilé au chargement pèse 1, plus une unité par attente, plus une par filtre de ses choix, plus les paramètres qu'il recopie. Une figure compte ses notes. Les niveaux comptent ce que leur lecture recopie. Le compte est vérifié avant chaque travail qu'il paie. Au-delà, l'exercice en cours et les suivants du même fichier sont refusés : `this file asks more checking than a start can afford (cost <n>, at most 300000)`. Les limites par tours (`MAX_ROUND_CHECKS`, `MAX_PASSAGE_ROUND_CHECKS`) restent. Le fichier du plan 4b, qui chargeait en 28 secondes, est refusé avec cette phrase. Le fichier accepté le plus lent qu'on a su construire se charge en environ une seconde. Un fichier du catalogue coûte moins de 1 % du budget.
+- D8 : la source de passages borne son travail. Les essais ratés d'un index coûtent au plus 1 000 unités dans un appel (`MAX_PASSAGE_TRIES`, `domain/session/passageSource.ts`), comptées comme au chargement ; au-delà, l'index est laissé de côté pour la séance. Le plan écrivait « un nombre fixé d'essais par passage servi » : la règle a été écrite autrement (plus bas).
+- D9 : une consigne mal écrite est refusée en mots, avec l'emplacement nommé : un emplacement d'une seule langue, un nombre, un objet sans texte, `aided` ou `fading` écrits comme un texte. Avant, sa lecture levait une erreur.
+- D10 : le banc ouvert (`openness.spec.ts`) tire aussi des exercices à passages et des routines, de mémoire et de passages. Il joue tous ceux que les validateurs acceptent par les vrais services (`startExercise`, `startRoutine`), avec de bonnes réponses et sans réponse. Il n'a trouvé aucun défaut dans le code de l'application.
+
+Ce que l'exécution a décidé en plus :
+
+- La Bibliothèque range les exercices dans l'ordre des routines de l'accueil, chaque routine avec ses exercices dans l'ordre où elle les écrit, chaque exercice une fois ; puis ceux qu'aucune routine ne liste, dans l'ordre où ils sont lus. L'ordre du registre suivait les noms des fichiers, par hasard. C'est un ordre de présentation, pas un classement.
+- Un exercice dont on ne peut pas dire s'il se joue (son ouverture lève une erreur) est listé sans lien et noté dans la console. Le reste de la Bibliothèque s'affiche.
+- `startExercise` lance encore un exercice de passages sans index ouvert : sa séance finit aussitôt sur le bilan. La Bibliothèque ne lui donne pas de lien.
+- Sans routine ouverte, l'accueil n'a pas de « Commencer » : le bouton ne ferait rien. Le lien vers la Bibliothèque le remplace.
+- « dont N avec aide » compte les tours réussis joués avec une aide au-delà de leur niveau : c'est le nombre que le bilan du rythme montrait.
+- Un exercice joué seul sans aucun tour n'a de ligne que si son niveau se dit (un exercice de figures).
+- Un exercice de passages qu'aucun fichier ne définit plus n'a pas de décompte de passages, puisque son seuil est inconnu ; sa ligne dit ses changements.
+- Une séance qui finit sur « On change d'air » le dit une seule fois, avec le nom de l'exercice, ce qui casse et « Essaie plutôt ».
+- Le budget compte ce que la lecture des niveaux recopie, objets imbriqués compris. Sans cela, un fichier de 52 kB se chargeait en 16 secondes.
+- Un tour à figure tient au plus 1 024 notes une fois sa figure répétée (`MAX_FIGURE_ROUND_NOTES`), toutes ses figures comptées, vérifié avant de déplier la figure, au chargement comme en jeu. La raison est le juge : son alignement des attaques, plus ancien que ce chantier, prend environ une demi-seconde pour 1 000 notes, 3,7 secondes pour 2 000, 26 secondes pour 4 000. La plus longue figure des fichiers de l'auteur a environ 150 notes, et un thème de plusieurs centaines de notes reste un seul tour. Le compte arrondit à la boucle entière : un tour dont la dernière boucle est coupée peut être refusé à quelques notes de 1 024. Cette règle remplace une première règle du plan, qui ne bornait pas un tour à figure une fois déplié.
+- Le chargement compile chaque figure qu'un exercice sans éléments listés peut servir, à chaque niveau de l'exercice, compté dans le budget et dans `MAX_ROUND_CHECKS`. Ce qui est accepté au chargement ne doit ni être refusé ni figer en jeu.
+- Deux chemins restent non vérifiés au chargement : un niveau d'échelle au-dessus du premier qui change la longueur d'un tour à figure, et le tour d'un passage à un autre niveau, ou avec d'autres valeurs de ses paramètres, que les premiers. Aucun exercice du catalogue ni des fichiers de l'auteur ne le fait. Un tel tour, s'il ne se compile pas, échoue en jeu sur une erreur que la séance ne rattrape pas ; grâce à la limite de 1 024 notes, il ne fige plus rien.
+- La source sert toujours un passage jouable, quel que soit son poids. Son budget ne paie que ce qu'elle dépense sur des passages injouables. Elle ne répond « plus rien » que lorsqu'il ne reste rien à jouer. Aucune borne ne coupe un appel : en couper un ferait finir une séance qui a encore quelque chose à jouer. Le prix connu : un fichier écrit de sept exercices aux passages lourds qui échouent tous fait attendre environ deux secondes, une fois par séance.
+- Les changements d'une grille sont lus une fois par grille (`gridChanges`), et non à chaque attente : c'était l'essentiel des 28 secondes.
+- `aided` ou `fading` écrits comme un texte sont refusés, pas devinés : un texte ne dit pas s'il est une ligne ou un dessin.
+- Le banc a ses propres capacités de passages. Il compte ce qu'il refuse et ce qu'il excuse ; chaque refus doit nommer un champ ; une partie jouée sans réponse doit finir d'elle-même ; un exercice avec anti-blocage joué seul sans réponse doit finir par « On change d'air ».
+- `scripts/functional-ui.mjs` visite maintenant l'accueil, la Bibliothèque, chaque routine du catalogue, un exercice de chaque sorte et un fichier importé par les réglages, avec un micro simulé. Il n'a pas été lancé.
+
+Ce qui change pour le joueur, et rien d'autre :
+
+- Le bilan a une seule forme pour toute séance, et tous les nombres d'avant y sont. Ce qu'il montre en plus : la ligne d'un exercice de rythme dit son tempo ; une séance de changements encore en mémoire montre ses séries, à réécouter ; une ligne de changements peut dire « dont N avec aide » ; une séance de changements dont tous les exercices sont sortis propose « Essaie plutôt ».
+- Un exercice qu'aucun fichier ne définit plus a sa ligne dans le bilan, sous son identifiant.
+- L'accueil ne montre que les routines ouvertes. « Exercices », l'écart au temps et sa tendance sont partis, et l'écart au temps ne se voit plus nulle part.
+- Sans routine ouverte, l'accueil dit « Rien à jouer pour l'instant », avec un lien vers la Bibliothèque.
+- Quand une partie du catalogue n'a pas pu être chargée, l'accueil le dit en une ligne, dans toute construction ; l'accueil et la Bibliothèque listent ce qui reste.
+- Une routine dont l'ouverture ne se calcule pas disparaît de l'accueil, et seule la console le dit ; ses exercices restent dans la Bibliothèque.
+- Le lien « Bibliothèque » mène à la Bibliothèque : les onze exercices du catalogue et ceux des fichiers importés, chacun jouable seul. Les trois exercices de rythme y sont, sans routine. Le jeu libre mêlé des notes n'a plus de lien.
+- Un exercice dont on ne peut pas dire s'il se joue est listé sans lien.
+- Un fichier trop coûteux à vérifier est refusé avec une phrase qui le dit, au lieu de figer le démarrage ; une consigne mal écrite est refusée en mots.
+
+### À décider par l'auteur
+
+Les questions du plan 5a restent (voir « État du chantier 2 »). Ce plan en ajoute trois :
+
+- Les ajouts du bilan unique (le tempo du rythme, les séries des changements, « dont N avec aide », « Essaie plutôt » après les changements) sont à voir à l'écran ; chacun s'enlève en une ligne.
+- L'ordre de la Bibliothèque (les routines de l'accueil, puis le reste) a été choisi pendant l'exécution.
+- D4 retire l'écart au temps et sa tendance « pour l'instant » : leur place, s'ils reviennent, reste à décider.
+
+### Le sort des lignes « Laissé au plan 5b » du plan 5a
+
+- Un seul bilan, la fin de `src/lib/domain/gesture/` : fait (D1). Le bilan d'une séance dont la routine ou l'exercice n'est plus défini dit ce que ses tentatives disent (D2) ; le bloc des notes reste quand rien ne dit ce qu'elle a joué.
+- L'accueil sans « Exercices », sans la tendance ni l'écart au temps ; `resting(ids)` : fait (D3, D4, D6).
+- La Bibliothèque : faite (D5, D5b).
+- Le mode dégradé quand un fichier du catalogue est refusé en production : fait. La ligne de l'accueil le dit, une garde par routine et par exercice de la Bibliothèque évite qu'une erreur emporte tout, et l'accueil comme la Bibliothèque listent ce qui reste (essayé avec `catalog/rhythm.json` illisible).
+- Un budget par fichier : fait (D7). La validation d'un exercice faite une fois au lieu de deux : non. L'aperçu vérifie encore chaque exercice une seconde fois ; le budget compte les deux fois.
+- Le travail de la source de passages : borné (D8).
+- Le banc ouvert : il tire maintenant des exercices à passages et des routines (D10).
+- Un préfixe réservé aux identifiants du catalogue : non, il reste à l'auteur.
+- `VIEW_PRESENTERS` : inchangé, le présentateur du lien est encore trouvé par sa vue.
+- Le bilan d'une ancienne séance qui comptait les cartes d'une capacité qu'aucun exercice enregistré ne travaille : fait, il ne compte que les cartes que listent les exercices de la séance (D2).
+- Les révisions dues d'une routine et celles du bilan comptées autrement : fait, une seule fonction (D2).
+- Une alerte à la place de tout l'accueil quand `routines()` échoue : fait, une garde par routine. Une lecture des données qui échoue donne encore l'alerte.
+
+## État du chantier 2
+
+Le chantier a eu neuf plans : 1, 2a, 2b, 3, 4a, 4b, 4c, 5a et 5b. Tous sont faits sur la branche `chantier-2-no-exercices-in-code`, qui n'est pas fusionnée. Cette section dit, pour chaque partie de la spec, ce qui était demandé et ce qui est construit, puis ce qui reste ouvert. Les décisions prises sans l'auteur sont dites dans chaque « Réalisation » ci-dessus. Un relevé de toutes, plan par plan, existe aussi hors du dépôt (`.superpowers/sdd/decisions-chantier-2.md`) ; cette section se lit sans lui.
+
+### Section par section
+
+- **§ 2, les objets et les fichiers.** Demandé : un fichier `{ "format": 0, "skills", "grids", "exercises", "routines" }`, des identifiants par sorte d'objet, un catalogue en fichiers. Fait : le format et sa lecture (`src/lib/domain/definitions/`), décrits dans `docs/fichiers-de-definitions.md` (qui remplace `docs/exercices-locaux.md`) ; les sept ensembles (`src/lib/domain/sets/`) ; les onze capacités du catalogue ; des identifiants faits de lettres, de chiffres, de `-`, de `_` et de `.`, `unknown` et les huit anciens identifiants réservés. Écart : le catalogue tient en cinq fichiers (`catalog/`), `routines.json` en plus des quatre.
+- **§ 3, charger, importer, refuser.** Demandé : un catalogue embarqué, des fichiers importés depuis les réglages, un seul registre, des refus lisibles, une progression gardée sans définition. Fait : le catalogue est lu sans refus par un test ; les fichiers importés sont rangés dans la table `definitionFiles`, relus à chaque démarrage, emportés par la sauvegarde, d'au plus un million de caractères ; les registres sont remplis par `loadDefinitions` (`src/lib/composition/definitions.ts`) ; un refus nomme le fichier, l'objet et le champ, dans les réglages et par une ligne de l'accueil ; une progression sans définition est gardée et ignorée ; un chargement interrompu est sauté une fois ; le catalogue amputé se dit sur l'accueil ; chaque fichier a son budget de vérification. `exercises.local/` a disparu.
+- **§ 4, les capacités dans le moteur.** Demandé : les mécaniques coupées en capacités et en ensembles. Fait : la capacité est une donnée, l'ensemble du code (`src/lib/domain/sets/`, présentateurs dans `src/lib/application/sets/`) ; les cartes et les tentatives sont rangées par capacité ; un exercice de mémoire avec un tour jugé au cycle est refusé. Reste : le présentateur du lien est trouvé par sa vue (`VIEW_PRESENTERS`).
+- **§ 5, l'apprentissage en données.** Demandé : un seul sujet construit à partir des données. Fait : `exerciseSubject` (`src/lib/domain/learning/exerciseSubject.ts`) ; les listes `items` du catalogue, dans l'ordre d'avant ; `params.learning.enter` (correspondances `same` et `same-place`), `presentAtOnce` et `asks` ; les générateurs d'ordre et le miroir supprimés (C12).
+- **§ 6, familles, filtres, zones.** Demandé : des familles, trois opérations, un seul juge de contenu. Fait : `note-places`, `chord-shapes` et `grid-changes` (`src/lib/domain/families/`, un cœur qui ne connaît aucun instrument) ; les choix et leurs quatre filtres (`src/lib/domain/exercise/selection/`) ; le juge `member` (`src/lib/domain/judges/member.ts`), qui remplace `note`, `chord-voicing` et `chord-grid`. « Près d'un repère » et « pas encore joué » attendent leur exercice.
+- **§ 7, les changements en données.** Demandé : les quatre exercices en données, un modèle générique pour leurs deux vues. Fait : `passages` (`src/lib/domain/exercise/passage/`) ; la source de passages (`src/lib/domain/session/passageSource.ts`) ; les quatre exercices dans `catalog/changes.json`, chacun avec son niveau d'aide et l'anti-blocage ; un seul modèle pour les deux vues (`src/lib/application/presentation/passageStage.ts`) ; `gestureSelector.ts` et `src/lib/domain/gesture/` supprimés. Écart : une zone de cases s'écrit `{ "in": { "frets": { "param": "zone" } } }`, l'écriture du § 7 reste refusée.
+- **§ 8, routines, accueil, Bibliothèque.** Demandé : les routines, plus de sortes de séance, un exercice bloqué qui sort, un seul bilan, l'accueil des routines, la Bibliothèque. Fait : les routines en données (`src/lib/domain/routine/`, `catalog/routines.json`) ; une séance part d'une routine ou d'un exercice ; « On change d'air » fait sortir un exercice de passages et la séance continue ; `routines()` dit l'accueil ; un seul bilan (`src/lib/domain/session/played.ts`) ; la carte du manche lue par ensemble ; l'accueil des routines ouvertes ; la Bibliothèque (`/library`, `src/lib/ui/screens/library/`). Écart : hors d'une séance de passages, « On change d'air » finit la séance, comme avant.
+- **§ 9, la migration 13 et la sauvegarde 9.** Fait au plan 2a (`src/lib/infrastructure/storage/migrations/v13.ts`), essayé sur une base 12 (`db.spec.ts`) et une sauvegarde 8 (`v13.spec.ts`). Aucune version depuis : la base reste à 13, la sauvegarde à 9.
+- **§ 10, les trous de validation.** Fait : la validation court au chargement, pour le catalogue comme pour chaque fichier importé (`src/lib/application/definitions/checks.ts`), et plus à chaque consigne ; chaque trou que la spec liste est refusé ; chaque limite est vérifiée avant le travail qu'elle borne ; un fichier entier a son budget. Reste : un exercice est vérifié deux fois, l'aperçu le revérifiant.
+- **§ 11, preuves et tests.** Fait : le catalogue lu sans refus ; les plans du rythme figés (`rhythmExercises.parity.spec.ts`) et ceux des changements en tables (`catalogChanges.spec.ts`, `catalogPassageStage.spec.ts`) ; la frontière des identifiants (`catalogIdsBoundary.spec.ts`) et celle du cœur des familles ; un ensemble que le cœur ne connaît pas joué de bout en bout (`thirdSet.spec.ts`) ; le banc ouvert, qui tire des exercices, des exercices à passages et des routines ; les règles gardées jouées de bout en bout (`triadsSession.spec.ts`, la source de passages) ; la migration. En partie : aucun test ne joue de bout en bout un faux instrument avec sa propre famille et son propre attribut (une famille de test ne sert qu'à la ligne d'un passage, dans `passageStage.spec.ts`) ; le script de jeu `scripts/functional-ui.mjs` a été étendu, jamais lancé.
+
+### Ce qui reste ouvert, pour l'auteur
+
+- Les noms du format ont été choisis sans l'auteur : `family`, `of`, `where`, `order`, `take`, `asks` ; `passages` et ses clés (`members`, `andBack`, `each`, `opens`, `need`, `again`, `restBars`, `passes`, `scope`) ; les champs `{strings}`, `{frets}`, `{toward}` ; le dessin `admitted` ; les clés d'une routine (`title`, `exercises`, `howTo`, `opens`). Ils sont à relire avant que le format quitte la version 0.
+- Un préfixe réservé aux identifiants du catalogue reste à choisir avant que le format quitte la version 0. Sans lui, un identifiant que le catalogue prendrait un jour, déjà pris par un fichier de joueur, ferait refuser l'objet du joueur et donnerait sa progression à celui du catalogue.
+- Des changements visibles sont à regarder à l'écran : l'aide des grilles (toutes les formes admises, sans légende, sur sa propre ligne), l'en-tête du lien sur une ligne, un manche qui défile de côté sur un téléphone, le manche chargé au premier changement d'une montée (plan 4c) ; l'accueil, la Bibliothèque, son ordre, et les ajouts du bilan unique (plan 5b).
+- La fatigue arrête une séance de changements avant que le niveau d'aide puisse venir. Doit-elle continuer de le faire ?
+- Une séance doit-elle laisser de côté un exercice au repos tant qu'un autre a quelque chose à jouer ? Aujourd'hui, la séance suivante retombe sur lui, à son niveau d'aide.
+- Le jeu libre d'un exercice de mémoire, importé ou non, fait avancer les cartes qu'il partage avec d'autres exercices. Est-ce voulu ?
+- Une séance de routine ouvre les capteurs des exercices de toutes les routines (D9 du plan 5a). Faut-il n'ouvrir que les siens ?
+- `catalog/routines.json` est un cinquième fichier du catalogue. L'autre voie était un rang écrit sur chaque routine.
+- Une routine d'exercices sans mémoire et sans passages, comme des exercices de rythme, est refusée. Faut-il une séance qui les enchaîne ?
+- Au niveau d'aide du lien, les notes d'un accord écrit avec un bémol sont écrites depuis son nom en dièse (« F## A# D# » sous « Eb »).
+- Un manche qui nomme ses cordes les écrit « mi si sol », dans la langue du joueur ; le manche d'une figure écrit E B G.
+- La carte du manche ne dessine que les cartes de la première capacité de chaque ensemble, alors que les médianes du bilan comptent les tentatives de toute capacité sur `note-on-string` ou `placed-note`.
+- L'écart au temps et sa tendance ne se voient plus nulle part (D4 du plan 5b) : leur place, s'ils reviennent, reste à décider.
+
+### Ce qui reste à faire, hors de ce chantier
+
+- Rendre moins chère la recherche du juge, l'alignement des attaques d'un tour, puis relever ou retirer la limite de 1 024 notes par tour.
+- Vérifier un exercice une seule fois au chargement, au lieu de deux.
+- Rattraper en jeu l'erreur d'un tour qui ne se compile pas, et sauter ce tour : les deux chemins que le chargement ne vérifie pas finissent aujourd'hui la séance sur une erreur.
+- Trouver le présentateur du lien par son ensemble, et non par sa vue (`VIEW_PRESENTERS`).
+- Une sauvegarde importée sur un appareil qui n'a pas les fichiers apporte des cartes d'une capacité importée sans contrôle ; elles sont gardées et ignorées tant qu'aucune liste ne les nomme. Lire les fichiers que la sauvegarde porte réglerait aussi le refus à tort d'une capacité définie sur un autre ensemble.
+- Un tour préparé à l'avance (les tours de rythme) qui bloque arrête encore toute la séance.
+- Un faux instrument joué de bout en bout dans un test, avec sa propre famille et son propre attribut (§ 11).
+- Un cache des membres admis par contenu, si une mesure le demande ; `INDEX_DERIVATIONS` reste la table de la guitare ; `MEMBER_VIEWS` reste un registre par famille.
+- Sur la piste du lien, un tour qui commence entre deux temps n'a pas de tuile.
+- Une séance enregistrée avant les passages ne montre pas la forme attendue dans son bilan.
+- Lancer `scripts/functional-ui.mjs` et corriger ce qu'il trouve (voir plus bas).
+- Les questions que la spec laisse ouvertes : la distinction entre capacités avec et sans mémoire, à reprendre avec le chantier 5 ; la clé `eighths@1` d'une figure, qui porte un niveau d'exercice.
+- Tout ce que la spec met hors périmètre : un second instrument, le graphe des capacités, le redessin des vues des changements et de la figure, ce que le capteur d'accords écoute en dedans, les filtres qui attendent leur exercice, les figures et les formes partagées, la traduction des raisons de refus, un dossier lié relu à chaque rechargement, les mesures et les douze notes hors du cœur, le format v1.
+
+### Avant de fusionner
+
+L'auteur seul peut faire ceci :
+
+- Jouer avec la vraie guitare : tout a été vérifié avec un micro simulé.
+- Importer une sauvegarde de production dans l'aperçu de la branche.
+- Lancer `scripts/functional-ui.mjs` : étendu au plan 5b, il n'a jamais été lancé.
+- Refaire, dans le dépôt principal, la vérification « rien de privé dans la construction » : le worktree du chantier n'a pas les fichiers privés.
+- Relire `docs/projet.md`, que les plans n'ont pas touché : la ligne 39 dit encore que les exercices privés s'écrivent en local, en développement seul (`docs/exercices-locaux.md`), et la ligne 135 que le catalogue est écrit en TypeScript.
+- Décider la fusion.
