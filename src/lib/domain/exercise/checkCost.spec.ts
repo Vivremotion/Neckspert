@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
-import { GESTURE_ZONE, LOCATE_NECK } from '$lib/testing/catalog';
+import { GESTURE_ZONE, LOCATE_NECK, TRIADS_ZONE } from '$lib/testing/catalog';
 import {
 	CheckBudget,
 	CheckBudgetExceeded,
@@ -134,6 +134,31 @@ describe('the cost of what a level writes', () => {
 			}
 		};
 		expect(levelsCheckCost(reading)).toBeGreaterThan(levelsCheckCost(exercise));
+	});
+
+	it('charges the sweep of the params the member asked reads, a sweep of its own', () => {
+		// The reviewer's shape: a zone of many keys, a ladder writing the zone's frets at every
+		// level, many exercise levels; the member asked reads the zone's frets or nothing.
+		const ladder = Array.from({ length: 100 }, () => ({
+			params: { leadBeats: 2, aided: false, 'zone.frets': [1, 24] }
+		}));
+		const levels = Array.from({ length: 100 }, (_, i) => ({ params: { [`free${i}`]: 1 } }));
+		const exercise = {
+			...TRIADS_ZONE,
+			params: { ...TRIADS_ZONE.params, zone: { frets: [1, 24], ...keys(200) }, ladder },
+			levels
+		};
+		const asking = (asks: unknown) => ({
+			...exercise,
+			params: { ...exercise.params, learning: { ...TRIADS_ZONE.params?.learning, asks } }
+		});
+		const plain = levelsCheckCost(
+			asking({ family: 'chord-shapes', where: [{ other: 'previous' }] })
+		);
+		const reading = levelsCheckCost(
+			asking({ family: 'chord-shapes', where: [{ in: { frets: { param: 'zone.frets' } } }] })
+		);
+		expect(reading).toBeGreaterThan(plain);
 	});
 });
 

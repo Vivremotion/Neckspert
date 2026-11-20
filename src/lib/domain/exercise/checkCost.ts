@@ -12,7 +12,8 @@ import type { ExerciseDefinition } from './types';
  * (`roundCheckCost`), the notes of a figure (bounded before they are expanded). Measured on an
  * Apple M3 Pro: a unit costs 0.6 µs (rounds of the most filters) to about 3 µs (rounds of one
  * expectation and no filter on a grid of 256 changes, or levels of many params); the slowest file
- * accepted, ten such grid exercises, loads in about 0.85 s, and a catalog file costs at most 2 616.
+ * accepted, ten such grid exercises, loads in about 0.85 s, and a catalog file costs at most 2 684
+ * (`catalog/changes.json`, under 1 % of the budget).
  */
 export const MAX_FILE_CHECK_COST = 300_000;
 
@@ -123,6 +124,22 @@ function selectionPaths(definition: ExerciseDefinition): string[] {
 	}
 	const passages: unknown = definition.passages;
 	if (isRecord(passages)) stack.push(passages.members);
+	return paramPaths(stack);
+}
+
+/**
+ * The paths of the params the member asked reads (`params.learning.asks`), which its own check
+ * sweeps apart from the round's (`definitionChecks`).
+ */
+function askedPaths(definition: ExerciseDefinition): string[] {
+	const params: unknown = definition.params;
+	const learning = isRecord(params) ? params.learning : undefined;
+	return paramPaths([isRecord(learning) ? learning.asks : undefined]);
+}
+
+/** The paths of every `{ param }` under `stack`. */
+function paramPaths(stack: unknown[]): string[] {
+	const paths: string[] = [];
 	while (stack.length > 0) {
 		const at = stack.pop();
 		if (Array.isArray(at)) stack.push(...at);
@@ -159,6 +176,8 @@ function levelShape(definition: ExerciseDefinition) {
 	const ladder: unknown = isRecord(params) ? params.ladder : undefined;
 	const read = selectionPaths(definition);
 	const swept = (path: string) => read.some((at) => touches(path, at));
+	const asked = askedPaths(definition);
+	const sweptAsked = (path: string) => asked.some((at) => touches(path, at));
 	const steps = Array.isArray(ladder) ? ladder : [];
 	return {
 		top: Object.keys(own).length + 4,
@@ -166,7 +185,9 @@ function levelShape(definition: ExerciseDefinition) {
 		levels,
 		ladder: steps.map((level) => writesOf(level, seen)),
 		// What a sweep lays of each ladder level: the paths a selection reads, nothing else.
-		sweptLadder: steps.map((level) => writesOf(level, seen, swept))
+		sweptLadder: steps.map((level) => writesOf(level, seen, swept)),
+		// The member asked's own sweep, when it reads a param.
+		askedLadder: asked.length > 0 ? steps.map((level) => writesOf(level, seen, sweptAsked)) : null
 	};
 }
 
@@ -192,27 +213,30 @@ function resolutionCost(
  * bound (`resolutionCost` for each resolution): the level checks resolve each exercise level, then
  * each ladder level over each of them; a sweep of the params its selections read resolves each
  * exercise level again and lays over each the paths of each ladder level they read
- * (`selectionPaths`); the items' rounds resolve each
- * exercise level once more, at the ladder's first level. Charged once per pass that checks the
- * exercise.
+ * (`selectionPaths`), and the member asked (`params.learning.asks`), when it reads a param,
+ * sweeps its own the same way (`askedPaths`); the items' rounds resolve each exercise level once
+ * more, at the ladder's first level. Charged once per pass that checks the exercise.
  */
 export function levelsCheckCost(definition: ExerciseDefinition): number {
-	const { top, under, levels, ladder, sweptLadder } = levelShape(definition);
+	const { top, under, levels, ladder, sweptLadder, askedLadder } = levelShape(definition);
 	let exercise = 0;
 	let pairs = 0;
 	let swept = 0;
+	let asked = 0;
 	let atFirst = 0;
+	// A ladder level that writes no path a sweep reads is visited, not laid.
+	const laid = (step: LevelWrites, level: LevelWrites) =>
+		step.count === 0 ? 1 : resolutionCost(top, under, step, level);
 	for (const level of levels) {
 		exercise += resolutionCost(top, under, level, null);
 		for (const step of ladder) pairs += resolutionCost(top, under, step, level);
-		// A ladder level that writes no path a selection reads is visited, not laid.
-		for (const step of sweptLadder) {
-			swept += step.count === 0 ? 1 : resolutionCost(top, under, step, level);
-		}
+		for (const step of sweptLadder) swept += laid(step, level);
+		for (const step of askedLadder ?? []) asked += laid(step, level);
 		if (ladder.length > 0) atFirst += resolutionCost(top, under, ladder[0], level);
 	}
-	// The level checks, a sweep, the items' rounds.
-	return units(exercise + pairs + (exercise + swept) + (exercise + atFirst));
+	const askedSweep = askedLadder === null ? 0 : exercise + asked;
+	// The level checks, a sweep, the member asked's sweep, the items' rounds.
+	return units(exercise + pairs + (exercise + swept) + askedSweep + (exercise + atFirst));
 }
 
 /**
