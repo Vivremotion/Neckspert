@@ -624,6 +624,35 @@ describe('validateExercise limits', () => {
 		);
 	});
 
+	it('refuses figures × levels asking more round checks than MAX_ROUND_CHECKS, for an exercise that serves its figures', () => {
+		const figures = Array.from({ length: 201 }, (_, i) => ({
+			...RHYTHM_OFFBEATS.figures![0],
+			id: `f${i}`
+		}));
+		const levels = plainLevels(100);
+		const start = performance.now();
+		expect(validateExercise({ ...RHYTHM_OFFBEATS, figures, levels })).toBe(
+			'rhythm-offbeats: figures × levels asks 20100 round checks, more than 20000'
+		);
+		expect(performance.now() - start).toBeLessThan(200);
+	});
+
+	it('refuses an exercise that serves its figures when none fits its round at a level, naming the level', () => {
+		// A figure of two bars: a round of three bars plays it no whole number of times.
+		const twoBars = { id: 'two', figure: parseLilyPond('c8 c c c c c c c | c8 c c c c c c c') };
+		const levels = [...plainLevels(2), { params: { cycleBars: 3 } }];
+		const exercise = {
+			...RHYTHM_OFFBEATS,
+			figures: [twoBars],
+			params: { ...RHYTHM_OFFBEATS.params, cycleBars: 4 },
+			levels
+		};
+		expect(validateExercise(exercise)).toBe(
+			'rhythm-offbeats: no figure fits the round at exercise level 2'
+		);
+		expect(validateExercise({ ...exercise, levels: plainLevels(3) })).toBeNull();
+	});
+
 	it('refuses items × levels asking more round checks than MAX_ROUND_CHECKS, before any', () => {
 		expect(MAX_ROUND_CHECKS).toBe(20_000);
 		// 201 items at 100 exercise levels (one an aid level): 20 100 rounds to compile.
@@ -674,13 +703,15 @@ describe('validateExercise limits', () => {
 		);
 	});
 
-	it('refuses a figure that would expand past what the budget leaves, before expanding it', () => {
+	it('refuses a figure that would expand past what the budget leaves, before expanding it, in the budget’s words', () => {
 		const item = ARPEGGIO_EXERCISE.items![0] as { item: string };
 		const exercise = { ...ARPEGGIO_EXERCISE, items: [{ item: item.item, beats: 4_000 }] };
-		const budget = new CheckBudget(levelsCheckCost(exercise) + roundCheckCost(exercise) + 999);
+		const spent = levelsCheckCost(exercise) + roundCheckCost(exercise);
+		const budget = new CheckBudget(spent + 999);
 		const start = performance.now();
-		expect(validateExercise(exercise, { budget })).toMatch(
-			/^test-arpeggio-sequence: items\[0\] .* does not compile at exercise level -1: round\.expectations\[0\]\.figure would give 4000 notes over 1000 bars, more than the 999 a check may still compile$/
+		// 4 000 notes over 1 000 bars, charged as they would have been: past the budget.
+		expect(validateExercise(exercise, { budget })).toBe(
+			`test-arpeggio-sequence: this file asks more checking than a start can afford (cost ${spent + 4_000}, at most ${spent + 999})`
 		);
 		expect(performance.now() - start).toBeLessThan(50);
 	});

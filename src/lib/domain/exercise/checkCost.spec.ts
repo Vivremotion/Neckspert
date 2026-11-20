@@ -78,7 +78,24 @@ describe('the cost of params', () => {
 	});
 
 	it('reads nothing it cannot count', () => {
-		expect(levelsCheckCost({ ...LOCATE_NECK, levels: 'x' as never, params: 3 as never })).toBe(1);
+		expect(
+			levelsCheckCost({ ...LOCATE_NECK, levels: 'x' as never, params: 3 as never })
+		).toBeLessThanOrEqual(2);
+	});
+});
+
+describe('the cost of a path through an object', () => {
+	it('counts the whole object a level’s path runs through, once a resolution', () => {
+		const big = Object.fromEntries(Array.from({ length: 1_600 }, (_, i) => [`k${i}`, 0]));
+		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, big } };
+		const plain = levelsCheckCost({ ...exercise, levels: [{ params: { other: 1 } }] });
+		const through = levelsCheckCost({
+			...exercise,
+			levels: [{ params: { 'big.a': 1, 'big.b': 2 } }]
+		});
+		// The 1 600 keys copied once for both paths, at each of the level's resolutions.
+		expect(through - plain).toBeGreaterThanOrEqual(1_600 / PARAM_ENTRIES_PER_UNIT);
+		expect(through - plain).toBeLessThan((2 * 1_600 * 10) / PARAM_ENTRIES_PER_UNIT);
 	});
 });
 

@@ -30,6 +30,7 @@ import {
 	type RoundTemplate,
 	type WindowTemplate
 } from './types';
+import { MAX_FIGURE_ROUND_NOTES } from './validate';
 
 /**
  * What a caller compiling many rounds of one exercise keeps between them: the params resolved at
@@ -77,14 +78,32 @@ export class RoundCompileError extends Error {
 	}
 }
 
+/**
+ * A figure entry that would expand past what the check compiling it may still spend
+ * (`maxExpectations`): `cost` is what it would have spent, so the check can charge it.
+ */
+export class RoundCheckExceeded extends RoundCompileError {
+	constructor(
+		message: string,
+		readonly cost: number
+	) {
+		super(message);
+		this.name = 'RoundCheckExceeded';
+	}
+}
+
 /** What a compilation reads, and how it names a failure. */
 interface Context {
 	definition: ExerciseDefinition;
 	item: PlannedItem;
 	meter: Meter;
 	params: Readonly<Record<string, unknown>>;
-	/** The most notes, and bars, a figure entry may expand to; absent: no bound. */
-	maxExpectations?: number;
+	/**
+	 * What the round's figure entries may still expand to, counted down entry by entry: the notes
+	 * (and bars) a round may hold (`MAX_FIGURE_ROUND_NOTES`), and what a check may still compile
+	 * (`maxExpectations`, at load; null without one).
+	 */
+	room: { notes: number; check: number | null };
 }
 
 function itemKeyOf(context: Context): string {
@@ -402,20 +421,29 @@ function figureEntryOf(
 	const at = position(context, `${field}.at`, template.at);
 	const content = figureContentOf(context, `${field}.content`, template.content, id);
 	const window = windowOf(context, `${field}.window`, template.window);
-	const limit = context.maxExpectations;
-	if (limit !== undefined) {
-		// Counted before the work: each bar of the span is visited, each loop gives every note.
-		const span = length.sub(at);
-		const bars = Math.ceil(span.div(barLength(figure.meter)).toNumber());
-		const notes = Math.ceil(bars / figure.bars) * attackNotes(figure).length;
-		if (Math.max(bars, notes) > limit) {
-			fail(
-				context,
-				`${field}.figure`,
-				`would give ${notes} notes over ${bars} bars, more than the ${limit} a check may still compile`
-			);
-		}
+	// Counted before the work: each bar of the span is visited, each loop gives every note.
+	const span = length.sub(at);
+	const bars = Math.max(0, Math.ceil(span.div(barLength(figure.meter)).toNumber()));
+	const notes = Math.ceil(bars / figure.bars) * attackNotes(figure).length;
+	const { room } = context;
+	const expands = `would give ${notes} notes over ${bars} bars`;
+	if (room.check !== null && room.check < room.notes && Math.max(bars, notes) > room.check) {
+		throw new RoundCheckExceeded(
+			`${context.definition.id}: round.${field}.figure ${expands}, more than the ${room.check} a check may still compile`,
+			Math.max(bars, notes)
+		);
 	}
+	if (Math.max(bars, notes) > room.notes) {
+		fail(
+			context,
+			`${field}.figure`,
+			room.notes === MAX_FIGURE_ROUND_NOTES
+				? `${expands}, more than the ${MAX_FIGURE_ROUND_NOTES} notes a figure round may hold`
+				: `${expands}, more than the ${room.notes} notes its round may still hold (at most ${MAX_FIGURE_ROUND_NOTES})`
+		);
+	}
+	room.notes -= notes;
+	if (room.check !== null) room.check -= notes;
 	try {
 		return figureExpectations({
 			figure,
@@ -473,7 +501,7 @@ function contextOf(
 		item,
 		meter,
 		params: roundParamsOf(definition, item, resolved),
-		...(resolved.maxExpectations !== undefined && { maxExpectations: resolved.maxExpectations })
+		room: { notes: MAX_FIGURE_ROUND_NOTES, check: resolved.maxExpectations ?? null }
 	};
 }
 
@@ -581,7 +609,11 @@ export function compileRound(
 		previewBeats: number;
 		fromRunStart: number | null;
 		cache?: ResolutionCache;
-		/** At load: the most notes (and bars) a figure entry may expand to, checked before it does. */
+		/**
+		 * At load: what the check may still compile, the most notes (and bars) the round's figure
+		 * entries may expand to beside `MAX_FIGURE_ROUND_NOTES`, the smaller applying; both
+		 * checked before they expand.
+		 */
 		maxExpectations?: number;
 	}
 ): RoundPlan {

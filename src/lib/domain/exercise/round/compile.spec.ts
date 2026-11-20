@@ -24,6 +24,7 @@ import { admittedMembers, type MemberContent } from '../../judges';
 import { compileRound, roundParamsOf, RoundCompileError, type ResolutionCache } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
+import { MAX_FIGURE_ROUND_NOTES } from './validate';
 
 /** A skill on each set, for a spec that draws an exercise of a set. */
 export const SKILL_OF_SET: Readonly<Record<string, SkillId>> = {
@@ -589,6 +590,62 @@ const THREE_ONE = clickAccompaniment({
 });
 
 describe('compileRound, a figure entry', () => {
+	it('refuses a round whose figure would expand past MAX_FIGURE_ROUND_NOTES, before expanding it, with no budget', () => {
+		expect(MAX_FIGURE_ROUND_NOTES).toBe(1_024);
+		// 400 000 bars of eighths: 1.8 s to expand.
+		const long = figureExercise('figure', figureRound({}, { length: { bars: 400_000 } }), {
+			main: 'c8 c c c c c c c'
+		});
+		const start = performance.now();
+		expect(() => compileFigure(long, { figureId: 'main' })).toThrow(
+			new RoundCompileError(
+				'test-figure: round.expectations[0].figure would give 3200000 notes over 400000 bars, more than the 1024 notes a figure round may hold'
+			)
+		);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('counts the notes over every figure entry of the round, each given what is left', () => {
+		// 32 entries of 128 notes each: each fits alone, not together.
+		const [entry] = figureRound().expectations;
+		const many = figureExercise(
+			'figure',
+			figureRound(
+				{},
+				{
+					length: { bars: 16 },
+					expectations: Array.from({ length: 32 }, () => ({ ...entry, sensor: 'attack' }))
+				}
+			),
+			{ main: 'c8 c c c c c c c' }
+		);
+		const start = performance.now();
+		expect(() => compileFigure(many, { figureId: 'main' })).toThrow(
+			'round.expectations[8].figure would give 128 notes over 16 bars, more than the 0 notes its round may still hold (at most 1024)'
+		);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('compiles a whole theme of several hundred notes as one figure', () => {
+		const theme = figureExercise('figure', figureRound({}, { length: { bars: 38 } }), {
+			main: Array.from({ length: 38 }, () => 'c16 c c c c c c c c c c c c c c c').join(' | ')
+		});
+		expect(compileFigure(theme, { figureId: 'main' }).expectations).toHaveLength(608);
+	});
+
+	it('refuses a figure past what a check may still compile, when that is less', () => {
+		const exercise = figureExercise('figure', figureRound({}, { length: { bars: 4 } }), {
+			main: 'c8 c c c c c c c'
+		});
+		expect(() =>
+			compileRound(exercise, planned(exercise.practices, { figureId: 'main' }, null), METER_4_4, {
+				previewBeats: PREVIEW,
+				fromRunStart: null,
+				maxExpectations: 20
+			})
+		).toThrow('would give 32 notes over 4 bars, more than the 20 a check may still compile');
+	});
+
 	it('unfolds a figure into one expectation per attack', () => {
 		const plan = compileFigure(
 			figureExercise('figure', figureRound(), { main: 'c8 c c c c c c c' }),

@@ -25,7 +25,11 @@ type Values = Readonly<Record<string, unknown>>;
  * wastes at most its indices × this (and one passage more each, which the load bounds). Measured
  * on an Apple M3 Pro, a unit costs 15 to 40 µs in the source: an index of light rounds is left
  * out after about 25 ms of failed tries; one whose single passage weighs more (256 rounds of 64
- * expectations) after that one passage, about 0.5 to 0.8 s.
+ * expectations) after that one passage, about 0.5 to 0.8 s. So one `next()` pays every failing
+ * index it meets before a playable one: a file made of failing heavy indices costs it about
+ * 1.9 s once (seven such exercises, measured at plan 5b's review), and the session is spared it
+ * after, those indices being left out. No bound caps a call: one that stopped early would have
+ * to answer null, which ends a session that still has something to play.
  */
 export const MAX_PASSAGE_TRIES = 1_000;
 

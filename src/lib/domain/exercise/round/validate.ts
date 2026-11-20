@@ -66,6 +66,15 @@ const at = (field: string, text: string) => `round.${field} ${text}`;
 /** Expectations of one round: each may cost a look at every level (a selection read in the params). */
 export const MAX_ROUND_EXPECTATIONS = 64;
 
+/**
+ * The notes a round's figure entries may expand to, and the bars they may span, checked by the
+ * compiler before it expands them, at load and at play. The reason is the judge: the alignment of
+ * a round's attacks (`alignAttacks`) grows much faster than its notes, measured at 0.5 s for
+ * 1 000 notes, 3.7 s for 2 000, 26 s for 4 000 (Apple M3 Pro, plan 5b). A whole theme of several
+ * hundred notes as one figure fits.
+ */
+export const MAX_FIGURE_ROUND_NOTES = 1_024;
+
 function unknownKey(value: Record_, allowed: readonly string[], field: string): string | null {
 	for (const key of Object.keys(value)) {
 		if (!allowed.includes(key)) {

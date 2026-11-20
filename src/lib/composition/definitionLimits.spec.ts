@@ -19,7 +19,7 @@ import {
 } from '$lib/domain/exercise';
 import { definitionChecks } from '$lib/application/definitions/checks';
 import { registerFiles } from '$lib/domain/definitions';
-import { clearExercises } from '$lib/domain/exercise/registry';
+import { clearExercises, exerciseById } from '$lib/domain/exercise/registry';
 import { clearGrids } from '$lib/domain/grid/registry';
 import { clearRoutines } from '$lib/domain/routine/registry';
 import { clearSkills } from '$lib/domain/skill/registry';
@@ -33,7 +33,12 @@ import {
 } from '$lib/domain/routine/types';
 import { routines } from '$lib/domain/routine/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
-import { LOCATE_NECK } from '$lib/testing/catalog';
+import { LOCATE_NECK, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+import { compileRound, figureItemsAt, RoundCompileError } from '$lib/domain/exercise/round';
+import { alignAttacks, alignContext, timeExpectations } from '$lib/domain/time/judge/align';
+import { createTempoMap } from '$lib/domain/time/tempoMap';
+import { Fraction } from '$lib/domain/time/fraction';
+import { METER_4_4 } from '$lib/domain/time/meter';
 import {
 	alternatingGrid,
 	LINK_CHORDS,
@@ -172,6 +177,15 @@ function arpeggioJson(id: string): Record<string, unknown> {
 			{ id: 'eighths', lilypond: 'c8 c c c c c c c' }
 		]
 	};
+}
+
+/** The catalog's silent bars as its file writes it, under `id`. */
+function rhythmJson(id: string): Record<string, unknown> {
+	const file = Object.entries(CATALOG_FILES).find(([name]) => name.endsWith('rhythm.json'))!;
+	const exercise = (JSON.parse(file[1]).exercises as Record<string, unknown>[]).find(
+		(e) => e.id === RHYTHM_SILENT_BARS.id
+	)!;
+	return { ...exercise, id };
 }
 
 /** Locate as a definition file writes it, under `id`. */
@@ -468,17 +482,37 @@ describe('a definition file at the limits of what checking it may cost', () => {
 	});
 
 	it('loads the levels at the most params the budget accepts, and refuses one param more in its words', () => {
-		// 61 params at each of 100 levels and 100 ladder levels: about 296 000, loaded in about
-		// 0.5 s here (Apple M3 Pro); 62: about 301 000.
-		const accepted = timedLoad(levelsRecipe('h-recipe', 61));
+		// 59 params at each of 100 levels and 100 ladder levels: about 296 000, loaded in about
+		// 0.45 s here (Apple M3 Pro); 60: about 312 000.
+		const accepted = timedLoad(levelsRecipe('h-recipe', 59));
 		expect(accepted.refusals).toEqual([]);
 		expect(accepted.ms).toBeLessThan(WORST_ACCEPTED_MS);
-		const over = timedLoad(levelsRecipe('h-recipe', 62));
+		const over = timedLoad(levelsRecipe('h-recipe', 60));
 		expect(over.refusals).toHaveLength(1);
 		expect(over.refusals[0].reason).toMatch(
 			/^this file asks more checking than a start can afford \(cost \d+, at most 300000\)$/
 		);
 		expect(over.ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('refuses fast levels whose paths run through a large object of the params, which each resolution copies', () => {
+		// One object of 5 000 keys, a path through it at each of 100 levels and 100 ladder levels:
+		// 16 s to load before each resolution was charged what it copies.
+		const exercise = locateJson('h-nested');
+		const params = exercise.params as Record<string, unknown>;
+		const big = Object.fromEntries(Array.from({ length: 5_000 }, (_, i) => [`k${i}`, 0]));
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, (_, i) => ({
+			params: { leadBeats: 2, aided: false, [`big.b${i}`]: 1 }
+		}));
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, (_, i) => ({
+			params: { [`big.a${i}`]: 1 }
+		}));
+		const { ms, refusals } = timedLoad({ ...exercise, params: { ...params, big, ladder }, levels });
+		expect(refusals).toHaveLength(1);
+		expect(refusals[0].reason).toMatch(
+			/^this file asks more checking than a start can afford \(cost \d+, at most 300000\)$/
+		);
+		expect(ms).toBeLessThan(REFUSED_MS);
 	});
 
 	it('refuses the levels at the most params, three times in a file, within its time', () => {
@@ -554,7 +588,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		}
 	});
 
-	it('refuses fast an item whose round would expand its figure past what the budget leaves, naming it', () => {
+	it('refuses fast an item whose round would expand its figure past what a round may hold, naming it', () => {
 		// 2 000 000 beats of thirty-second notes: 15.5 s to refuse once expanded; now before.
 		const item = ARPEGGIO_EXERCISE.items![0] as { item: string };
 		const { figures: _figures, ...rest } = ARPEGGIO_EXERCISE;
@@ -570,10 +604,96 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(refusals).toHaveLength(1);
 		expect(refusals[0].reason).toMatch(
 			new RegExp(
-				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level -1: round\\.expectations\\[0\\]\\.figure would give 16000000 notes over 500000 bars, more than the \\d+ a check may still compile$`
+				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level -1: round\\.expectations\\[0\\]\\.figure would give 16000000 notes over 500000 bars, more than the 1024 notes a figure round may hold$`
 			)
 		);
 		expect(ms).toBeLessThan(REFUSED_MS);
+	});
+
+	it('refuses fast an exercise without items whose served figure would expand past what a round may hold, at load and at play', () => {
+		// The catalog's silent bars over 400 000 bars: 1.8 s to compile once played, before the load
+		// checked every figure an exercise session serves.
+		const rhythm = rhythmJson('h-long-cycle');
+		const { ms, refusals } = timedLoad({
+			...rhythm,
+			params: { ...(rhythm.params as object), cycleBars: 400_000 }
+		});
+		expect(refusals).toHaveLength(1);
+		expect(refusals[0].reason).toBe(
+			'figures ("eighths") does not compile at exercise level -1: round.expectations[0].figure would give 3200000 notes over 400000 bars, more than the 1024 notes a figure round may hold'
+		);
+		expect(ms).toBeLessThan(REFUSED_MS);
+
+		// Played without a load in between, the compiler refuses as fast.
+		const played = {
+			...RHYTHM_SILENT_BARS,
+			params: { ...RHYTHM_SILENT_BARS.params, cycleBars: 400_000 }
+		};
+		const [served] = figureItemsAt(played, 1, METER_4_4)!;
+		const start = performance.now();
+		expect(() =>
+			compileRound(
+				played,
+				{
+					exerciseId: played.id,
+					skill: played.practices,
+					exerciseLevel: 1,
+					item: served.item,
+					phase: 'free',
+					temperature: 'hot',
+					aid: 'none',
+					leadBeats: null
+				},
+				METER_4_4,
+				{ previewBeats: 0, fromRunStart: null }
+			)
+		).toThrow(RoundCompileError);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('loads, compiles and judges a whole theme of about 600 notes as one figure', () => {
+		const rhythm = rhythmJson('h-theme');
+		const bars = 38;
+		const theme = Array.from({ length: bars }, () => 'c16 c c c c c c c c c c c c c c c').join(
+			' | '
+		);
+		const loaded = timedLoad({
+			...rhythm,
+			params: { ...(rhythm.params as object), cycleBars: bars },
+			figures: [{ id: 'theme', lilypond: theme }]
+		});
+		expect(loaded.refusals).toEqual([]);
+		const definition = exerciseById('h-theme');
+		const [served] = figureItemsAt(definition, 1, METER_4_4)!;
+		const plan = compileRound(
+			definition,
+			{
+				exerciseId: definition.id,
+				skill: definition.practices,
+				exerciseLevel: 1,
+				item: served.item,
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			},
+			METER_4_4,
+			{ previewBeats: 0, fromRunStart: null }
+		);
+		expect(plan.expectations).toHaveLength(bars * 16);
+		// Judged with an attack on each note: every one paired.
+		const map = createTempoMap(0, [{ at: Fraction.ZERO, bpm: 80, unit: Fraction.of(1, 4) }]);
+		const timed = timeExpectations(plan, map, Fraction.ZERO);
+		const start = performance.now();
+		const alignment = alignAttacks(
+			timed,
+			timed.map((e) => e.time),
+			alignContext(plan, map, Fraction.ZERO)
+		);
+		// Measured 0.35 to 0.48 s here (Apple M3 Pro): a tripwire at about three times that.
+		expect(performance.now() - start).toBeLessThan(1_500);
+		expect(alignment.pairs).toHaveLength(bars * 16);
+		expect(alignment.missed).toEqual([]);
 	});
 
 	it('refuses fast a round over its expectations', () => {

@@ -10,7 +10,14 @@ import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
-import { compileRound, type ResolutionCache } from './round/compile';
+import {
+	compileRound,
+	figureItemsAt,
+	RoundCheckExceeded,
+	RoundCompileError,
+	type ResolutionCache
+} from './round/compile';
+import { isFigureEntry } from './round/types';
 import { MAX_PASSAGE_ROUND_CHECKS, passagesProblem } from './passage/validate';
 import { passageIndices, passageMembers } from './passage/indices';
 import { compilePassageRound, firstEach, isUnplayable, passageRound } from './passage/round';
@@ -87,6 +94,14 @@ function limitsProblem(definition: ExerciseDefinition): string | null {
 		const checks = items.length * exerciseLevels;
 		if (round !== undefined && checks > MAX_ROUND_CHECKS) {
 			return `items × levels asks ${checks} round checks, more than ${MAX_ROUND_CHECKS}`;
+		}
+	} else if (servesFigures(definition)) {
+		// `servedFiguresProblem` compiles the round of each figure at each exercise level.
+		const exerciseLevels = Array.isArray(levels) && levels.length > 0 ? levels.length : 1;
+		const figures = Array.isArray(definition.figures) ? definition.figures.length : 0;
+		const checks = figures * exerciseLevels;
+		if (checks > MAX_ROUND_CHECKS) {
+			return `figures × levels asks ${checks} round checks, more than ${MAX_ROUND_CHECKS}`;
 		}
 	}
 	return null;
@@ -388,12 +403,78 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 						maxExpectations: budget.left
 					}).expectations.length;
 				} catch (error) {
+					// What the check could not afford: the file's budget says so.
+					if (error instanceof RoundCheckExceeded) budget.charge(error.cost);
 					// The compiler names the exercise too: it is named once.
 					const problem = (error as Error).message.replace(`${definition.id}: `, '');
 					return `${field} does not compile at exercise level ${level}: ${problem}`;
 				}
 				budget.charge(compiledExtra(round, compiled));
 			}
+		}
+	}
+	return null;
+}
+
+/** Whether the round's first figure entry reads its figure on the item: an exercise session serves its figures. */
+function servesFigures(definition: ExerciseDefinition): boolean {
+	const expectations: unknown = definition.round?.expectations;
+	if (!Array.isArray(expectations)) return false;
+	const first = expectations.find((e) => isObject(e) && isFigureEntry(e as never));
+	return isObject(first) && isObject(first.figure) && 'item' in first.figure;
+}
+
+/**
+ * Why a figure an exercise session serves cannot be played, for an exercise that lists no items
+ * and whose round reads its figure on the item (`figureItemsAt`, what the session serves): at an
+ * exercise level, no figure that fits its round, or a figure's round that does not compile there
+ * (a round that would expand past `MAX_FIGURE_ROUND_NOTES` among them), naming the figure and the
+ * level. Each round charged to the file's budget before it is compiled.
+ */
+function servedFiguresProblem(definition: ExerciseDefinition, budget: CheckBudget): string | null {
+	if (definition.items !== undefined || definition.passages !== undefined) return null;
+	if (definition.round === undefined || !servesFigures(definition)) return null;
+	const meter = definition.meter ?? METER_4_4;
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const cache: ResolutionCache = new Map();
+	const weight = roundCheckCost(definition);
+	const named = (error: unknown) => (error as Error).message.replace(`${definition.id}: `, '');
+	for (let level = lowest; level <= highest; level++) {
+		let served: ReturnType<typeof figureItemsAt>;
+		try {
+			served = figureItemsAt(definition, level, meter);
+		} catch (error) {
+			if (!(error instanceof RoundCompileError)) throw error;
+			return `the round does not compile at exercise level ${level}: ${named(error)}`;
+		}
+		if (served === null) return null;
+		if (served.length === 0) return `no figure fits the round at exercise level ${level}`;
+		for (const { id, item } of served) {
+			const planned: PlannedItem = {
+				exerciseId: definition.id,
+				skill: definition.practices,
+				exerciseLevel: level,
+				item,
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			};
+			budget.charge(weight);
+			let compiled: number;
+			try {
+				compiled = compileRound(definition, planned, meter, {
+					previewBeats: definition.flow?.previewBeats ?? 0,
+					fromRunStart: null,
+					cache,
+					maxExpectations: budget.left
+				}).expectations.length;
+			} catch (error) {
+				if (error instanceof RoundCheckExceeded) budget.charge(error.cost);
+				if (!(error instanceof RoundCompileError)) throw error;
+				return `figures (${JSON.stringify(id)}) does not compile at exercise level ${level}: ${named(error)}`;
+			}
+			budget.charge(compiledExtra(definition.round, compiled));
 		}
 	}
 	return null;
@@ -445,6 +526,7 @@ function passageRoundsProblem(definition: ExerciseDefinition, budget: CheckBudge
 					budget.left
 				).expectations.length;
 			} catch (error) {
+				if (error instanceof RoundCheckExceeded) budget.charge(error.cost);
 				if (!isUnplayable(error)) throw error;
 				// The compiler names the exercise too: it is named once.
 				const problem = (error as Error).message.replace(`${definition.id}: `, '');
@@ -471,7 +553,8 @@ export interface ExerciseCheckOptions extends RoundCheckOptions {
  * string, shapes with one id or no note (`shapesProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has), the passages it
- * writes (`passagesProblem`), an item it lists (`itemsProblem`), the round of a member of an
+ * writes (`passagesProblem`), an item it lists (`itemsProblem`), a figure its session serves
+ * (`servedFiguresProblem`), the round of a member of an
  * index's first passage (`passageRoundsProblem`), more rounds compiled than its file's check
  * budget leaves (`options.budget`, `MAX_FILE_CHECK_COST`). It never
  * judges what an exercise is worth: anything runnable passes.
@@ -525,6 +608,7 @@ export function validateExercise(
 		return (
 			roundProblem(definition, options, sweep) ??
 			itemsProblem(definition, budget) ??
+			servedFiguresProblem(definition, budget) ??
 			passageRoundsProblem(definition, budget)
 		);
 	};
