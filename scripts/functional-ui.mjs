@@ -13,8 +13,8 @@
  *   node scripts/functional-ui.mjs
  *
  * Behavior failures, uncaught page exceptions on the real pages and text under 16px all exit 1.
- * Chrome is launched headless on its own debugging port, with a fake microphone (a sine wave:
- * it plays nothing a session takes as right); nothing is added to package.json.
+ * Chrome is launched headless on its own debugging port, with a fake microphone (a sine wave,
+ * `FAKE_MICROPHONE`: it plays nothing a session takes as right); nothing is added to package.json.
  */
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -157,36 +157,48 @@ const PLAY = `async (doneSource, timeoutMs) => {
 	const status = () => document.querySelector('[data-status]')?.getAttribute('data-status') ?? 'absent';
 	const button = (label) =>
 		[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === label && !b.disabled);
+	// The play frame first (a home block's « Commencer » is not the session's), then its start.
+	for (let i = 0; i < 100 && !document.querySelector('[data-status]'); i++) await wait(50);
 	for (let i = 0; i < 100 && !button('Commencer'); i++) await wait(50);
 	const startable = Boolean(button('Commencer'));
 	button('Commencer')?.click();
 	const seen = { startable, prompts: 0, breath: false, afterBreath: 0, statuses: [] };
 	let last = null;
-	const until = Date.now() + timeoutMs;
+	const started = Date.now();
+	const until = started + timeoutMs;
 	while (Date.now() < until) {
 		const now = status();
 		if (now !== last) {
 			seen.statuses.push(now);
-			if (now === 'awaiting') {
-				seen.prompts++;
-				if (seen.breath) seen.afterBreath++;
-			}
+			if (now === 'awaiting') seen.prompts++;
 			last = now;
 		}
-		if (document.querySelector('[data-testid="figure-played"]')) seen.breath = true;
+		// The status stays « awaiting » through a breath: past it is the run played shown, then
+		// no longer shown (the next run under way).
+		const played = Boolean(document.querySelector('[data-testid="figure-played"]'));
+		if (played) {
+			if (!seen.breath) seen.breathAt = (Date.now() - started) / 1000;
+			seen.breath = true;
+		} else if (seen.breath) seen.afterBreath++;
 		if (now === 'paused') button('Reprendre')?.click();
 		if (now === 'awaiting') {
 			const key = document.querySelector('[role="group"] button:not([disabled])');
 			key?.click();
 		}
-		if (now === 'finished' || done(seen)) break;
+		// A closed session may leave for its summary between two polls.
+		if (now === 'finished' || location.pathname.startsWith('/summary') || done(seen)) break;
 		await wait(50);
 	}
 	seen.text = document.body.innerText;
 	seen.url = location.pathname + location.search;
+	// A text of an engraving is drawn at its own size times the drawing's zoom.
 	seen.texts = [...document.querySelectorAll('body *')]
 		.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
-		.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }));
+		.map((el) => {
+			const size = parseFloat(getComputedStyle(el).fontSize);
+			const zoom = el instanceof SVGElement ? (el.getScreenCTM?.()?.a ?? 1) : 1;
+			return { text: el.textContent.trim().slice(0, 60), fontSize: (size * zoom) + 'px' };
+		});
 	return seen;
 }`;
 
@@ -195,17 +207,19 @@ const play = (page, done, timeoutMs) =>
 	evaluate(page.call, `() => (${PLAY})(${JSON.stringify(done)}, ${timeoutMs})`);
 /** Past its first prompts: two entered. */
 const PAST_PROMPTS = '(seen) => seen.prompts >= 2';
-/** Past its breath: a prompt entered after the run played was shown. */
+/** Past its breath: the run played shown, then gone (the next run under way). */
 const PAST_BREATH = '(seen) => seen.breath && seen.afterBreath >= 1';
 
 /** Clicks the block of the page whose title is `title` (a link or a button); false when none. */
 const clickBlock = (page, title) =>
 	evaluate(
 		page.call,
-		`() => {
-			const block = [...document.querySelectorAll('.title a, .title button')].find(
+		`async () => {
+			const find = () => [...document.querySelectorAll('.title a, .title button')].find(
 				(el) => el.querySelector('b')?.textContent.trim() === ${JSON.stringify(title)}
 			);
+			for (let i = 0; i < 100 && !find(); i++) await new Promise((resolve) => setTimeout(resolve, 50));
+			const block = find();
 			block?.click();
 			return Boolean(block);
 		}`
@@ -215,7 +229,11 @@ const clickBlock = (page, title) =>
 const blocksOf = (page) =>
 	evaluate(
 		page.call,
-		`() => [...document.querySelectorAll('.title b')].map((b) => {
+		`async () => {
+			for (let i = 0; i < 100 && !document.querySelector('.title b'); i++) {
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			}
+			return [...document.querySelectorAll('.title b')].map((b) => {
 			const row = b.closest('li') ?? b.parentElement.parentElement.parentElement;
 			return {
 				title: b.textContent.trim(),
@@ -223,7 +241,8 @@ const blocksOf = (page) =>
 				button: Boolean(b.closest('button')),
 				text: row?.innerText ?? ''
 			};
-		})`
+			});
+		}`
 	);
 
 const textsOf = (page) =>
@@ -323,6 +342,30 @@ async function open(url) {
 }
 
 /**
+ * The fake microphone of the real pages: a quiet 440 Hz sine wave. Chrome's own fake capture
+ * device (`--use-fake-device-for-media-stream`) never answers `getUserMedia` in headless Chrome
+ * on macOS (seen on 2026-11-20), so a session would never leave its start screen; this stream
+ * takes its place before any script of the page runs.
+ */
+const FAKE_MICROPHONE = `(() => {
+	const devices = navigator.mediaDevices;
+	if (!devices) return;
+	const real = devices.getUserMedia.bind(devices);
+	devices.getUserMedia = async (constraints) => {
+		if (!constraints || !constraints.audio) return real(constraints);
+		const context = new AudioContext();
+		const oscillator = context.createOscillator();
+		oscillator.frequency.value = 440;
+		const gain = context.createGain();
+		gain.gain.value = 0.05;
+		const destination = context.createMediaStreamDestination();
+		oscillator.connect(gain).connect(destination);
+		oscillator.start();
+		return destination.stream;
+	};
+})();`;
+
+/**
  * A real page of the app: its calls, the exceptions it threw so far, and `close`. Its
  * exceptions are read by `noExceptions`.
  */
@@ -332,6 +375,7 @@ async function openApp(path) {
 	const call = (method, params = {}) => send(method, params, sessionId);
 	await call('Page.enable');
 	await call('Runtime.enable');
+	await call('Page.addScriptToEvaluateOnNewDocument', { source: FAKE_MICROPHONE });
 	await call('Page.navigate', { url: `${APP_URL}${path}` });
 	await delay(1200);
 	return {
@@ -984,7 +1028,13 @@ try {
 
 	// The real pages, on a fresh profile: the home, the Library, every catalog routine, an
 	// exercise of each kind from the Library, then a file imported in the settings.
-	await send('Storage.clearDataForOrigin', { origin: APP_URL, storageTypes: 'all' });
+	// Sent on a page's session: the browser's own session does not serve the Storage domain.
+	{
+		const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
+		const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
+		await send('Storage.clearDataForOrigin', { origin: APP_URL, storageTypes: 'all' }, sessionId);
+		await send('Target.closeTarget', { targetId });
+	}
 
 	console.log(`\nAccueil ${APP_URL}/`);
 	const homeRoutines = [];
@@ -1081,7 +1131,11 @@ try {
 		);
 		check(
 			assert(
-				offered ? seen.prompts >= 2 : seen.prompts >= 2 || seen.statuses.includes('finished'),
+				offered
+					? seen.prompts >= 2
+					: seen.prompts >= 2 ||
+							seen.statuses.includes('finished') ||
+							seen.url.startsWith('/summary'),
 				offered
 					? `« ${routine.title.fr} » est jouée au-delà de ses premières consignes (${seen.prompts}, ${seen.statuses.join(' › ')})`
 					: `« ${routine.title.fr} », fermée, joue ou s’achève sans rien à demander (${seen.prompts}, ${seen.statuses.join(' › ')})`
