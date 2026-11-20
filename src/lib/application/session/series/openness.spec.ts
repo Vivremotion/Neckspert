@@ -46,6 +46,7 @@ import {
 import type { PlaySessionController } from '$lib/application/session/contract';
 import {
 	CHORD_ANCHOR_SKILL_ID,
+	CHORD_ZONE_SKILL_ID,
 	LOCATE_NECK_ID,
 	RHYTHM_SILENT_BARS_ID
 } from '$lib/testing/catalogIds';
@@ -61,7 +62,7 @@ import { SESSION_MS } from '$lib/domain/session/policy';
 /** Written here only: the root of a chord on beat 2 of a 3/4 bar, then the chord at its position over two beats. */
 const ROOT_THEN_CHORD: ExerciseDefinition = {
 	id: 'root-then-chord',
-	practices: 'chord-zone',
+	practices: CHORD_ZONE_SKILL_ID,
 	view: 'lane',
 	meter: METER_3_4,
 	tempo: 72,
@@ -510,6 +511,8 @@ const FLOORS = {
 	passagesPlayed: 137,
 	passagesRefused: 83,
 	passagesBlocking: 66,
+	memoryAccepted: 39,
+	memoryRefused: 120,
 	memoryRoutinesPlayed: 16,
 	passagesRoutinesPlayed: 16,
 	routineLeaves: 20,
@@ -744,6 +747,8 @@ describe('every valid passages exercise and routine plays', () => {
 			/** Played alone with nothing, asking its anti-blocking: and changed air. */
 			passagesBlocking: 0,
 			passagesBlockingEnded: 0,
+			memoryAccepted: 0,
+			memoryRefused: 0,
 			memoryRoutinesAccepted: 0,
 			memoryRoutinesPlayed: 0,
 			passagesRoutinesAccepted: 0,
@@ -847,9 +852,21 @@ describe('every valid passages exercise and routine plays', () => {
 			}
 		}
 
-		const memoryPool = SEEDS.map(drawn).filter(
-			(definition) => aloneSourceOf(definition) === 'memory' && accepted(definition)
-		);
+		// The memory exercises drawn, as a file's: those refused counted with their reasons.
+		const memoryPool: ExerciseDefinition[] = [];
+		const memoryRefused: { definition: ExerciseDefinition; reason: string }[] = [];
+		for (const definition of SEEDS.map(drawn)) {
+			if (aloneSourceOf(definition) !== 'memory') continue;
+			const reason = benchRefusal(definition);
+			if (reason !== null) {
+				counts.memoryRefused++;
+				memoryRefused.push({ definition, reason });
+				continue;
+			}
+			registerExercise(definition, 'bench');
+			counts.memoryAccepted++;
+			memoryPool.push(definition);
+		}
 		for (const [kind, pool] of [
 			['memory', memoryPool],
 			['passages', passagesPool]
@@ -912,8 +929,9 @@ describe('every valid passages exercise and routine plays', () => {
 		expect(counts.rightCut, told).toBeLessThanOrEqual(RIGHT_CUT_CEILING);
 		expect(counts.noneCut, told).toBe(0);
 
-		// Every draw it refuses is refused in words that name a field of the file, never as a crash.
-		for (const { definition, reason } of refused) {
+		// Every draw it refuses, of passages or of memory, is refused in words that name a field of
+		// the file, never as a crash.
+		for (const { definition, reason } of [...refused, ...memoryRefused]) {
 			expect(reason, definition.id).toMatch(REFUSAL_FIELD);
 			expect(reason, definition.id).not.toMatch(
 				/Cannot read|is not a function|undefined|TypeError/

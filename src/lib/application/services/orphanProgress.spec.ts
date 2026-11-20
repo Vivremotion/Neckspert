@@ -474,6 +474,23 @@ describe('a track exercise no file defines', () => {
 		expect((await home(services))[0]).toEqual(['notes', true, 1, 3_601_000]);
 	});
 
+	it('draws on the neck map a card that only a second exercise of its skill lists', async () => {
+		const { services, deps } = harness();
+		await seed(deps);
+		// Locate no longer lists 6:G; a second exercise of its skill does: the card is still drawn.
+		const locate = exerciseById(LOCATE_NECK_ID);
+		withoutExercise(LOCATE_NECK_ID);
+		registerExercise(
+			{ ...locate, items: (locate.items ?? []).filter((entry) => entry !== '6:G') },
+			'catalog'
+		);
+		registerExercise({ ...locate, id: 'locate-low-g', items: ['6:G'] }, 'imported');
+		const drawn = (await services.neckMap()).filter((cell) => cell.locate !== 'unseen');
+		expect(drawn).toEqual([
+			expect.objectContaining({ string: 6, fret: 3, pitch: 'G', locate: 'learning' })
+		]);
+	});
+
 	it('starts the triads without identify (D9)', async () => {
 		const { services, deps } = harness();
 		withoutExercise(IDENTIFY_NECK_ID);

@@ -166,6 +166,27 @@ describe('/ page', () => {
 		}
 	});
 
+	it('tells an imported file refused, and not the catalog, when only that file was refused', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const { imported } = loadDefinitions({
+				catalog: CATALOG_FILES,
+				imported: { 'broken.json': '{' }
+			});
+			expect(imported.refusals).not.toEqual([]);
+			const services = createFakeAppServices({ routines: async () => catalogRoutines() });
+			services.definitions.refusals = () => imported.refusals;
+			render(TestHarness, { props: { services } });
+			await waitFor(() =>
+				expect(screen.getByText('Un fichier importé a un problème.')).toBeTruthy()
+			);
+			expect(screen.queryByText('Une partie du catalogue n’a pas pu être chargée.')).toBeNull();
+		} finally {
+			loadDefinitions({ catalog: CATALOG_FILES });
+			error.mockRestore();
+		}
+	});
+
 	it('says nothing of the catalog when it loaded whole', async () => {
 		const services = createFakeAppServices({ routines: async () => catalogRoutines() });
 		render(TestHarness, { props: { services } });

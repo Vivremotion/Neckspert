@@ -455,6 +455,10 @@ describe('a gesture session on the session controller, end to end', () => {
 		});
 		const summary = await app.services.sessionSummary(sessionId);
 		expect(changedAir(summary)).toEqual([{ exerciseId: 'inversion-run' }]);
+		// The series was quit, not ended by the change of air: the leave is told once, on the
+		// link's one line, and the series does not tell it again.
+		expect(summary.series?.ended).toBe('quit');
+		expect(summary.exercises.filter((line) => line.exerciseId === 'inversion-run')).toHaveLength(1);
 	});
 
 	it('lets a second exercise leave later, then the last: the session ends there, every one named (Review Focus 5)', async () => {
