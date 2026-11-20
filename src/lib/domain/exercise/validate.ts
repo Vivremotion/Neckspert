@@ -18,7 +18,13 @@ import type { PassageIndex } from './passage/types';
 import { passageDerivation, type Member } from '../families';
 import type { LevelSweep } from './selection/validate';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
-import { CheckBudget, CheckBudgetExceeded, compiledExtra, roundCheckWeight } from './checkCost';
+import {
+	CheckBudget,
+	CheckBudgetExceeded,
+	compiledExtra,
+	levelsCheckCost,
+	roundCheckCost
+} from './checkCost';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
@@ -347,7 +353,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 	}
 	// What depends on a level alone is resolved once for all the items.
 	const cache: ResolutionCache = new Map();
-	const weight = roundCheckWeight(round);
+	const weight = roundCheckCost(definition);
 	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
@@ -378,7 +384,8 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 					compiled = compileRound(definition, planned, meter, {
 						previewBeats: definition.flow?.previewBeats ?? 0,
 						fromRunStart: null,
-						cache
+						cache,
+						maxExpectations: budget.left
 					}).expectations.length;
 				} catch (error) {
 					// The compiler names the exercise too: it is named once.
@@ -424,7 +431,7 @@ function passageRoundsProblem(definition: ExerciseDefinition, budget: CheckBudge
 	}
 	// What depends on a level alone is resolved once for all the members.
 	const cache: ResolutionCache = new Map();
-	const weight = roundCheckWeight(round);
+	const weight = roundCheckCost(definition);
 	for (const { index, members } of firsts) {
 		for (const [rank, member] of members.entries()) {
 			budget.charge(weight);
@@ -434,7 +441,8 @@ function passageRoundsProblem(definition: ExerciseDefinition, budget: CheckBudge
 				compiled = compilePassageRound(
 					definition,
 					passageRound(definition, index, each, item, rank, members.length),
-					cache
+					cache,
+					budget.left
 				).expectations.length;
 			} catch (error) {
 				if (!isUnplayable(error)) throw error;
@@ -501,6 +509,8 @@ export function validateExercise(
 		if (memory !== null) return memory;
 		const params = paramsProblem(definition);
 		if (params !== null) return params;
+		// Every level resolved, here and in the sweeps of the selections: charged before.
+		budget.charge(levelsCheckCost(definition));
 		const levels = levelsProblem(definition);
 		if (levels !== null) return levels;
 		const figures = figuresProblem(definition);

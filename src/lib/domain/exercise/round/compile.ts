@@ -2,7 +2,7 @@ import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivatio
 import { MEMBER_CONTENT, PITCH_CONTENT } from '../../judges';
 import { exerciseItemSet, exerciseSetId } from '../../sets';
 import { landingBar, mutedBarsFrom, type Accompaniment } from '../../time/accompaniment';
-import type { Figure, FigureNote } from '../../time/figure';
+import { attackNotes, type Figure, type FigureNote } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
 import { BEAT_RESOLUTION, barLength, beatsOf, sameMeter, type Meter } from '../../time/meter';
 import {
@@ -83,6 +83,8 @@ interface Context {
 	item: PlannedItem;
 	meter: Meter;
 	params: Readonly<Record<string, unknown>>;
+	/** The most notes, and bars, a figure entry may expand to; absent: no bound. */
+	maxExpectations?: number;
 }
 
 function itemKeyOf(context: Context): string {
@@ -400,6 +402,20 @@ function figureEntryOf(
 	const at = position(context, `${field}.at`, template.at);
 	const content = figureContentOf(context, `${field}.content`, template.content, id);
 	const window = windowOf(context, `${field}.window`, template.window);
+	const limit = context.maxExpectations;
+	if (limit !== undefined) {
+		// Counted before the work: each bar of the span is visited, each loop gives every note.
+		const span = length.sub(at);
+		const bars = Math.ceil(span.div(barLength(figure.meter)).toNumber());
+		const notes = Math.ceil(bars / figure.bars) * attackNotes(figure).length;
+		if (Math.max(bars, notes) > limit) {
+			fail(
+				context,
+				`${field}.figure`,
+				`would give ${notes} notes over ${bars} bars, more than the ${limit} a check may still compile`
+			);
+		}
+	}
 	try {
 		return figureExpectations({
 			figure,
@@ -450,9 +466,15 @@ function contextOf(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number; cache?: ResolutionCache }
+	resolved: { previewBeats: number; cache?: ResolutionCache; maxExpectations?: number }
 ): Context {
-	return { definition, item, meter, params: roundParamsOf(definition, item, resolved) };
+	return {
+		definition,
+		item,
+		meter,
+		params: roundParamsOf(definition, item, resolved),
+		...(resolved.maxExpectations !== undefined && { maxExpectations: resolved.maxExpectations })
+	};
 }
 
 /** The round's first figure entry and its index; null when it writes none. */
@@ -555,7 +577,13 @@ export function compileRound(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number; fromRunStart: number | null; cache?: ResolutionCache }
+	resolved: {
+		previewBeats: number;
+		fromRunStart: number | null;
+		cache?: ResolutionCache;
+		/** At load: the most notes (and bars) a figure entry may expand to, checked before it does. */
+		maxExpectations?: number;
+	}
 ): RoundPlan {
 	const template = definition.round;
 	if (!template)

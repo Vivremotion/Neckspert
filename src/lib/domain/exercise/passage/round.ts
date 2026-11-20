@@ -38,18 +38,21 @@ export function passageRound(
 
 /**
  * The whole round of a passage's member compiled, in its exercise's meter, with the preview its
- * flow writes (0 without one): what the load and the source check before a passage is played.
+ * flow writes (0 without one): what the load and the source check before a passage is played;
+ * `maxExpectations` bounds a figure's notes before they are expanded (`compileRound`).
  * Throws as `compileRound` does.
  */
 export function compilePassageRound(
 	definition: ExerciseDefinition,
 	round: PlannedItem,
-	cache?: ResolutionCache
+	cache?: ResolutionCache,
+	maxExpectations?: number
 ): RoundPlan {
 	return compileRound(definition, round, definition.meter ?? METER_4_4, {
 		previewBeats: definition.flow?.previewBeats ?? 0,
 		fromRunStart: null,
-		...(cache && { cache })
+		...(cache && { cache }),
+		...(maxExpectations !== undefined && { maxExpectations })
 	});
 }
 

@@ -14,7 +14,7 @@ import {
 	MAX_ROUND_CHECKS,
 	validateExercise
 } from './validate';
-import { CheckBudget } from './checkCost';
+import { CheckBudget, levelsCheckCost, roundCheckCost } from './checkCost';
 import { GESTURE_JAM, LOCATE_NECK, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 registerTestSkills();
@@ -639,24 +639,50 @@ describe('validateExercise limits', () => {
 		).toBeNull();
 	});
 
-	it('charges each round it compiles to the budget given, and refuses past it in the budget’s words', () => {
-		// 66 items, one level, a round of weight 2: 132.
-		const budget = new CheckBudget(1000);
+	it('charges its levels, then each round it compiles, to the budget given, and refuses past it in the budget’s words', () => {
+		// Its levels resolved, then 66 items at one level.
+		const levels = levelsCheckCost(LOCATE_NECK);
+		const round = roundCheckCost(LOCATE_NECK);
+		const budget = new CheckBudget(Infinity);
 		expect(validateExercise(LOCATE_NECK, { budget })).toBeNull();
-		expect(budget.spent).toBe(LOCATE_NECK.items!.length * 2);
-		const tight = new CheckBudget(100);
+		expect(budget.spent).toBe(levels + LOCATE_NECK.items!.length * round);
+		const tight = new CheckBudget(levels + 10 * round);
 		expect(validateExercise(LOCATE_NECK, { budget: tight })).toBe(
-			'locate-note-string: this file asks more checking than a start can afford (cost 102, at most 100)'
+			`locate-note-string: this file asks more checking than a start can afford (cost ${levels + 11 * round}, at most ${levels + 10 * round})`
 		);
 	});
 
+	it('charges the levels resolved before resolving them', () => {
+		const many = { ...LOCATE_NECK, levels: [{ params: manyParams(200) }, ...plainLevels(99)] };
+		expect(levelsCheckCost(many)).toBeGreaterThan(levelsCheckCost(LOCATE_NECK));
+		const budget = new CheckBudget(levelsCheckCost(many) - 1);
+		const start = performance.now();
+		expect(validateExercise(many, { budget })).toMatch(/can afford \(cost \d+, at most \d+\)$/);
+		expect(budget.spent).toBe(0);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
 	it('charges the notes a figure entry expands to once compiled', () => {
-		// 200 items at 100 levels, quarters: a round of 2 plus 3 notes more.
+		// 200 items at 100 levels, quarters: a round plus 3 notes more.
 		const items = Array.from({ length: 200 }, () => ARPEGGIO_EXERCISE.items![0]);
 		const levels = [ARPEGGIO_EXERCISE.levels![0], ...plainLevels(99)];
+		const exercise = { ...ARPEGGIO_EXERCISE, items, levels };
 		const budget = new CheckBudget(Infinity);
-		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items, levels }, { budget })).toBeNull();
-		expect(budget.spent).toBe(200 * 100 * 5);
+		expect(validateExercise(exercise, { budget })).toBeNull();
+		expect(budget.spent).toBe(
+			levelsCheckCost(exercise) + 200 * 100 * (roundCheckCost(exercise) + 3)
+		);
+	});
+
+	it('refuses a figure that would expand past what the budget leaves, before expanding it', () => {
+		const item = ARPEGGIO_EXERCISE.items![0] as { item: string };
+		const exercise = { ...ARPEGGIO_EXERCISE, items: [{ item: item.item, beats: 4_000 }] };
+		const budget = new CheckBudget(levelsCheckCost(exercise) + roundCheckCost(exercise) + 999);
+		const start = performance.now();
+		expect(validateExercise(exercise, { budget })).toMatch(
+			/^test-arpeggio-sequence: items\[0\] .* does not compile at exercise level -1: round\.expectations\[0\]\.figure would give 4000 notes over 1000 bars, more than the 999 a check may still compile$/
+		);
+		expect(performance.now() - start).toBeLessThan(50);
 	});
 
 	it('refuses at once, compiling nothing, with a budget already spent', () => {

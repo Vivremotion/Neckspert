@@ -10,7 +10,9 @@ import {
 	MAX_PASSAGE_ROUND_CHECKS,
 	MAX_ROUND_CHECKS,
 	MAX_ROUND_EXPECTATIONS,
+	levelsCheckCost,
 	MAX_FILE_CHECK_COST,
+	roundCheckCost,
 	MAX_SELECTION_FILTERS,
 	MAX_SELECTION_ORDER,
 	type CheckBudget
@@ -43,18 +45,20 @@ import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions } from './definitions';
 
 /**
- * What a file just under a limit may take to load; generous, so that a slow machine passes. The
- * slowest case below (levels × ladder levels, each with the most params) takes about 1.4 s here;
- * before the limits, files of this size took 2 to 17 s.
+ * What a file just under a limit may take to load, or one over the check budget to be refused;
+ * generous, so that a slow machine passes. The slowest case below (the lightest grid exercises
+ * the budget accepts, then one more refused) takes about 1.6 s here; before the limits, files took
+ * 2 to 17 s, and before the budget up to 28 s.
  */
 const BUDGET_MS = 5_000;
 /** What a file over a limit may take to be refused. */
 const REFUSED_MS = 500;
 /**
- * What the slowest file the check budget accepts may take to load: about 1.2 s here (Apple M3
- * Pro), for a file of exercises of the lightest rounds on a grid of the most changes.
+ * What the slowest file the check budget accepts may take to load, a tripwire about three times
+ * what it takes here (Apple M3 Pro): 0.85 s for a file of exercises of the lightest rounds on a
+ * grid of the most changes, 0.5 s for the levels at the most params the budget accepts.
  */
-const WORST_ACCEPTED_MS = 2_000;
+const WORST_ACCEPTED_MS = 3_600;
 
 /**
  * What checking each file cost, read on the budget each exercise's check was given, and what the
@@ -128,6 +132,30 @@ function gridFileLoad(exercises: unknown[]) {
 	const start = performance.now();
 	const { imported } = loadDefinitions({ catalog: CATALOG_FILES, imported: { 'h.json': text } });
 	return { ms: performance.now() - start, text, ...imported };
+}
+
+/**
+ * The params each exercise and ladder level writes in the tests at the most levels and ladder
+ * levels, beside their rounds' own cost: every level's params are resolved over every other's
+ * and copied by every round, and the budget charges it, so the most params allowed
+ * (`MAX_LEVEL_PARAMS`) at every level do not fit beside many rounds; the levels at the most params
+ * the budget accepts are tested on their own (`levelsRecipe`).
+ */
+const PARAMS_IN_BUDGET = 8;
+
+/**
+ * Locate, as the notes' catalog writes it, at the most levels and ladder levels, each writing
+ * `params` short keys: the reviewer's recipe of plan 5b.
+ */
+function levelsRecipe(id: string, params: number) {
+	const keys = (count: number) =>
+		Object.fromEntries(Array.from({ length: count }, (_, i) => [i.toString(36), 0]));
+	const exercise = locateJson(id);
+	const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({ params: keys(params) }));
+	const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
+		params: { ...keys(params - 2), leadBeats: 2, aided: false }
+	}));
+	return { ...exercise, params: { ...(exercise.params as object), ladder }, levels };
 }
 
 const budgetWords = (cost: number) =>
@@ -220,12 +248,12 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(ms).toBeLessThan(BUDGET_MS);
 	});
 
-	it('loads an exercise with the most levels and ladder levels, each with the most params', () => {
+	it('loads an exercise with the most levels and ladder levels, each with a few params', () => {
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
-			params: manyParams(MAX_LEVEL_PARAMS)
+			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const exercise = locateJson('h-levels');
 		const { ms, refusals } = timedLoad({
@@ -237,9 +265,10 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(ms).toBeLessThan(BUDGET_MS);
 	});
 
-	it('loads an exercise listing 200 items at 100 levels of 200 params, just under the round checks allowed', () => {
+	it('loads an exercise listing 200 items at 100 levels with params, just under the round checks allowed', () => {
+		// Each of the 20 000 rounds copies its level's params: few of them fit the budget.
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
-			params: manyParams(MAX_LEVEL_PARAMS)
+			params: manyParams(16)
 		}));
 		const { ms, refusals } = timedLoad({
 			...arpeggioJson('h-wide'),
@@ -252,10 +281,10 @@ describe('a definition file at the limits of what checking it may cost', () => {
 
 	it('loads a selection with the most filters, each read in the params, at the most levels and ladder levels', () => {
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
-			params: manyParams(MAX_LEVEL_PARAMS)
+			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const zones = Object.fromEntries(
 			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
@@ -277,10 +306,10 @@ describe('a definition file at the limits of what checking it may cost', () => {
 
 	it('loads a round with the most expectations, each a selection with the most filters read in the params, at the most levels and ladder levels', () => {
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
-			params: manyParams(MAX_LEVEL_PARAMS)
+			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const zones = Object.fromEntries(
 			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
@@ -334,10 +363,10 @@ describe('a definition file at the limits of what checking it may cost', () => {
 
 	it('loads the most values of passage params, read by the most filters, at the most levels and ladder levels', () => {
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
-			params: manyParams(MAX_LEVEL_PARAMS)
+			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const names = Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => `z${i}`);
 		const link = linkJson('h-each');
@@ -393,10 +422,10 @@ describe('a definition file at the limits of what checking it may cost', () => {
 
 	it('loads members and a round reading the same params with the most filters, at the most levels and ladder levels', () => {
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
-			params: manyParams(MAX_LEVEL_PARAMS)
+			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const zones = Object.fromEntries(
 			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
@@ -425,13 +454,46 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		const loaded = gridFileLoad([
 			gridExercise('h-heavy', MAX_ROUND_EXPECTATIONS, MAX_SELECTION_FILTERS)
 		]);
-		// Each round weighs 1 + 64 + 64 × 16: refused at the first that passes the budget.
-		const weight = 1 + MAX_ROUND_EXPECTATIONS * (1 + MAX_SELECTION_FILTERS);
-		const cost = (Math.floor(MAX_FILE_CHECK_COST / weight) + 1) * weight;
+		// Its levels charged first, then each round (1 + 64 + 64 × 16, and its params): refused at
+		// the first round that passes the budget.
+		const exercise = gridExercise('h-heavy', MAX_ROUND_EXPECTATIONS, MAX_SELECTION_FILTERS);
+		const levels = levelsCheckCost(exercise);
+		const weight = roundCheckCost(exercise);
+		expect(weight).toBeGreaterThan(MAX_ROUND_EXPECTATIONS * (1 + MAX_SELECTION_FILTERS));
+		const cost = levels + (Math.floor((MAX_FILE_CHECK_COST - levels) / weight) + 1) * weight;
 		expect(loaded.refusals).toEqual([
 			{ file: 'h.json', kind: 'exercise', id: 'h-heavy', reason: budgetWords(cost) }
 		]);
 		expect(loaded.ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads the levels at the most params the budget accepts, and refuses one param more in its words', () => {
+		// 61 params at each of 100 levels and 100 ladder levels: about 296 000, loaded in about
+		// 0.5 s here (Apple M3 Pro); 62: about 301 000.
+		const accepted = timedLoad(levelsRecipe('h-recipe', 61));
+		expect(accepted.refusals).toEqual([]);
+		expect(accepted.ms).toBeLessThan(WORST_ACCEPTED_MS);
+		const over = timedLoad(levelsRecipe('h-recipe', 62));
+		expect(over.refusals).toHaveLength(1);
+		expect(over.refusals[0].reason).toMatch(
+			/^this file asks more checking than a start can afford \(cost \d+, at most 300000\)$/
+		);
+		expect(over.ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('refuses the levels at the most params, three times in a file, within its time', () => {
+		// 5.8 s to load before the levels were charged; refused in about 0.8 s here.
+		const text = JSON.stringify({
+			format: 0,
+			exercises: [0, 1, 2].map((i) => levelsRecipe(`h-recipe-${i}`, MAX_LEVEL_PARAMS))
+		});
+		const start = performance.now();
+		const { imported } = loadDefinitions({ catalog: CATALOG_FILES, imported: { 'h.json': text } });
+		expect(performance.now() - start).toBeLessThan(BUDGET_MS);
+		expect(imported.refusals.map((refusal) => refusal.reason)).toEqual(
+			Array(3).fill(imported.refusals[0].reason)
+		);
+		expect(imported.refusals[0].reason).toMatch(/^this file asks more checking than a start/);
 	});
 
 	it('loads the slowest file the budget accepts within its time, and refuses one exercise more', () => {
@@ -490,6 +552,28 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			expect(refusals).toEqual([{ file: 'h.json', kind: 'exercise', id: 'h-over', reason }]);
 			expect(ms, reason).toBeLessThan(REFUSED_MS);
 		}
+	});
+
+	it('refuses fast an item whose round would expand its figure past what the budget leaves, naming it', () => {
+		// 2 000 000 beats of thirty-second notes: 15.5 s to refuse once expanded; now before.
+		const item = ARPEGGIO_EXERCISE.items![0] as { item: string };
+		const { figures: _figures, ...rest } = ARPEGGIO_EXERCISE;
+		const { ms, refusals } = timedLoad({
+			...JSON.parse(JSON.stringify(rest)),
+			id: 'h-long',
+			figures: [
+				{ id: 'quarters', lilypond: `c32 ${'c '.repeat(31)}` },
+				{ id: 'eighths', lilypond: 'c8 c c c c c c c' }
+			],
+			items: [{ item: item.item, beats: 2_000_000 }]
+		});
+		expect(refusals).toHaveLength(1);
+		expect(refusals[0].reason).toMatch(
+			new RegExp(
+				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level -1: round\\.expectations\\[0\\]\\.figure would give 16000000 notes over 500000 bars, more than the \\d+ a check may still compile$`
+			)
+		);
+		expect(ms).toBeLessThan(REFUSED_MS);
 	});
 
 	it('refuses fast a round over its expectations', () => {

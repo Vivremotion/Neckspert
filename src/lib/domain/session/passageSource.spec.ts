@@ -5,7 +5,7 @@ import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { triadOf } from '$lib/domain/grid';
 import { gridById, registerGrid } from '$lib/domain/grid/registry';
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
-import { roundCheckWeight } from '$lib/domain/exercise/checkCost';
+import { roundCheckCost } from '$lib/domain/exercise/checkCost';
 import type { MemberContent } from '$lib/domain/judges';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource } from '$lib/domain/progress/selector';
@@ -22,12 +22,7 @@ import {
 	ZONE_PASSAGES
 } from '$lib/testing/changesPassages';
 import { triadCards } from '$lib/testing/shapes';
-import {
-	createPassageSource,
-	MAX_PASSAGE_SEARCH,
-	MAX_PASSAGE_TRIES,
-	passageOf
-} from './passageSource';
+import { createPassageSource, MAX_PASSAGE_TRIES, passageOf } from './passageSource';
 import { SESSION_MS } from './policy';
 
 const NOW = Date.parse('2026-11-19T10:00:00.000Z');
@@ -639,35 +634,37 @@ describe('createPassageSource', () => {
 
 	describe('the work of finding a passage', () => {
 		/**
-		 * A grid of the most changes, C and F in turn, its last change an A, a chord the catalog's
-		 * grids do not play.
+		 * A grid of the most changes, C and F in turn, and the same grid ending on an A, a chord the
+		 * catalog's grids do not play.
 		 */
 		const LONG = 'test-long-grid';
+		const ENDS_ON_A = 'test-long-grid-a';
 		const grid = alternatingGrid(LONG, 256);
+		registerGrid({ ...grid, beatsPerBar: 4 }, 'test');
 		registerGrid(
 			{
 				...grid,
+				id: ENDS_ON_A,
 				beatsPerBar: 4,
 				chords: [...grid.chords.slice(0, -1), { ...grid.chords.at(-1)!, symbol: 'A' }]
 			},
 			'test'
 		);
-		/**
-		 * The zone on that grid, open without cards, with the most values of its zone: each of its
-		 * passages fails at its last round, where no shape of A is admitted.
-		 */
-		const failing = (id: string): ExerciseDefinition => ({
+		/** The zone on `gridId`, open without cards, with the most values of its zone. */
+		const zoneOn = (id: string, gridId: string): ExerciseDefinition => ({
 			...ZONE_PASSAGES,
 			id,
 			passages: {
 				...ZONE_PASSAGES.passages!,
-				of: { grid: [LONG] },
+				of: { grid: [gridId] },
 				each: { zone: Array.from({ length: 64 }, () => [0, 24]) },
 				opens: undefined
 			}
 		});
+		/** Each of its passages fails at its last round, where no shape of A is admitted. */
+		const failing = (id: string) => zoneOn(id, ENDS_ON_A);
 		const A = JSON.stringify(triadOf('A'));
-		/** Counts the shapes asked of the family (twice a round: compiled, then admitted), A's none. */
+		/** Counts the shapes asked of the family (once a round here), A's none. */
 		function withoutA(): { rounds: () => number; restore: () => void } {
 			const members = chordShapes.members.bind(chordShapes);
 			let rounds = 0;
@@ -678,18 +675,20 @@ describe('createPassageSource', () => {
 			return { rounds: () => rounds, restore: () => spy.mockRestore() };
 		}
 
-		it('leaves out an index whose passages fail at their last round for every value, within its tries, and goes on', () => {
+		it('leaves out the indices whose passages fail at their last round for every value, within their tries, and serves the next exercise in the same call', () => {
 			const counted = withoutA();
 			try {
-				const s = source([failing('test-failing'), JAM_PASSAGES]);
+				const s = source([failing('test-failing-1'), failing('test-failing-2'), JAM_PASSAGES]);
 				const start = performance.now();
 				const served = s.next(at(NOW))!;
 				const ms = performance.now() - start;
 				expect(served.exerciseId).toBe(JAM_PASSAGES.id);
-				// Each round's weight charged before it compiles: no more than the tries allow.
-				const weight = roundCheckWeight(ZONE_PASSAGES.round);
-				expect((counted.rounds() / 2) * weight).toBeLessThanOrEqual(MAX_PASSAGE_SEARCH);
-				expect(ms).toBeLessThan(250);
+				// Each failing index stops once its failed tries pass its bound: at most one passage more.
+				const cost = roundCheckCost(failing('x'));
+				const passage = 256 * cost;
+				expect(counted.rounds() * cost).toBeLessThanOrEqual(2 * (MAX_PASSAGE_TRIES + passage));
+				// Measured 28 to 47 ms here (Apple M3 Pro): a tripwire at about three times that.
+				expect(ms).toBeLessThan(150);
 				const clock = { now: NOW };
 				for (let rank = 1; rank < served.passage!.length; rank++) s.next(at(clock.now));
 				const exercises = Array.from({ length: 3 }, () => playPassage(s, clock)[0].exerciseId);
@@ -699,32 +698,29 @@ describe('createPassageSource', () => {
 			}
 		});
 
-		it('answers null once a call has spent its search, the index under way left out, and serves the next exercise at the next call', () => {
-			const counted = withoutA();
-			try {
-				const s = source([failing('test-failing-1'), failing('test-failing-2'), JAM_PASSAGES]);
-				expect(s.next(at(NOW))).toBeNull();
-				const weight = roundCheckWeight(ZONE_PASSAGES.round);
-				expect((counted.rounds() / 2) * weight).toBeLessThanOrEqual(MAX_PASSAGE_SEARCH);
-				const served = s.next(at(NOW))!;
-				expect(served.exerciseId).toBe(JAM_PASSAGES.id);
-				const clock = { now: NOW };
-				for (let rank = 1; rank < served.passage!.length; rank++) s.next(at(clock.now));
-				const exercises = Array.from({ length: 3 }, () => playPassage(s, clock)[0].exerciseId);
-				expect(exercises).toEqual(Array(3).fill(JAM_PASSAGES.id));
-			} finally {
-				counted.restore();
-			}
+		it('serves a playable passage, however much more than its tries it weighs', () => {
+			const heavy = zoneOn('test-heavy', LONG);
+			expect(256 * roundCheckCost(heavy)).toBeGreaterThan(MAX_PASSAGE_TRIES);
+			const served = source([heavy]).next(at(NOW))!;
+			expect(served.exerciseId).toBe('test-heavy');
+			expect(served.passage!.length).toBe(256);
 		});
 
-		it('finds a passage of every index of the catalog far within its tries', () => {
+		it('finds a passage of every index of the catalog, with each value of its passage params, far within its tries', () => {
 			for (const definition of PASSAGE_EXERCISES) {
-				const weight = roundCheckWeight(definition.round);
+				const cost = roundCheckCost(definition);
+				const lists = Object.entries(definition.passages!.each ?? {});
+				const tries = Math.max(1, ...lists.map(([, values]) => values.length));
 				for (const index of passageIndices(definition)) {
-					const members = passageMembers(definition, index, {});
-					expect(members.length * weight, `${definition.id} ${index.key}`).toBeLessThan(
-						MAX_PASSAGE_TRIES / 20
-					);
+					for (let k = 0; k < tries; k++) {
+						const each = Object.fromEntries(
+							lists.map(([name, values]) => [name, values[k % values.length]])
+						);
+						const members = passageMembers(definition, index, each);
+						expect(members.length * cost, `${definition.id} ${index.key} ${k}`).toBeLessThan(
+							MAX_PASSAGE_TRIES / 20
+						);
+					}
 				}
 			}
 			expect(gridById(LONG).chords).toHaveLength(256);

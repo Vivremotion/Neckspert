@@ -5,7 +5,10 @@ import {
 	CheckBudget,
 	CheckBudgetExceeded,
 	compiledExtra,
+	levelsCheckCost,
 	MAX_FILE_CHECK_COST,
+	PARAM_ENTRIES_PER_UNIT,
+	roundCheckCost,
 	roundCheckWeight
 } from './checkCost';
 import type { RoundTemplate } from './round/types';
@@ -46,12 +49,46 @@ describe('roundCheckWeight', () => {
 	});
 });
 
+describe('the cost of params', () => {
+	const keys = (count: number) =>
+		Object.fromEntries(Array.from({ length: count }, (_, i) => [`k${i}`, i]));
+
+	it('adds to a round the params it reads, as many as its most written level and its first ladder level', () => {
+		const base = Object.keys(LOCATE_NECK.params).length + 4;
+		const ladder = (LOCATE_NECK.params.ladder as { params: object }[])[0].params;
+		const first = Object.keys(ladder).length;
+		const units = (entries: number) => Math.ceil(entries / PARAM_ENTRIES_PER_UNIT);
+		expect(roundCheckCost(LOCATE_NECK)).toBe(2 + units(base + first));
+		const levels = [{ params: keys(3) }, { params: keys(160) }];
+		expect(roundCheckCost({ ...LOCATE_NECK, levels })).toBe(2 + units(base + 160 + first));
+	});
+
+	it('counts every level resolved over every ladder level, and a sweep, before any is', () => {
+		const plain = levelsCheckCost({ ...LOCATE_NECK, levels: [{ params: {} }] });
+		const wide = levelsCheckCost({
+			...LOCATE_NECK,
+			levels: Array.from({ length: 100 }, () => ({ params: keys(200) }))
+		});
+		// Each of the 100 levels writes 200 more entries, resolved once alone, once over each of
+		// the ladder's levels, and once in a sweep.
+		const ladder = (LOCATE_NECK.params.ladder as unknown[]).length;
+		expect(wide - plain).toBeGreaterThanOrEqual(
+			Math.floor((100 * 200 * (ladder + 2)) / PARAM_ENTRIES_PER_UNIT)
+		);
+	});
+
+	it('reads nothing it cannot count', () => {
+		expect(levelsCheckCost({ ...LOCATE_NECK, levels: 'x' as never, params: 3 as never })).toBe(1);
+	});
+});
+
 describe('CheckBudget', () => {
 	it('charges up to its most, then refuses in words, the cost reached and the most named', () => {
 		const budget = new CheckBudget(10);
 		budget.charge(6);
 		budget.charge(4);
 		expect(budget.spent).toBe(10);
+		expect(budget.left).toBe(0);
 		expect(budget.refusal).toBeNull();
 		expect(() => budget.charge(3)).toThrow(CheckBudgetExceeded);
 		expect(budget.refusal).toBe(
