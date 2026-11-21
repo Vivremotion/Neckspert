@@ -79,6 +79,19 @@ export interface AnswerChoice {
 export type Announcement =
 	'level-up' | 'level-down' | 'aid-level' | 'listen-remedy' | 'play-along' | 'change-of-air';
 
+/**
+ * A stage as a controller sets it: the view and its model, a value built whole and never changed
+ * in place. A class instance on purpose: reactive state wraps plain objects, and a model wrapped
+ * anew at every beat gives everything it holds a new identity, so a view could not tell that the
+ * figure of a round is the one it has already engraved, and engraved it again on every beat.
+ */
+export class PlayStage {
+	constructor(
+		readonly view: string,
+		readonly model: unknown
+	) {}
+}
+
 export interface PlayView {
 	status: PlayStatus;
 	/** The tempo played; 0 while the series has not set it (before its first item), and not shown. */
@@ -99,7 +112,8 @@ export interface PlayView {
 	audioError: 'input' | 'bleed' | null;
 	/**
 	 * The screen model of the prompt waiting or on show, and the view its exercise names to show
-	 * it; null before a prompt, and at the end.
+	 * it; null before a prompt, and at the end. A controller that shows a model again on every
+	 * beat sets a `PlayStage`, so that what two models share stays the same object for the view.
 	 */
 	stage: { view: string; model: unknown } | null;
 	/**

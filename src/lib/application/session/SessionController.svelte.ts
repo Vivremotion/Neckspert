@@ -41,6 +41,7 @@ import {
 	playViewOf,
 	type Announcement,
 	type LaneEntry,
+	PlayStage,
 	type PlayOrigin,
 	type PlaySessionController,
 	type PlayView
@@ -1944,7 +1945,7 @@ export class SessionController implements PlaySessionController {
 			live: this.round?.item === item ? (this.round.live ?? null) : null,
 			coming: this.pending ?? this.givenBack[0] ?? this.source?.peek?.() ?? null
 		});
-		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
+		this.view.stage = model === undefined ? null : new PlayStage(playViewOf(definition), model);
 	}
 
 	/** The plan of `item`, waiting for its round, as the stage shows it: compiled once, not on every beat. */

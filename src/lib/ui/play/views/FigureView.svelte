@@ -176,7 +176,9 @@
 		if (scoreHost) scoreHost.scrollTop = 0;
 	});
 
-	// ...and the line played stays in view, the next one under it.
+	// ...and the line played stays at the top of its box, the next one under it to be read ahead.
+	// The box jumps there at once when the line changes (its CSS animates no scroll): a score that
+	// slides while it is read cannot be played from.
 	$effect(() => {
 		if (!scoreHost || !figureLayout || cursorLine === null) return;
 		scoreHost.scrollTop = Math.max(0, (figureLayout.lineY[cursorLine] ?? 0) - LINE_MARGIN_PX);
@@ -277,14 +279,17 @@
 		<div class="score" data-testid="figure-score" bind:this={scoreHost}>
 			<div class="engraving large" bind:this={figureHost}></div>
 			{#if cursor && figureLayout}
-				<span
-					class="cursor"
-					data-testid="figure-cursor"
-					aria-hidden="true"
-					style:left="{cursor.x}px"
-					style:top="{figureLayout.lineY[cursor.line] ?? 0}px"
-					style:height="{figureLayout.rowHeight}px"
-				></span>
+				<!-- A cursor of its own on each line: it slides along its line, never from one to the next. -->
+				{#key cursor.line}
+					<span
+						class="cursor"
+						data-testid="figure-cursor"
+						aria-hidden="true"
+						style:left="{cursor.x}px"
+						style:top="{figureLayout.lineY[cursor.line] ?? 0}px"
+						style:height="{figureLayout.rowHeight}px"
+					></span>
+				{/key}
 			{/if}
 			{#if figureLayout}
 				{#each shownMarks as mark, i (i)}
@@ -423,13 +428,13 @@
 		color: var(--np-shade);
 	}
 
-	/* A figure taller than this scrolls here: the view and what follows it stay on the screen. */
+	/* A figure taller than this scrolls here: the view and what follows it stay on the screen.
+	   No smooth scroll: the box jumps to the line played. */
 	.score {
 		position: relative;
 		min-width: 0;
 		max-block-size: 65dvh;
 		overflow-y: auto;
-		scroll-behavior: smooth;
 	}
 
 	.engraving {
@@ -561,10 +566,6 @@
 	@media (prefers-reduced-motion: reduce) {
 		.cursor {
 			transition: none;
-		}
-
-		.score {
-			scroll-behavior: auto;
 		}
 	}
 </style>
