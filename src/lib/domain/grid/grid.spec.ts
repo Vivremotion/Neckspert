@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gridById, allGrids } from './registry';
 import { gridChanges, type ChordGrid } from './grid';
+import { wallClockMs } from '$lib/testing/wallClock';
 
 function grid(chords: ChordGrid['chords'], bars = 2): ChordGrid {
 	return { id: 'test', title: 'Test', beatsPerBar: 4, bars, chords };
@@ -37,7 +38,7 @@ describe('gridChanges', () => {
 		const start = performance.now();
 		for (let i = 0; i < 1000; i++) gridChanges(long);
 		// Measured about 3.5 ms here (Apple M3 Pro); parsing its 256 symbols each time took 137 ms.
-		expect(performance.now() - start).toBeLessThan(40);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(40));
 	});
 
 	it('reads blues-f, the bars held twice merged', () => {

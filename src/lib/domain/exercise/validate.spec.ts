@@ -16,6 +16,7 @@ import {
 } from './validate';
 import { CheckBudget, levelsCheckCost, roundCheckCost } from './checkCost';
 import { GESTURE_JAM, LOCATE_NECK, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
+import { wallClockMs } from '$lib/testing/wallClock';
 
 registerTestSkills();
 
@@ -634,7 +635,7 @@ describe('validateExercise limits', () => {
 		expect(validateExercise({ ...RHYTHM_OFFBEATS, figures, levels })).toBe(
 			'rhythm-offbeats: figures × levels asks 20100 round checks, more than 20000'
 		);
-		expect(performance.now() - start).toBeLessThan(200);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(200));
 	});
 
 	it('refuses an exercise that serves its figures when none fits its round at a level, naming the level', () => {
@@ -662,7 +663,7 @@ describe('validateExercise limits', () => {
 		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items, levels })).toBe(
 			'test-arpeggio-sequence: items × levels asks 20100 round checks, more than 20000'
 		);
-		expect(performance.now() - start).toBeLessThan(200);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(200));
 		expect(
 			validateExercise({ ...ARPEGGIO_EXERCISE, items: items.slice(0, 200), levels })
 		).toBeNull();
@@ -688,7 +689,7 @@ describe('validateExercise limits', () => {
 		const start = performance.now();
 		expect(validateExercise(many, { budget })).toMatch(/can afford \(cost \d+, at most \d+\)$/);
 		expect(budget.spent).toBe(0);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 	});
 
 	it('charges the notes a figure entry expands to once compiled', () => {
@@ -713,7 +714,7 @@ describe('validateExercise limits', () => {
 		expect(validateExercise(exercise, { budget })).toBe(
 			`test-arpeggio-sequence: this file asks more checking than a start can afford (cost ${spent + 4_000}, at most ${spent + 999})`
 		);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 	});
 
 	it('refuses at once, compiling nothing, with a budget already spent', () => {
@@ -723,7 +724,7 @@ describe('validateExercise limits', () => {
 		expect(validateExercise(LOCATE_NECK, { budget })).toBe(
 			'locate-note-string: this file asks more checking than a start can afford (cost 2, at most 1)'
 		);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 	});
 
 	it('charges the rounds of the first passages it compiles', () => {

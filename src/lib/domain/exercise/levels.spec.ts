@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { exerciseLevelsOf, overrideParams, pacingAt, resolvedParamsOf, tempoOf } from './levels';
 import type { ExerciseDefinition } from './types';
 import { LOCATE_NECK } from '$lib/testing/catalog';
+import { wallClockMs } from '$lib/testing/wallClock';
 
 describe('overrideParams', () => {
 	it('replaces the value at a dotted path and nothing else', () => {
@@ -63,7 +64,7 @@ describe('overrideParams', () => {
 		);
 		const start = performance.now();
 		const result = overrideParams({}, overrides);
-		expect(performance.now() - start).toBeLessThan(1_000);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(1_000));
 		expect(Object.keys(result)).toHaveLength(20_000);
 	});
 });
