@@ -15,6 +15,11 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
+		// A shared CI runner takes several times longer than a developer's machine for the same
+		// work (5.3 s there for a test of 1.7 s here): a test gets more time on it before it is
+		// called timed out. The limits tests hold on measured time are widened likewise
+		// (`wallClockMs`, `src/lib/testing/wallClock.ts`).
+		testTimeout: process.env.CI ? 30_000 : 5_000,
 		projects: [
 			{
 				extends: './vite.config.ts',
