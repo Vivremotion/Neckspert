@@ -13,10 +13,26 @@ const historyOf = (demo: ReturnType<typeof demoGestureSeries>) =>
 	(demo.controller.view.stage?.model as { history?: LaneEntry[] } | undefined)?.history ?? [];
 
 describe('demoGestureSeries', () => {
+	it('is named as the first routine that plays passages, so it tells the changes’ start text', () => {
+		const demo = demoGestureSeries('link', () => 'fr');
+		expect(demo.controller.origin?.title.fr).toBe('Changements');
+		expect(demo.controller.origin?.howTo?.fr).toMatch(/^Joue la grille sans t’arrêter/);
+		demo.controller.quit();
+	});
+
 	it('plays the link on the session controller, the scripted player strumming each change', async () => {
 		const demo = demoGestureSeries('link', () => 'fr');
 		await demo.controller.start();
 		expect(demo.controller.view.stage?.view).toBe('link-lane');
+		// It starts at the aid level: the notes of E on G-B-E are drawn, string by string.
+		const aid = (
+			demo.controller.view.stage?.model as {
+				aid: { notes: { string: number; name: string; next?: true }[] } | null;
+			}
+		).aid;
+		const now = aid?.notes.filter((note) => !note.next) ?? [];
+		expect(now.map((note) => note.string)).toEqual([3, 2, 1]);
+		expect(now.map((note) => note.name).sort()).toEqual(['B', 'E', 'G#']);
 		// ♩ = 80: a counted bar, then four changes of a bar each.
 		await run(demo, 3 + 4 * 3);
 		expect(historyOf(demo).map((entry) => entry.verdict)).toEqual([

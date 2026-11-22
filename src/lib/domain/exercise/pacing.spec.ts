@@ -8,7 +8,12 @@ import {
 import type { ExerciseDefinition } from './types';
 
 function definition(flow?: ExerciseDefinition['flow']): ExerciseDefinition {
-	return { id: 'any', mechanic: 'locate', params: {}, ...(flow && { flow }) } as ExerciseDefinition;
+	return {
+		id: 'any',
+		practices: 'locate-note-string',
+		params: {},
+		...(flow && { flow })
+	} as ExerciseDefinition;
 }
 
 describe('previewBeatsOf', () => {

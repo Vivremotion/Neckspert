@@ -2,18 +2,17 @@ import type { StringNumber } from './types';
 import { voicingOccurrences, type Voicing } from './voicing';
 
 /**
- * The notes of `voicing` at its `occurrence`-th place on the neck (0: the lowest), lowest string
- * first, each with its exact pitch. Throws when it has no such place.
+ * The notes of `voicing` at its place on the neck where its notes take `frets` (in its strings'
+ * order), lowest string first, each with its exact pitch. Throws when it has no place there.
  */
 export function voicingNotes(
 	voicing: Voicing,
-	occurrence: number
+	frets: readonly number[]
 ): { midi: number; string: StringNumber; fret: number }[] {
-	const places = voicingOccurrences(voicing);
-	if (!Number.isInteger(occurrence) || occurrence < 0 || occurrence >= places.length) {
-		throw new RangeError(
-			`Occurrence ${occurrence} does not exist: the voicing has ${places.length} places`
-		);
-	}
-	return places[occurrence].notes.map(({ midi, string, fret }) => ({ midi, string, fret }));
+	const written = frets.join('-');
+	const place = voicingOccurrences(voicing).find(
+		(occurrence) => occurrence.notes.map((note) => note.fret).join('-') === written
+	);
+	if (!place) throw new RangeError(`the voicing has no place at frets ${written}`);
+	return place.notes.map(({ midi, string, fret }) => ({ midi, string, fret }));
 }

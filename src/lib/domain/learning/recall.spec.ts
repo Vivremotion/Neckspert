@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { directRecallOf, type DirectRecall } from './recall';
+import { skillById } from '$lib/domain/skill/registry';
+import { directRecallOf, directRecallWithin, type DirectRecall } from './recall';
 
 type Fields = Parameters<DirectRecall>[0];
 
@@ -24,32 +25,42 @@ const older = (over: Partial<Fields>): Fields => ({
 	...over
 });
 
-describe('directRecallOf', () => {
+describe('directRecallWithin', () => {
 	it('reads a response envelope by its lead or its reaction', () => {
-		expect(directRecallOf(1500)(response(1500, 3030))).toBe(true);
-		expect(directRecallOf(1500)(response(1501, 3030))).toBe(false);
-		expect(directRecallOf(3000)(response(null, 2900))).toBe(true);
-		expect(directRecallOf(1500)(response(1500, 3030, false))).toBe(false);
+		expect(directRecallWithin(1500)(response(1500, 3030))).toBe(true);
+		expect(directRecallWithin(1500)(response(1501, 3030))).toBe(false);
+		expect(directRecallWithin(3000)(response(null, 2900))).toBe(true);
+		expect(directRecallWithin(1500)(response(1500, 3030, false))).toBe(false);
 	});
 
 	it('reads older attempts by their lead and tempo, or their reaction', () => {
-		expect(directRecallOf(1500)(older({}))).toBe(true);
-		expect(directRecallOf(1500)(older({ tempoBpm: 80 }))).toBe(false);
+		expect(directRecallWithin(1500)(older({}))).toBe(true);
+		expect(directRecallWithin(1500)(older({ tempoBpm: 80 }))).toBe(false);
 		const named = older({
 			leadBeats: null,
 			tempoBpm: null,
 			reactionMs: 2900,
 			verdict: { relation: 'free', version: 1, value: 'perfect' }
 		});
-		expect(directRecallOf(3000)(named)).toBe(true);
-		expect(directRecallOf(3000)({ ...named, reactionMs: 3001 })).toBe(false);
-		expect(directRecallOf(1500)(older({ success: false }))).toBe(false);
-		expect(directRecallOf(3000)({ ...named, success: false })).toBe(false);
-		expect(directRecallOf(1500)(older({ tempoBpm: null }))).toBe(false);
+		expect(directRecallWithin(3000)(named)).toBe(true);
+		expect(directRecallWithin(3000)({ ...named, reactionMs: 3001 })).toBe(false);
+		expect(directRecallWithin(1500)(older({ success: false }))).toBe(false);
+		expect(directRecallWithin(3000)({ ...named, success: false })).toBe(false);
+		expect(directRecallWithin(1500)(older({ tempoBpm: null }))).toBe(false);
+	});
+});
+
+describe('directRecallOf', () => {
+	it('judges by the time the skill writes', () => {
+		const locate = directRecallOf(skillById('locate-note-string'))!;
+		expect(locate(response(1500, 3030))).toBe(true);
+		expect(locate(response(1501, 3030))).toBe(false);
+		const naming = directRecallOf(skillById('identify-note'))!;
+		expect(naming(response(null, 3000))).toBe(true);
+		expect(naming(response(null, 3001))).toBe(false);
 	});
 
-	it('never counts direct recall without a threshold', () => {
-		expect(directRecallOf(null)(older({}))).toBe(false);
-		expect(directRecallOf(null)(response(0, 0))).toBe(false);
+	it('gives no rule to a skill that writes no direct recall', () => {
+		expect(directRecallOf(skillById('inner-pulse'))).toBeNull();
 	});
 });

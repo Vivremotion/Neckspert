@@ -1,3 +1,4 @@
+import { exerciseSetId } from '$lib/domain/sets';
 import {
 	Fraction,
 	METER_4_4,
@@ -29,7 +30,8 @@ import {
 import { FIGURE_CONTENT, isFigureEntry, roundFigureOf } from '$lib/domain/exercise/round';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
-import { CONTENT_VIEWS } from '$lib/application/presentation/contentViews';
+import { CONTENT_VIEWS, roundMemberFields } from '$lib/application/presentation/contentViews';
+import { MEMBER_CONTENT } from '$lib/domain/judges';
 import {
 	DERIVED_PICTURES,
 	PICTURES,
@@ -284,17 +286,25 @@ type Prompt = FigureStageModel['prompt'];
 /** The prompt of each item, by locale: presented once, not on every beat. */
 const PROMPTS = new WeakMap<PlannedItem, { locale: Locale; prompt: Prompt }>();
 
-/** The exercise's prompt for `item` (`presentPrompt`), null when it writes none. */
+/**
+ * The exercise's prompt for `item` (`presentPrompt`, with the fields of the member contents of its
+ * round's `plan`; none for an item whose round is not compiled yet), null when it writes none.
+ */
 function promptOf(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
+	plan: RoundPlan | null,
 	locale: Locale,
 	random: () => number
 ): Prompt {
 	if (!definition.presentation) return null;
 	const kept = PROMPTS.get(item);
 	if (kept?.locale === locale) return kept.prompt;
-	const { primary, secondary } = presentPrompt(definition, item, locale, random);
+	const members = (plan?.expectations ?? []).flatMap(({ content }) =>
+		content?.kind === MEMBER_CONTENT ? [content.value] : []
+	);
+	const contentFields = roundMemberFields(members, locale);
+	const { primary, secondary } = presentPrompt(definition, item, locale, random, contentFields);
 	const prompt = { primary, secondary };
 	PROMPTS.set(item, { locale, prompt });
 	return prompt;
@@ -305,7 +315,7 @@ function expectedPicture(definition: ExerciseDefinition, item: PlannedItem): Pic
 	const from = derivationOf(definition);
 	const name = from === null ? undefined : DERIVED_PICTURES[from];
 	const picture = name === undefined ? undefined : PICTURES[name];
-	if (!picture || !picture.reads.includes(item.mechanic)) return null;
+	if (!picture || !picture.reads.includes(exerciseSetId(definition))) return null;
 	return picture.draw(item.item);
 }
 
@@ -319,7 +329,7 @@ function neckOf(definition: ExerciseDefinition, item: PlannedItem): Picture | nu
 	const from = derivationOf(definition);
 	const derivation = from === null ? undefined : CONTENT_DERIVATIONS[from];
 	const neck =
-		derivation?.list && derivation.reads.includes(item.mechanic)
+		derivation?.list && derivation.reads.includes(exerciseSetId(definition))
 			? neckPicture(derivation.derive(item.item, definition) as unknown[])
 			: null;
 	NECKS.set(item, neck);
@@ -424,7 +434,7 @@ export function figureStage(input: {
 	const muted = (moment === 'round' || listening) && input.muted;
 	// A heard cycle shows where the figure stands, whatever the level gives.
 	const cursorShown = listening || (playing && params.cursor && !muted);
-	const prompt = promptOf(definition, item, locale, random);
+	const prompt = promptOf(definition, item, input.plan, locale, random);
 	const coming = moment === 'round' && params.nextBeats > 0 ? (input.coming ?? null) : null;
 	// Beats left in the round, its first beat counted from its start whatever bar it opens in.
 	const left = input.plan.length
@@ -477,7 +487,7 @@ export function figureStage(input: {
 			neck?.kind === 'neck' && comingNeck?.kind === 'neck'
 				? neckWithNext(neck, comingNeck, nextDue)
 				: neck,
-		nextPrompt: nextDue ? promptOf(definition, coming, locale, random) : null,
+		nextPrompt: nextDue ? promptOf(definition, coming, null, locale, random) : null,
 		live: params.liveMarks ? ((moment === 'round' ? input.live : null) ?? NOTHING_HEARD) : null,
 		chordDiagram: input.chordDiagram
 	};

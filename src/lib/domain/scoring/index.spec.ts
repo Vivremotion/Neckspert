@@ -10,7 +10,7 @@ describe('scoring entry point', () => {
 		expect(typeof scoring.detectFatigue).toBe('function');
 	});
 
-	it('leaves judging to the round plans and the mechanics', () => {
+	it('leaves judging to the round plans and the content judges', () => {
 		for (const name of ['judgeLocate', 'judgeIdentify', 'isDirectRecall', 'answerWindow']) {
 			expect(name in scoring).toBe(false);
 		}

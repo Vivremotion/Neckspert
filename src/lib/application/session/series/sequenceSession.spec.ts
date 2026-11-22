@@ -1,3 +1,4 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import type { CycleReport } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
@@ -16,11 +17,13 @@ import {
 	previewProblem,
 	screenProblem
 } from '$lib/application/presentation/validate';
-import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { FigureAttemptData } from './recordResponse';
 
+registerTestSkills();
+
 /**
- * Several chord shapes chained (plan S, Task 9): a `voicing-figure` exercise lists its shapes, each
+ * Several chord shapes chained (plan S, Task 9): an exercise on placed voicings lists its shapes, each
  * one round of four beats arpeggiated over its level's figure, the rounds handing over without a
  * gap, each judged on its notes' pitch and time.
  */
@@ -37,8 +40,12 @@ describe('a sequence of chord shapes on the series', () => {
 	it('is an exercise the engine runs, its unread aid path included', () => {
 		expect(validateExercise(ARPEGGIO_EXERCISE, { sensors: ['note'] })).toBeNull();
 		expect(presentationProblem(ARPEGGIO_EXERCISE)).toBeNull();
-		expect(screenProblem(ARPEGGIO_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
-		expect(previewProblem(ARPEGGIO_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
+		expect(
+			screenProblem(ARPEGGIO_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+		).toBeNull();
+		expect(
+			previewProblem(ARPEGGIO_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+		).toBeNull();
 	});
 
 	it('asks for headphones when the calibration heard the click, the series not refused', async () => {
@@ -62,12 +69,12 @@ describe('a sequence of chord shapes on the series', () => {
 		await advance(ORIGIN + 4.5 * BAR_S);
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual(
-			ARPEGGIO_ITEMS.map((key) => `voicing-figure:${key}`)
+			ARPEGGIO_ITEMS.map((key) => `test-placed-voicing:${key}`)
 		);
 		expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 3].map(epochOfBar));
 		expect(player.prompts).toHaveLength(3);
 		for (const attempt of attempts) {
-			expect(attempt.mechanic).toBe('voicing-figure');
+			expect(attempt.skill).toBe('test-placed-voicing');
 			expect(attempt.success).toBe(true);
 			expect(attempt.correct).toBe(true);
 			expect(attempt.observations?.filter((o) => o.fate === 'answer')).toHaveLength(4);
@@ -158,7 +165,7 @@ describe('a sequence of chord shapes on the series', () => {
 		expect(first.map((a) => (a.data as FigureAttemptData).level)).toEqual([0, 0, 0]);
 		expect(second.map((a) => (a.data as FigureAttemptData).level)).toEqual([1, 1, 1]);
 		expect(second.map((a) => a.cardKey)).toEqual(
-			ARPEGGIO_ITEMS.map((key) => `voicing-figure:${key}`)
+			ARPEGGIO_ITEMS.map((key) => `test-placed-voicing:${key}`)
 		);
 		for (const attempt of second) {
 			// The figure param changes, the tempo stays.
@@ -174,9 +181,8 @@ describe('a sequence of chord shapes on the series', () => {
 	describe('a figure with its pitches written, played alone', () => {
 		const written = exerciseFromJson({
 			id: 'test-written',
-			version: 1,
 			title: { fr: 'Écrit', en: 'Written' },
-			mechanic: 'figure',
+			practices: 'inner-pulse',
 			view: 'figure',
 			tempo: 60,
 			params: {
@@ -210,7 +216,7 @@ describe('a sequence of chord shapes on the series', () => {
 			levels: [{ params: {} }]
 		});
 
-		it('is heard by the sensor its round names, not its mechanic’s', async () => {
+		it('is heard by the sensor its round names, not its set’s', async () => {
 			const { controller, advance, detector } = await sequenceSeries(written, {
 				pattern: [1],
 				met: true
@@ -409,15 +415,16 @@ describe('a sequence of chord shapes on the series', () => {
 
 	it('chains changes of 4, 2 and 6 beats, the second starting on beat 1 of a bar and the third on beat 3', async () => {
 		// A grid's changes last any number of beats: the quarters fill each, the last loop cut.
+		const [c, f, g] = ARPEGGIO_ITEMS;
 		const changes = [
-			{ key: 'C|maj|3:1,2:3,1:5@0@4', beats: 4 },
-			{ key: 'F|maj|3:1,2:3,1:5@0@2', beats: 2 },
-			{ key: 'G|maj|3:1,2:3,1:5@0@6', beats: 6 }
+			{ key: c, beats: 4 },
+			{ key: f, beats: 2 },
+			{ key: g, beats: 6 }
 		];
 		const exercise: ExerciseDefinition = {
 			...ARPEGGIO_EXERCISE,
 			id: 'test-arpeggio-changes',
-			items: changes.map((change) => change.key)
+			items: changes.map(({ key, beats }) => ({ item: key, beats }))
 		};
 		expect(validateExercise(exercise, { sensors: ['note'] })).toBeNull();
 		const { controller, stored, advance, detector } = await sequenceSeries(exercise, {
@@ -444,7 +451,7 @@ describe('a sequence of chord shapes on the series', () => {
 		await advance(ORIGIN + 4.5 * BAR_S, false);
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual(
-			changes.map((change) => `voicing-figure:${change.key}`)
+			changes.map((change) => `test-placed-voicing:${change.key}`)
 		);
 		// Each round opens at the handover of the one before: bar 1, bar 2, bar 2 beat 3.
 		expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 2.5].map(epochOfBar));
@@ -461,11 +468,15 @@ describe('a sequence of chord shapes on the series', () => {
 	});
 
 	it('shows each change of 4, 2 and 6 beats as it plays, cut in its bars and counted in whole bars', async () => {
-		const changes = ['C|maj|3:1,2:3,1:5@0@4', 'F|maj|3:1,2:3,1:5@0@2', 'G|maj|3:1,2:3,1:5@0@6'];
+		const [c, f, g] = ARPEGGIO_ITEMS;
 		const exercise: ExerciseDefinition = {
 			...ARPEGGIO_EXERCISE,
 			id: 'test-arpeggio-changes-shown',
-			items: changes
+			items: [
+				{ item: c, beats: 4 },
+				{ item: f, beats: 2 },
+				{ item: g, beats: 6 }
+			]
 		};
 		const { controller, advance } = await sequenceSeries(exercise, {
 			pattern: ARPEGGIO_PATTERN,
@@ -549,14 +560,20 @@ describe('a sequence of chord shapes on the series', () => {
 		it('is an exercise the engine runs', () => {
 			expect(validateExercise(FORM_EXERCISE, { sensors: ['note'] })).toBeNull();
 			expect(presentationProblem(FORM_EXERCISE)).toBeNull();
-			expect(screenProblem(FORM_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
-			expect(previewProblem(FORM_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
+			expect(
+				screenProblem(FORM_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+			).toBeNull();
+			expect(
+				previewProblem(FORM_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+			).toBeNull();
 		});
 
 		it('plays a form with two notes on a string, moved from chord to chord, each chord restarting from its first note', async () => {
 			const { controller, stored } = await playedChanges();
 			const attempts = await stored();
-			expect(attempts.map((a) => a.cardKey)).toEqual(CHANGES.map((c) => `form-figure:${c.key}`));
+			expect(attempts.map((a) => a.cardKey)).toEqual(
+				CHANGES.map((c) => `test-placed-shape:${c.key}`)
+			);
 			// Each change opens at the handover of the one before: bar 1, bar 2, bar 2 beat 3.
 			expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 2.5].map(epochOfBar));
 			expect(attempts.map((a) => (a.data as FigureAttemptData).report.expectations.length)).toEqual(

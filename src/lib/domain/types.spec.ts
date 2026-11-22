@@ -11,22 +11,22 @@ import {
 } from './types';
 
 describe('cardKey', () => {
-	it('prefixes an item key with its mechanic', () => {
-		expect(cardKey('locate', '6:F')).toBe('locate:6:F');
-		expect(cardKey('identify', '5:8')).toBe('identify:5:8');
+	it('prefixes an item key with its skill', () => {
+		expect(cardKey('locate-note-string', '6:F')).toBe('locate-note-string:6:F');
+		expect(cardKey('identify-note', '5:8')).toBe('identify-note:5:8');
 	});
 
-	it('splits a key into its mechanic and its item key', () => {
-		expect(parseCardKey('identify:6:3')).toEqual({ mechanic: 'identify', itemKey: '6:3' });
-		expect(parseCardKey(cardKey('locate', '6:G#'))).toEqual({
-			mechanic: 'locate',
+	it('splits a key into its skill and its item key', () => {
+		expect(parseCardKey('identify-note:6:3')).toEqual({ skill: 'identify-note', itemKey: '6:3' });
+		expect(parseCardKey(cardKey('locate-note-string', '6:G#'))).toEqual({
+			skill: 'locate-note-string',
 			itemKey: '6:G#'
 		});
 	});
 
-	it('rejects a key without a mechanic or an item', () => {
-		expect(() => parseCardKey('locate')).toThrow();
-		expect(() => parseCardKey('locate:')).toThrow();
+	it('rejects a key without a skill or an item', () => {
+		expect(() => parseCardKey('locate-note-string')).toThrow();
+		expect(() => parseCardKey('locate-note-string:')).toThrow();
 		expect(() => parseCardKey(':6:F')).toThrow();
 	});
 });

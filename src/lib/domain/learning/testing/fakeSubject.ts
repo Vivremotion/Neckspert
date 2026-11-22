@@ -8,18 +8,19 @@ import type {
 } from '../../types';
 import { graduateToReview, introScheduling } from '../../progress/scheduling';
 import { cardKey } from '../../types';
-import type { ExerciseId, MechanicId } from '../../exercise/types';
+import type { ExerciseId } from '../../exercise/types';
+import type { SkillId } from '../../types';
 import {
 	RESPONSE_VERDICT_VERSION,
 	type ResponseValue,
 	type ResponseVerdict
 } from '../../time/modes/responseVerdict';
-import { directRecallOf } from '../recall';
+import { directRecallWithin } from '../recall';
 import type { Level } from '../../time/levels';
 import { DEFAULT_ITEM_LEARNING, type ItemLearning } from '../params';
 import type { CardRef, Ladder, LadderParams, LearningSubject } from '../subject';
 
-const FAKE_MECHANIC = 'fake' as MechanicId;
+const FAKE_SKILL = 'fake' as SkillId;
 const FAKE_TEMPO_BPM = 80;
 
 /** A written level of a ladder: `pass` and `drop` 1 unless said otherwise, unaided, any success. */
@@ -44,62 +45,54 @@ const FAKE_LADDER: Ladder = [
 
 /**
  * A subject of numbered items `0..items-1`, introduced in order, for the specs of the procedure.
- * Its items are numbers; a neighbour is the same item unless `neighbours` says otherwise.
+ * Its items are numbers.
  */
 export function fakeSubject(
 	input: {
 		items?: number;
-		mechanics?: readonly MechanicId[];
-		neighbours?: (a: number, b: number) => boolean;
-		/** The ladder of every mechanic; default `FAKE_LADDER`. */
+		skills?: readonly SkillId[];
+		/** The ladder of every skill; default `FAKE_LADDER`. */
 		ladder?: Ladder;
 		/** Prerequisite: an item not ready is skipped by `nextNew`. */
 		ready?: (item: number, cards: readonly CardState[]) => boolean;
-		prefers?: (candidate: number, previous: number) => boolean;
 		/** Default true: the aided presentation follows its missed probe at once. */
 		presentsAtOnce?: boolean;
-		/** What each mechanic's exercise writes of its items' settings; the defaults otherwise. */
+		/** What each skill's exercise writes of its items' settings; the defaults otherwise. */
 		learning?: Readonly<Record<string, Partial<ItemLearning>>>;
 	} = {}
 ): LearningSubject {
 	const items = input.items ?? 12;
-	const mechanics = input.mechanics ?? [FAKE_MECHANIC];
-	const neighbours = input.neighbours ?? ((a: number, b: number) => a === b);
+	const skills = input.skills ?? [FAKE_SKILL];
 	const ladder = input.ladder ?? FAKE_LADDER;
-	const recall = directRecallOf(1500);
-	const { ready, prefers } = input;
+	const recall = directRecallWithin(1500);
+	const { ready } = input;
 
 	return {
-		owns: (card) => mechanics.includes(card.mechanic),
+		owns: (card) => skills.includes(card.skill),
 		itemKey: (card) => String(card.item),
-		exerciseOf: (mechanic) => `exercise-${mechanic}` as ExerciseId,
+		exerciseOf: (skill) => `exercise-${skill}` as ExerciseId,
 		nextNew(cards, _history, blocked) {
 			for (let item = 0; item < items; item += 1) {
-				for (const mechanic of mechanics) {
-					const ref: CardRef = { mechanic, item };
-					const exists = cards.some((c) => c.mechanic === mechanic && c.item === item);
+				for (const skill of skills) {
+					const ref: CardRef = { skill, item };
+					const exists = cards.some((c) => c.skill === skill && c.item === item);
 					if (!exists && (ready?.(item, cards) ?? true) && !blocked(ref)) return ref;
 				}
 			}
 			return null;
 		},
 		presentsAtOnce: input.presentsAtOnce ?? true,
-		neighbours: (a, b) => neighbours(a.item as number, b.item as number),
 		ladder: () => ladder,
-		itemLearning: (mechanic) => ({ ...DEFAULT_ITEM_LEARNING, ...input.learning?.[mechanic] }),
+		itemLearning: (skill) => ({ ...DEFAULT_ITEM_LEARNING, ...input.learning?.[skill] }),
 		recall: () => recall,
 		confused: (attempt) => (attempt.data as { confused?: boolean } | null)?.confused === true,
-		fadingAid: (mechanic) => mechanic === FAKE_MECHANIC,
-		...(prefers && {
-			prefers: (candidate: CardRef, previous: CardRef) =>
-				prefers(candidate.item as number, previous.item as number)
-		})
+		fadingAid: (skill) => skill === FAKE_SKILL
 	};
 }
 
 /** A complete, valid attempt for a planned item; `overrides` sets what a spec cares about. */
 export function attemptOf(
-	planned: Pick<PlannedItem, 'exerciseId' | 'mechanic' | 'item' | 'phase' | 'temperature'> &
+	planned: Pick<PlannedItem, 'exerciseId' | 'skill' | 'item' | 'phase' | 'temperature'> &
 		Partial<Pick<PlannedItem, 'leadBeats'>>,
 	overrides: Partial<Attempt> & {
 		/** Epoch ms of the prompt (`promptedAt`). */
@@ -133,8 +126,8 @@ export function attemptOf(
 	return {
 		sessionId: 'session',
 		exerciseId: planned.exerciseId,
-		mechanic: planned.mechanic,
-		cardKey: cardKey(planned.mechanic, String(planned.item)) as CardKey,
+		skill: planned.skill,
+		cardKey: cardKey(planned.skill, String(planned.item)) as CardKey,
 		phase: planned.phase,
 		temperature: planned.temperature,
 		aids: [],
@@ -162,15 +155,15 @@ export function fakeCard(
 	item: number,
 	overrides: Partial<Omit<CardState, 'scheduling'>> & {
 		scheduling?: Partial<SchedulingState>;
-		mechanic?: MechanicId;
+		skill?: SkillId;
 	} = {}
 ): CardState {
-	const { scheduling, mechanic = FAKE_MECHANIC, ...fields } = overrides;
+	const { scheduling, skill = FAKE_SKILL, ...fields } = overrides;
 	const learned = fields.learnedAt !== undefined && fields.learnedAt !== null;
 	const base = learned ? graduateToReview(fields.learnedAt as number) : introScheduling(0);
 	return {
-		key: cardKey(mechanic, String(item)),
-		mechanic,
+		key: cardKey(skill, String(item)),
+		skill,
 		item,
 		introducedAt: 0,
 		introducedInSession: 'session',

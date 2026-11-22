@@ -1,40 +1,61 @@
 <script lang="ts">
-	import type { TriadsHome } from '$lib/application/app';
-	import { exerciseSessionExercises } from '$lib/domain/exercise';
-	import type { HomeStats } from '$lib/domain/types';
+	import type { RoutineEntry } from '$lib/application/app';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
-	const fixtures: { label: string; stats: HomeStats; now: number; triads?: TriadsHome }[] = [
+	/** A routine as the service would tell it; fixtures only, the titles written here. */
+	const routine = (
+		id: string,
+		fr: string,
+		en: string,
+		over: Partial<RoutineEntry> = {}
+	): RoutineEntry => ({
+		id,
+		title: { fr, en },
+		open: true,
+		due: 0,
+		nextReviewAt: null,
+		resting: false,
+		...over
+	});
+
+	const fixtures: {
+		label: string;
+		now: number;
+		routines: RoutineEntry[];
+		catalogRefused?: boolean;
+	}[] = [
 		{
 			label: 'learn, reviews due',
 			now: 0,
-			triads: { anchorDue: 4, zoneDue: 2 },
-			stats: {
-				dueCount: 6,
-				nextReviewAt: null,
-				medianColdOffsetMs: 40,
-				trend: 'improving'
-			}
+			routines: [
+				routine('a', 'Apprentissage', 'Learn', { due: 6 }),
+				routine('b', 'Triades', 'Triads', { due: 4 }),
+				routine('c', 'Triades vers une case', 'Triads around a fret', { due: 2 }),
+				routine('d', 'Changements', 'Changes', { due: null, resting: true })
+			]
 		},
 		{
 			label: 'first visit',
 			now: 0,
-			stats: {
-				dueCount: 0,
-				nextReviewAt: null,
-				medianColdOffsetMs: null,
-				trend: null
-			}
+			routines: [
+				routine('a', 'Apprentissage', 'Learn'),
+				routine('b', 'Triades', 'Triads'),
+				routine('c', 'Triades vers une case', 'Triads around a fret', { open: false })
+			]
 		},
 		{
 			label: 'learn, next reviews later',
 			now: 0,
-			stats: {
-				dueCount: 0,
-				nextReviewAt: 2 * 60 * 60 * 1000,
-				medianColdOffsetMs: 80,
-				trend: 'worsening'
-			}
+			routines: [
+				routine('a', 'Apprentissage', 'Learn', { nextReviewAt: 2 * 60 * 60 * 1000 }),
+				routine('b', 'Triades', 'Triads', { nextReviewAt: 26 * 60 * 60 * 1000 })
+			]
+		},
+		{
+			label: 'nothing open, part of the catalog refused',
+			now: 0,
+			routines: [routine('a', 'Apprentissage', 'Learn', { open: false })],
+			catalogRefused: true
 		}
 	];
 </script>
@@ -44,12 +65,11 @@
 		<section>
 			<h1>{fixture.label}</h1>
 			<HomeScreen
-				stats={fixture.stats}
 				now={fixture.now}
 				onstart={() => {}}
-				triads={fixture.triads}
-				ontriads={() => {}}
-				exercises={exerciseSessionExercises()}
+				routines={fixture.routines}
+				onroutine={() => {}}
+				catalogRefused={fixture.catalogRefused}
 			/>
 		</section>
 	{/each}

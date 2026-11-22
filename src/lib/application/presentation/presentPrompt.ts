@@ -1,8 +1,8 @@
+import { exerciseSetId } from '$lib/domain/sets';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from './itemFields';
-import { PICTURES, type Picture } from './pictures';
-import { presentationProblem } from './validate';
+import { CONTENT_PICTURES, PICTURES, type Picture } from './pictures';
 
 /** What the screen says of one prompt, in the player's language. */
 export interface PresentedPrompt {
@@ -35,23 +35,37 @@ function say(
 }
 
 /**
+ * Whether the prompt of `item` shows its exercise's `aided` presentation, on every view: when the
+ * item is served aided, or played at an aid level of its exercise (an exercise level below 1).
+ */
+export function isAided(item: PlannedItem): boolean {
+	return item.aid === 'show-position' || item.exerciseLevel < 0;
+}
+
+/**
  * What the screen says of `item`, from the words its exercise writes (`presentation`) over the
- * fields its mechanic offers. `random` spells an altered note: give every call for one item the
- * same value. Throws on a presentation `presentationProblem` refuses.
+ * fields its set offers and those of its round's content (`contentFields`, given by the caller),
+ * an item's field winning over the content's of the same name. `random` spells an altered note:
+ * give every call for one item the same value. Aided as `isAided` says. The presentation is checked once, as its exercise
+ * loads (`definitionChecks`). A picture of the round's content (`CONTENT_PICTURES`) is left to
+ * the view of the round.
  */
 export function presentPrompt(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	locale: Locale,
-	random: () => number
+	random: () => number,
+	contentFields: Readonly<Record<string, string>> = {}
 ): PresentedPrompt {
-	const problem = presentationProblem(definition);
-	if (problem !== null) throw new Error(problem);
 	const presentation = definition.presentation;
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
-	const offered = ITEM_FIELDS[definition.mechanic];
-	const fields = offered ? offered.fields(item.item, locale, random, definition) : {};
-	const aided = item.aid === 'show-position';
+	const set = exerciseSetId(definition);
+	const offered = Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set] : undefined;
+	const fields = {
+		...contentFields,
+		...(offered ? offered.fields(item.item, locale, random, definition) : {})
+	};
+	const aided = isAided(item);
 	const names = [
 		aided ? presentation.aided?.picture : undefined,
 		item.stringAid ? presentation.fading?.picture : undefined
@@ -65,7 +79,10 @@ export function presentPrompt(
 		preview: say(presentation.preview, locale, fields),
 		aid: aided ? say(presentation.aided?.line, locale, fields) : null,
 		pictures: names.flatMap((name) => {
-			const drawn = name === undefined ? null : PICTURES[name].draw(item.item);
+			const drawn =
+				name === undefined || CONTENT_PICTURES.includes(name)
+					? null
+					: PICTURES[name].draw(item.item);
 			return drawn === null ? [] : [drawn];
 		})
 	};

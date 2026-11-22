@@ -1,3 +1,4 @@
+import { TEST_PLACED_SHAPE_SKILL, TEST_PLACED_VOICING_SKILL } from './testSkills';
 /**
  * Common material for the sequence's specs: plain major triads on the G, B and E strings, each
  * chord shape one round of four beats arpeggiated over a figure, the shapes chained without a gap.
@@ -5,11 +6,14 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { Fraction, METER_4_4, type Figure, type FigureElement } from '$lib/domain/time';
 
-/** C, F and G major in root position on strings 3-2-1 (root, third, fifth), at their lowest place. */
+/**
+ * C, F and G major in root position on strings 3-2-1 (root, third, fifth), at their lowest place:
+ * the keys of the placed shapes (the voicing, then its frets).
+ */
 export const ARPEGGIO_ITEMS = [
-	'C|maj|3:1,2:3,1:5@0@4',
-	'F|maj|3:1,2:3,1:5@0@4',
-	'G|maj|3:1,2:3,1:5@0@4'
+	'C|maj|3:1,2:3,1:5@5-5-3',
+	'F|maj|3:1,2:3,1:5@10-10-8',
+	'G|maj|3:1,2:3,1:5@12-12-10'
 ] as const;
 
 /** The figure's k-th note plays the shape's note `PATTERN[k mod 4]`, from the lowest string. */
@@ -35,9 +39,8 @@ function evenNotes(count: number): Figure {
  */
 export const ARPEGGIO_EXERCISE: ExerciseDefinition = {
 	id: 'test-arpeggio-sequence',
-	version: 1,
 	title: { fr: 'Arpèges de triades', en: 'Triad arpeggios' },
-	mechanic: 'voicing-figure',
+	practices: TEST_PLACED_VOICING_SKILL.id,
 	view: 'figure',
 	tempo: ARPEGGIO_TEMPO,
 	params: {
@@ -53,7 +56,7 @@ export const ARPEGGIO_EXERCISE: ExerciseDefinition = {
 		{ id: 'quarters', figure: evenNotes(4) },
 		{ id: 'eighths', figure: evenNotes(8) }
 	],
-	items: [...ARPEGGIO_ITEMS],
+	items: ARPEGGIO_ITEMS.map((item) => ({ item, beats: 4 })),
 	round: {
 		expectations: [
 			{
@@ -88,25 +91,29 @@ export const FORM_MAJ7 = {
 	]
 };
 
-/** The form on C, then F, then G: a change of four beats, one of two, one of four. */
-export const FORM_ITEMS = ['maj7@c@4', 'maj7@f@2', 'maj7@g@4'] as const;
+/** The shape on C, then F, then G (the exercise plays them four beats, two, then four). */
+export const FORM_ITEMS = ['maj7@c', 'maj7@f', 'maj7@g'] as const;
 
 /**
- * One form written once, moved from chord to chord, the same figures and levels as the arpeggios:
- * each item names the form and the note it starts on, and each chord restarts from it.
+ * One shape written once, moved from chord to chord, the same figures and levels as the arpeggios:
+ * each item names the shape and the note it starts on, and each chord restarts from it.
  */
 export const FORM_EXERCISE: ExerciseDefinition = {
 	...ARPEGGIO_EXERCISE,
 	id: 'test-form-sequence',
 	title: { fr: 'Une forme déplacée', en: 'A moved form' },
-	mechanic: 'form-figure',
-	forms: [FORM_MAJ7],
-	items: [...FORM_ITEMS],
+	practices: TEST_PLACED_SHAPE_SKILL.id,
+	shapes: [FORM_MAJ7],
+	items: [
+		{ item: FORM_ITEMS[0], beats: 4 },
+		{ item: FORM_ITEMS[1], beats: 2 },
+		{ item: FORM_ITEMS[2], beats: 4 }
+	],
 	round: {
 		...ARPEGGIO_EXERCISE.round!,
 		expectations: ARPEGGIO_EXERCISE.round!.expectations.map((entry) => ({
 			...entry,
-			content: { from: 'form-notes' }
+			content: { from: 'shape-notes' }
 		})) as NonNullable<ExerciseDefinition['round']>['expectations']
 	},
 	presentation: { primary: '{chord}' }

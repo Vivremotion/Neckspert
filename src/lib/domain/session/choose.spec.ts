@@ -5,7 +5,10 @@ import { choose } from './choose';
 
 describe('choose', () => {
 	it('chooses the one candidate of a session, and none from none', () => {
-		const candidate = { exerciseId: 'locate-neck' as ExerciseId, source: createListSource([]) };
+		const candidate = {
+			exerciseId: 'locate-note-string' as ExerciseId,
+			source: createListSource([])
+		};
 		expect(choose([candidate])).toBe(candidate);
 		expect(choose([])).toBeNull();
 	});

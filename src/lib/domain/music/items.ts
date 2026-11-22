@@ -1,4 +1,3 @@
-import { cardKey, type CardKey } from '$lib/domain/types';
 import { CHROMATIC_NOTES, MAX_PROMPT_FRET, type PitchName, type StringNumber } from './types';
 
 /** Locate: play `pitch` on `string`, any octave playable on that string. */
@@ -12,10 +11,6 @@ export interface IdentifyItem {
 	string: StringNumber;
 	fret: number;
 }
-
-/** A card of the neck: one item of one of its two mechanics. */
-export type NeckCard =
-	{ mechanic: 'locate'; item: LocateItem } | { mechanic: 'identify'; item: IdentifyItem };
 
 /** Splits `string:value`, checking the string; throws on any other shape. */
 function splitItemKey(key: string): { string: StringNumber; value: string } {
@@ -53,18 +48,4 @@ export function parseIdentifyItem(key: string): IdentifyItem {
 		throw new Error(`Invalid fret in item key: ${key}`);
 	}
 	return { string, fret };
-}
-
-export function neckCardKey(card: NeckCard): CardKey {
-	return cardKey(
-		card.mechanic,
-		card.mechanic === 'locate' ? locateItemKey(card.item) : identifyItemKey(card.item)
-	);
-}
-
-/** A card, attempt-free prompt or planned item of the neck, read as a `NeckCard`. */
-export function asNeckCard(x: { mechanic: string; item: unknown }): NeckCard {
-	if (x.mechanic === 'locate') return { mechanic: 'locate', item: x.item as LocateItem };
-	if (x.mechanic === 'identify') return { mechanic: 'identify', item: x.item as IdentifyItem };
-	throw new Error(`Not a neck mechanic: ${x.mechanic}`);
 }

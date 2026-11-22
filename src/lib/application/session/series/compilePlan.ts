@@ -109,19 +109,15 @@ export function roundGiven(
 }
 
 /**
- * Whether a round's aids helped beyond what its level gives (`nextLevelState`'s `aided`): for a
- * round that plays a figure, its level's cursor and aid level are the level itself (`levelAided`);
- * otherwise any aid.
+ * Whether a round's aids helped beyond what its level gives (`nextLevelState`'s `aided`): the aid
+ * level, and the cursor its level gives, are the level itself (`levelAided`); any other aid helped.
  */
 export function aidedBeyondLevel(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	aids: readonly Aid[]
 ): boolean {
-	if (writesFigure(definition)) {
-		return levelAided(aids, figureParamsOf(definition, item.exerciseLevel).cursor);
-	}
-	return aids.length > 0;
+	return levelAided(aids, figureParamsOf(definition, item.exerciseLevel).cursor);
 }
 
 /** The exercise can make its content sound (a figure): it can be listened to, and played along. */
@@ -212,7 +208,7 @@ export function roundAttempt(input: {
 	item: PlannedItem;
 	plan: RoundPlan;
 	outcome: RoundOutcome;
-	/** The mechanic's data for a response value (`MechanicPresenter.attemptData`). */
+	/** The presenter's data for a response value (`SetPresenter.attemptData`). */
 	data: (value: ResponseValue) => unknown;
 	sessionId: string;
 	execution: Execution;

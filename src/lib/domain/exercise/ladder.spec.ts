@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from './catalog';
 import { ladderOf, validateLadder } from './ladder';
 import type { ExerciseDefinition, Ladder } from './types';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 /** Today's lead ladder at 80 bpm: 8 beats aided, 4, then 2 where only a direct recall counts. */
 const LEADS: Ladder = [
@@ -35,15 +35,15 @@ describe('ladderOf', () => {
 				success: 'direct-recall'
 			}
 		]);
-		// An exercise of several mechanics writes one ladder per mechanic.
+		expect(() => ladderOf({ ...LOCATE_NECK, params: {} })).toThrow(/locate-note-string.*ladder/);
+	});
+
+	it('reads no ladder from params.ladders', () => {
 		const two: ExerciseDefinition = {
 			...LOCATE_NECK,
 			params: { ladders: { locate: LEADS, identify: ladderOf(IDENTIFY_NECK) } }
 		};
-		expect(ladderOf(two, 'locate')).toEqual(LEADS);
-		expect(ladderOf(two, 'identify')).toEqual(ladderOf(IDENTIFY_NECK));
-		expect(() => ladderOf(two, 'triad-anchor')).toThrow(/locate-neck.*ladder/);
-		expect(() => ladderOf({ ...LOCATE_NECK, params: {} })).toThrow(/locate-neck.*ladder/);
+		expect(() => ladderOf(two)).toThrow('locate-note-string: params.ladder is missing');
 	});
 
 	it('refuses an empty ladder, a lead that is not positive, a pass that is not a positive integer', () => {
@@ -66,8 +66,8 @@ describe('ladderOf', () => {
 		// A lead of a beat and a half: an exact fraction of a beat.
 		expect(validateLadder([{ ...level, params: { leadBeats: 1.5, aided: false } }])).toBeNull();
 		// The exercise that writes it is named with the field.
-		expect(() => ladderOf(withLadder([]))).toThrow(/locate-neck.*params\.ladder.*empty/);
-		expect(() => ladderOf(withLadder('8, 4, 2'))).toThrow(/locate-neck.*params\.ladder/);
+		expect(() => ladderOf(withLadder([]))).toThrow(/locate-note-string.*params\.ladder.*empty/);
+		expect(() => ladderOf(withLadder('8, 4, 2'))).toThrow(/locate-note-string.*params\.ladder/);
 	});
 
 	it('takes a ladder of any leads, 6 and 3 in 3/4', () => {

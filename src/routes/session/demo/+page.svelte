@@ -3,11 +3,26 @@
 	import { page } from '$app/state';
 	import type { PromptStageModel } from '$lib/application/presentation';
 	import type { Picture } from '$lib/application/presentation/pictures';
+	import { playOriginOf } from '$lib/application/session/playOrigin';
+	import { routines } from '$lib/domain/routine/registry';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
-	import { DemoPlaySession, ManualDemoClock } from '$lib/ui/play/demo/DemoPlaySession.svelte';
+	import {
+		DemoPlaySession,
+		locateDemoExercise,
+		ManualDemoClock
+	} from '$lib/ui/play/demo/DemoPlaySession.svelte';
+
+	import NothingToShow from '$lib/ui/play/demo/NothingToShow.svelte';
+	import { demoMessages } from '$lib/ui/play/demo/messages';
+
+	/** Whether the registry holds an exercise that locates notes for the demo to play. */
+	const shown = locateDemoExercise() !== undefined;
 
 	const clock = new ManualDemoClock();
 	const controller = new DemoPlaySession({ clock });
+	// Named as the first routine of the registry (the notes), as the demonstration always was.
+	const first = routines()[0];
+	if (first) controller.origin = playOriginOf({ routine: first.id });
 	let ready = $state(false);
 	const shot = $derived(page.url.searchParams.get('shot'));
 	const withAid = $derived(page.url.searchParams.get('aid') === '1');
@@ -62,6 +77,7 @@
 	}
 
 	onMount(() => {
+		if (!shown) return;
 		let raf = 0;
 		void (async () => {
 			await controller.start();
@@ -178,7 +194,9 @@
 	});
 </script>
 
-{#if ready}
+{#if !shown}
+	<NothingToShow text={demoMessages().noLocate} />
+{:else if ready}
 	<!-- The notes and the triads play in the frame, on the same lane view. -->
-	<PlayFrame {controller} kind="learn" />
+	<PlayFrame {controller} />
 {/if}

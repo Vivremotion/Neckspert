@@ -17,7 +17,7 @@ import {
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
-import { figurePresenter } from '$lib/application/mechanics/figurePresenters';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { attackSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
@@ -33,12 +33,12 @@ export const ORIGIN = 0.1;
 const STEPS_PER_S = 64;
 
 /** An attempt of the exercise from an earlier series: the exercise is no longer met for the first time. */
-export function earlier(exerciseId: string): Attempt {
+export function earlier(exerciseId: string, skill = 'inner-pulse'): Attempt {
 	return {
 		sessionId: 'old',
 		exerciseId,
-		mechanic: 'figure',
-		cardKey: 'figure:old@0',
+		skill,
+		cardKey: `${skill}:old@0`,
 		phase: 'free',
 		temperature: 'hot',
 		aids: [],
@@ -174,8 +174,10 @@ export async function rhythmSeries(
 		sounds,
 		detector,
 		sensors: { attack: attackSensor(attacks) },
-		// The rhythm's presenter alone: the series opens the sensors of every presenter it is given.
-		mechanics: { [figurePresenter.rules.id]: figurePresenter },
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
+		// The exercise alone: the series opens the sensors its round names.
+		plays: [exercise.id],
 		repositories: { attempts, sessions, settings },
 		levels,
 		recorderFor: (sessionId) => {
@@ -187,8 +189,7 @@ export async function rhythmSeries(
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
-				sessionId,
-				rules: (mechanic) => deps.mechanics[mechanic].rules
+				sessionId
 			});
 			recorders.push(recorder);
 			return recorder;
@@ -202,7 +203,7 @@ export async function rhythmSeries(
 		memory
 	};
 	const controller = new SessionController(
-		{ id: 'series', kind: 'exercise' },
+		{ id: 'series', origin: { exercise: exercise.id } },
 		async (sessionId) => {
 			const source = createExerciseItemSource(exercise);
 			sources.set(sessionId, source);

@@ -1,11 +1,23 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
-import { EXERCISES, LOCATE_NECK } from './catalog';
+import { allExercises } from './registry';
 import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
-import type { RoundTemplate } from './round/types';
-import type { ExerciseDefinition, Ladder } from './types';
-import { validateExercise } from './validate';
+import type { FigureExpectationTemplate, RoundTemplate } from './round/types';
+import type { ExerciseDefinition, ItemEntry, Ladder } from './types';
+import {
+	MAX_EXERCISE_ITEMS,
+	MAX_EXERCISE_LEVELS,
+	MAX_LADDER_LEVELS,
+	MAX_LEVEL_PARAMS,
+	MAX_ROUND_CHECKS,
+	validateExercise
+} from './validate';
+import { CheckBudget, levelsCheckCost, roundCheckCost } from './checkCost';
+import { GESTURE_JAM, LOCATE_NECK, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
+
+registerTestSkills();
 
 const withParams = (params: Record<string, unknown>): ExerciseDefinition => ({
 	...LOCATE_NECK,
@@ -19,77 +31,83 @@ const RISING: Ladder = [1, 2, 4, 8, 16].map((leadBeats) => ({
 
 describe('validateExercise', () => {
 	it('accepts every exercise of the catalog', () => {
-		expect(EXERCISES.map((exercise) => [exercise.id, validateExercise(exercise)])).toEqual(
-			EXERCISES.map((exercise) => [exercise.id, null])
+		expect(allExercises().map((exercise) => [exercise.id, validateExercise(exercise)])).toEqual(
+			allExercises().map((exercise) => [exercise.id, null])
 		);
 	});
 
 	it('names the exercise and the field it cannot run', () => {
-		expect(validateExercise({ ...LOCATE_NECK, tempo: 0 })).toMatch(/^locate-neck: tempo .*0/);
+		expect(validateExercise({ ...LOCATE_NECK, tempo: 0 })).toMatch(
+			/^locate-note-string: tempo .*0/
+		);
 		expect(validateExercise(withParams({ ladder: [] }))).toBe(
-			'locate-neck: params.ladder is empty'
+			'locate-note-string: params.ladder is empty'
 		);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: -2, aided: false } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: the lead .*-2/);
+		).toMatch(/^locate-note-string: params\.ladder level 0: the lead .*-2/);
 		expect(validateExercise(withParams({ windows: { perfectMs: -1 } }))).toMatch(
-			/^locate-neck: params\.windows\.perfectMs /
+			/^locate-note-string: params\.windows\.perfectMs /
 		);
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: -1 } })).toMatch(
-			/^locate-neck: flow\.previewBeats /
+			/^locate-note-string: flow\.previewBeats /
 		);
 		expect(
 			validateExercise({
 				...LOCATE_NECK,
 				flow: { briefing: 'never' as unknown as 'each-series' }
 			})
-		).toBe('locate-neck: flow.briefing must be one of each-series, first-encounter, got never');
+		).toBe(
+			'locate-note-string: flow.briefing must be one of each-series, first-encounter, got never'
+		);
 		expect(validateExercise({ ...LOCATE_NECK, flow: { briefing: 'first-encounter' } })).toBeNull();
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: 1.5 } })).toMatch(
-			/^locate-neck: flow\.previewBeats /
+			/^locate-note-string: flow\.previewBeats /
 		);
 		expect(
 			validateExercise({
 				...LOCATE_NECK,
 				meter: { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1] }
 			})
-		).toMatch(/^locate-neck: meter /);
+		).toMatch(/^locate-note-string: meter /);
 		// A breath of 0 bars makes a round of length 0.
 		expect(validateExercise(withParams({ pacing: { respirationBars: 0 } }))).toMatch(
-			/^locate-neck: params\.pacing\.respirationBars .*0/
+			/^locate-note-string: params\.pacing\.respirationBars .*0/
 		);
 		expect(validateExercise(withParams({ pacing: { roundsPerBreath: 0 } }))).toMatch(
-			/^locate-neck: params\.pacing\.roundsPerBreath .*0/
+			/^locate-note-string: params\.pacing\.roundsPerBreath .*0/
 		);
 		expect(validateExercise(withParams({ pacing: { roundsPerBreath: 1.5 } }))).toMatch(
-			/^locate-neck: params\.pacing\.roundsPerBreath /
+			/^locate-note-string: params\.pacing\.roundsPerBreath /
 		);
 		expect(validateExercise(withParams({ pacing: { breathMinMs: -1 } }))).toMatch(
-			/^locate-neck: params\.pacing\.breathMinMs .*-1/
+			/^locate-note-string: params\.pacing\.breathMinMs .*-1/
 		);
 		// The breath between rounds keeps its default when only the runs are written.
 		expect(
 			validateExercise(withParams({ pacing: { roundsPerBreath: 2, breathMinMs: 0 } }))
 		).toBeNull();
 		expect(validateExercise(withParams({ learning: { retestGaps: [2] } }))).toMatch(
-			/^locate-neck: params\.learning\.retestGaps /
+			/^locate-note-string: params\.learning\.retestGaps /
 		);
 		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
-			/^locate-neck: params\.learning\.aidFadeSuccesses /
+			/^locate-note-string: params\.learning\.aidFadeSuccesses /
 		);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: 1.0001, aided: false } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: the lead .*1\.0001/);
+		).toMatch(/^locate-note-string: params\.ladder level 0: the lead .*1\.0001/);
 		expect(validateExercise(withParams({ windows: { anchorChordFromBeats: 1.0001 } }))).toMatch(
-			/^locate-neck: params\.windows\.anchorChordFromBeats /
+			/^locate-note-string: params\.windows\.anchorChordFromBeats /
 		);
 	});
 
 	it('checks the round the exercise writes, against the sensors it is given', () => {
 		const wrong = { ...LOCATE_NECK, round: { ...LOCATE_NECK.round!, extra: 1 } };
-		expect(validateExercise(wrong as ExerciseDefinition)).toMatch(/^locate-neck: round\.extra /);
+		expect(validateExercise(wrong as ExerciseDefinition)).toMatch(
+			/^locate-note-string: round\.extra /
+		);
 		expect(validateExercise(LOCATE_NECK, { sensors: ['chord'] })).toMatch(
-			/^locate-neck: round\.expectations\[0\]\.sensor /
+			/^locate-note-string: round\.expectations\[0\]\.sensor /
 		);
 		expect(validateExercise(LOCATE_NECK, { sensors: ['note'] })).toBeNull();
 	});
@@ -100,23 +118,23 @@ describe('validateExercise', () => {
 				...LOCATE_NECK,
 				levels: [{ params: {} }, { params: { 'tempo.bpm': 90 } }]
 			})
-		).toMatch(/^locate-neck: levels\[1\] .*tempo\.bpm/);
+		).toMatch(/^locate-note-string: levels\[1\] .*tempo\.bpm/);
 		const ladder = [
 			{ params: { leadBeats: 4, aided: false } },
 			{ params: { leadBeats: 2, aided: false, 'windows.perfectMs.at': 60 } }
 		];
 		expect(validateExercise(withParams({ ladder }))).toMatch(
-			/^locate-neck: params\.ladder level 1: .*windows\.perfectMs\.at/
+			/^locate-note-string: params\.ladder level 1: .*windows\.perfectMs\.at/
 		);
 	});
 
 	it('refuses an item level whose leadBeats is not a beat count', () => {
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: '4', aided: false } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: the lead /);
+		).toMatch(/^locate-note-string: params\.ladder level 0: the lead /);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: 4, aided: 'yes' } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: aided /);
+		).toMatch(/^locate-note-string: params\.ladder level 0: aided /);
 	});
 
 	it('accepts a level path no piece reads', () => {
@@ -142,8 +160,7 @@ describe('validateExercise', () => {
 	it('accepts figure entries, and refuses a written note impossible on its string', () => {
 		const written = (text: string): ExerciseDefinition => ({
 			id: 'theme',
-			version: 1,
-			mechanic: 'locate',
+			practices: 'locate-note-string',
 			figures: [{ id: 'theme', figure: parseLilyPond(text) }],
 			params: { ladder: [{ params: { leadBeats: 4, aided: false } }] },
 			round: {
@@ -188,23 +205,119 @@ describe('validateExercise', () => {
 	});
 });
 
+describe('validateExercise on what a file could break in play', () => {
+	const levelled = (params: Record<string, unknown>): ExerciseDefinition => ({
+		...LOCATE_NECK,
+		levels: [{ params }]
+	});
+	const expectRefusal = (problem: string | null, ...fragments: string[]) => {
+		expect(problem).toMatch(/^locate-note-string: /);
+		for (const fragment of fragments) expect(problem).toContain(fragment);
+	};
+
+	it('checks a value an exercise level writes as the same value written in the params', () => {
+		expectRefusal(
+			validateExercise(levelled({ 'windows.perfectMs': 'x' })),
+			'levels[0]',
+			'windows.perfectMs'
+		);
+	});
+
+	it('checks the tempo an item level writes', () => {
+		const ladder = [{ params: { leadBeats: 4, aided: false, tempo: -3 } }];
+		expectRefusal(
+			validateExercise(withParams({ ladder })),
+			'ladder',
+			'tempo must be a positive number'
+		);
+	});
+
+	it('refuses a level path written undefined', () => {
+		expectRefusal(
+			validateExercise(levelled({ cursor: undefined })),
+			'levels[0]',
+			'"cursor" is undefined'
+		);
+	});
+
+	it('passes the learning settings at a level, read from the params alone', () => {
+		const ladder = [{ params: { leadBeats: 4, aided: false, 'learning.retestGaps': [2] } }];
+		expect(validateExercise(withParams({ ladder }))).toBeNull();
+		expect(validateExercise(levelled({ 'learning.aidFadeSuccesses': 1.5 }))).toBeNull();
+		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
+			/^locate-note-string: params\.learning\.aidFadeSuccesses /
+		);
+	});
+
+	it('refuses a level that writes an object and one of its sub-paths', () => {
+		expectRefusal(
+			validateExercise(levelled({ windows: { perfectMs: 60 }, 'windows.lateMs': 200 })),
+			'levels[0] writes "windows" and its sub-path "windows.lateMs"'
+		);
+	});
+
+	it.each([0, -1, 1.5])('refuses %s rounds per breath', (rounds) => {
+		expectRefusal(
+			validateExercise(withParams({ pacing: { roundsPerBreath: rounds } })),
+			'params.pacing.roundsPerBreath must be a positive integer'
+		);
+	});
+
+	it('checks the rounds per breath an exercise level writes', () => {
+		expectRefusal(
+			validateExercise(levelled({ 'pacing.roundsPerBreath': 0 })),
+			'levels[0]',
+			'pacing.roundsPerBreath'
+		);
+	});
+
+	it('refuses pacing that is not an object', () => {
+		expectRefusal(validateExercise(withParams({ pacing: 3 })), 'params.pacing must be an object');
+	});
+
+	it('passes a recall threshold written in the params: no piece reads it', () => {
+		expect(validateExercise(withParams({ recallThresholdMs: 0 }))).toBeNull();
+	});
+
+	it('refuses a memory skill practised with a round judged by cycle', () => {
+		const remembered: ExerciseDefinition = { ...ARPEGGIO_EXERCISE, practices: 'chord-anchor' };
+		expect(validateExercise(remembered)).toBe(
+			`${ARPEGGIO_EXERCISE.id}: practices a memory skill with a round judged by cycle`
+		);
+		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
+	});
+
+	it('refuses a round judged by cycle with no rounds per breath', () => {
+		const endless: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			params: { ...ARPEGGIO_EXERCISE.params, pacing: { breathMinMs: 4000 } }
+		};
+		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
+		const problem = validateExercise(endless);
+		expect(problem).toMatch(new RegExp(`^${ARPEGGIO_EXERCISE.id}: `));
+		expect(problem).toContain(
+			'params.pacing.roundsPerBreath is required for a round judged by cycle'
+		);
+	});
+});
+
 describe('validateExercise on how a run starts', () => {
 	it('refuses a listen-in that is not a whole number of bars, and a count that is not a boolean', () => {
 		expect(validateExercise(withParams({ pacing: { listenInBars: 1.5 } }))).toBe(
-			'locate-neck: params.pacing.listenInBars must be a non-negative integer, got 1.5'
+			'locate-note-string: params.pacing.listenInBars must be a non-negative integer, got 1.5'
 		);
 		expect(validateExercise(withParams({ pacing: { listenInBars: -1 } }))).toMatch(
-			/^locate-neck: params\.pacing\.listenInBars .*-1/
+			/^locate-note-string: params\.pacing\.listenInBars .*-1/
 		);
 		expect(validateExercise(withParams({ pacing: { countIn: 'yes' } }))).toBe(
-			'locate-neck: params.pacing.countIn must be true or false, got yes'
+			'locate-note-string: params.pacing.countIn must be true or false, got yes'
 		);
 	});
 
 	it('refuses no listen-in and no counted bar, at the level that resolves them', () => {
 		// The listen-in is 0 by default: no counted bar leaves nothing to hear before playing.
 		expect(validateExercise(withParams({ pacing: { countIn: false } }))).toBe(
-			'locate-neck: params resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other'
+			'locate-note-string: params resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other'
 		);
 		expect(
 			validateExercise(withParams({ pacing: { countIn: false, listenInBars: 1 } }))
@@ -222,14 +335,31 @@ describe('validateExercise on how a run starts', () => {
 			levels: [{ params: {} }, { params: { 'pacing.listenInBars': 0.5 } }]
 		};
 		expect(validateExercise(fractional)).toBe(
-			`${ARPEGGIO_EXERCISE.id}: levels[1] resolves params.pacing.listenInBars 0.5, not a non-negative integer`
+			`${ARPEGGIO_EXERCISE.id}: levels[1]: params.pacing.listenInBars must be a non-negative integer, got 0.5`
 		);
+	});
+});
+
+describe('validateExercise on levels a file writes wrong', () => {
+	it('refuses a level that is not an object', () => {
+		expect(
+			validateExercise({
+				...LOCATE_NECK,
+				levels: [null] as unknown as ExerciseDefinition['levels']
+			})
+		).toBe('locate-note-string: levels[0] must be an object');
+	});
+
+	it('refuses a level without params', () => {
+		expect(
+			validateExercise({ ...LOCATE_NECK, levels: [{}] as unknown as ExerciseDefinition['levels'] })
+		).toBe('locate-note-string: levels[0].params must be an object');
 	});
 });
 
 describe('validateExercise on listed items', () => {
 	const withItems = (
-		items: string[],
+		items: ItemEntry[],
 		over: Partial<ExerciseDefinition> = {}
 	): ExerciseDefinition => ({
 		...ARPEGGIO_EXERCISE,
@@ -237,7 +367,7 @@ describe('validateExercise on listed items', () => {
 		...over
 	});
 
-	it('accepts items its mechanic reads and its round compiles at every level', () => {
+	it('accepts items its set reads and its round compiles at every level', () => {
 		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
 	});
 
@@ -245,22 +375,92 @@ describe('validateExercise on listed items', () => {
 		expect(validateExercise(withItems([]))).toBe(`${ARPEGGIO_EXERCISE.id}: items lists no item`);
 	});
 
-	it('refuses a key its mechanic cannot read, naming the item', () => {
-		expect(validateExercise(withItems([ARPEGGIO_ITEMS[0], 'nonsense']))).toMatch(
+	it('refuses items that are not a list', () => {
+		expect(validateExercise(withItems('abc' as unknown as string[]))).toBe(
+			`${ARPEGGIO_EXERCISE.id}: items must be a list`
+		);
+	});
+
+	it('refuses a key its set cannot read, naming the item', () => {
+		expect(validateExercise(withItems([ARPEGGIO_EXERCISE.items![0], 'nonsense']))).toMatch(
 			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[1\\] \\("nonsense"\\): .*nonsense`)
 		);
 	});
 
-	it('refuses an occurrence the neck does not hold, naming the item and the level', () => {
-		expect(validateExercise(withItems([ARPEGGIO_ITEMS[0], 'C|maj|3:1,2:3,1:5@9@4']))).toMatch(
-			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[1\\] .* at exercise level -1: .*Occurrence 9`)
+	it('refuses a change of a grid no file defines, naming the item', () => {
+		const [entry] = RHYTHM_OFFBEATS.round!.expectations as FigureExpectationTemplate[];
+		const onChanges = (key: string): ExerciseDefinition => ({
+			...RHYTHM_OFFBEATS,
+			id: 'test-changes',
+			practices: GESTURE_JAM.practices,
+			items: [key],
+			view: 'figure',
+			round: {
+				...RHYTHM_OFFBEATS.round!,
+				expectations: [{ ...entry, figure: { id: RHYTHM_OFFBEATS.figures![0].id } }]
+			}
+		});
+		expect(validateExercise(onChanges('iohefy-a#0'))).toBeNull();
+		expect(validateExercise(onChanges('nowhere#0'))).toBe(
+			'test-changes: items[0] ("nowhere#0"): names grid "nowhere", which no file defines'
 		);
+	});
+
+	it('refuses frets where the voicing has no place, naming the item', () => {
+		expect(
+			validateExercise(withItems([ARPEGGIO_EXERCISE.items![0], 'C|maj|3:1,2:3,1:5@9-9-9']))
+		).toBe(
+			`${ARPEGGIO_EXERCISE.id}: items[1] ("C|maj|3:1,2:3,1:5@9-9-9"): the voicing has no place at frets 9-9-9`
+		);
+	});
+
+	it('refuses a key that still ends with a length, like any key its set cannot read', () => {
+		expect(validateExercise(withItems([`${ARPEGGIO_ITEMS[0]}@4`]))).toMatch(
+			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] \\(".*@4"\\): `)
+		);
+	});
+
+	it('accepts an entry that gives its item a length, and a key alone when the round reads none', () => {
+		expect(validateExercise(withItems([{ item: ARPEGGIO_ITEMS[1], beats: 2 }]))).toBeNull();
+		const barLong = {
+			round: { ...ARPEGGIO_EXERCISE.round!, length: { bars: 1 } } as RoundTemplate
+		};
+		expect(validateExercise(withItems([...ARPEGGIO_ITEMS], barLong))).toBeNull();
+	});
+
+	it('refuses a key alone when the round reads the length of its item', () => {
+		expect(validateExercise(withItems([ARPEGGIO_ITEMS[0]]))).toMatch(
+			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] .* does not compile .*no length in beats`)
+		);
+	});
+
+	it('refuses a length that is not a positive number, naming items[i].beats', () => {
+		for (const beats of [0, -4, Number.NaN, '4']) {
+			const entry = { item: ARPEGGIO_ITEMS[0], beats } as unknown as ItemEntry;
+			expect(validateExercise(withItems([entry]))).toBe(
+				`${ARPEGGIO_EXERCISE.id}: items[0].beats must be a positive number`
+			);
+		}
+	});
+
+	it('refuses an entry that is neither a key nor { item, beats }, naming it', () => {
+		const odd = [
+			{ beats: 4 },
+			{ item: 4, beats: 4 },
+			7,
+			{ item: ARPEGGIO_ITEMS[0], beats: 4, x: 1 }
+		];
+		for (const entry of odd) {
+			expect(validateExercise(withItems([entry as unknown as ItemEntry]))).toMatch(
+				new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[0\\]`)
+			);
+		}
 	});
 
 	it('refuses a pattern note beyond the shape at the level that reads it', () => {
 		const round = ARPEGGIO_EXERCISE.round!;
 		const [entry] = round.expectations;
-		const beyond = withItems([...ARPEGGIO_ITEMS], {
+		const beyond = withItems([...ARPEGGIO_EXERCISE.items!], {
 			round: {
 				...round,
 				expectations: [{ ...entry, content: { from: 'voicing-notes', pattern: [1, 2, 3, 4] } }]
@@ -274,14 +474,14 @@ describe('validateExercise on listed items', () => {
 	});
 });
 
-describe('validateExercise on the forms an exercise writes', () => {
-	const [form] = FORM_EXERCISE.forms!;
-	const withForms = (forms: ExerciseDefinition['forms']): ExerciseDefinition => ({
+describe('validateExercise on the shapes an exercise writes', () => {
+	const [form] = FORM_EXERCISE.shapes!;
+	const withForms = (shapes: ExerciseDefinition['shapes']): ExerciseDefinition => ({
 		...FORM_EXERCISE,
-		forms
+		shapes
 	});
 	const withItems = (
-		items: string[],
+		items: ItemEntry[],
 		rest: Partial<ExerciseDefinition> = {}
 	): ExerciseDefinition => ({
 		...FORM_EXERCISE,
@@ -296,13 +496,13 @@ describe('validateExercise on the forms an exercise writes', () => {
 
 	it('refuses two forms with one id, naming the second', () => {
 		expect(validateExercise(withForms([form, { ...form, symbol: 'm7' }]))).toBe(
-			`${id}: forms[1] (maj7) has the id of forms[0]`
+			`${id}: shapes[1] (maj7) has the id of shapes[0]`
 		);
 	});
 
 	it('refuses an empty form, naming it', () => {
 		expect(validateExercise(withForms([{ ...form, notes: [] }]))).toBe(
-			`${id}: forms[0] (maj7) has no note`
+			`${id}: shapes[0] (maj7) has no note`
 		);
 	});
 
@@ -322,25 +522,27 @@ describe('validateExercise on the forms an exercise writes', () => {
 	it('refuses a note not playable as written, naming the form and the note', () => {
 		const below = [form.notes[0], { midi: 40, string: 4, name: 'E' }];
 		expect(validateExercise(withForms([{ ...form, notes: below }]))).toBe(
-			`${id}: forms[0] (maj7) note 1 (pitch 40) is below string 4 (50)`
+			`${id}: shapes[0] (maj7) note 1 (pitch 40) is below string 4 (50)`
 		);
 		const seventh = [{ midi: 60, string: 7, name: 'C' }];
 		expect(validateExercise(withForms([{ ...form, notes: seventh }]))).toMatch(
-			/^test-form-sequence: forms\[0\] \(maj7\) note 0 is on string 7/
+			/^test-form-sequence: shapes\[0\] \(maj7\) note 0 is on string 7/
 		);
 	});
 
-	it('refuses an item naming a form the exercise does not write, naming the item', () => {
-		expect(validateExercise(withItems(['maj7@c@4', 'nowhere@c@4']))).toMatch(
-			new RegExp(`^${id}: items\\[1\\] \\("nowhere@c@4"\\) .*form "nowhere"`)
+	const long = (item: string): ItemEntry => ({ item, beats: 4 });
+
+	it('refuses an item naming a shape the exercise does not write, naming the item', () => {
+		expect(validateExercise(withItems([long('maj7@c'), long('nowhere@c')]))).toMatch(
+			new RegExp(`^${id}: items\\[1\\] \\("nowhere@c"\\) .*shape "nowhere"`)
 		);
 	});
 
-	it('refuses an item moving its form off the neck, naming the item', () => {
-		expect(validateExercise(withItems(['maj7@c@4', "maj7@a'@4", 'maj7@g,@4']))).toMatch(
-			new RegExp(`^${id}: items\\[1\\] \\("maj7@a'@4"\\) .*above the last fret`)
+	it('refuses an item moving its shape off the neck, naming the item', () => {
+		expect(validateExercise(withItems([long('maj7@c'), long("maj7@a'"), long('maj7@g,')]))).toMatch(
+			new RegExp(`^${id}: items\\[1\\] \\("maj7@a'"\\) .*above the last fret`)
 		);
-		expect(validateExercise(withItems(['maj7@g,@4']))).toMatch(
+		expect(validateExercise(withItems([long('maj7@g,')]))).toMatch(
 			new RegExp(`^${id}: items\\[0\\] .*below string 5`)
 		);
 	});
@@ -352,25 +554,185 @@ describe('validateExercise on the forms an exercise writes', () => {
 			round: { ...round, expectations: [{ ...entry, content: null }] } as RoundTemplate
 		};
 		for (const rest of [silent, { round: undefined }]) {
-			expect(validateExercise(withItems(['nowhere@c@4'], rest))).toBeNull();
-			expect(validateExercise(withItems(['maj7@g,@4'], rest))).toBeNull();
+			expect(validateExercise(withItems([long('nowhere@c')], rest))).toBeNull();
+			expect(validateExercise(withItems([long('maj7@g,')], rest))).toBeNull();
 		}
 	});
 
-	it('refuses a form whose id holds the separator of an item key, which no item could name', () => {
+	it('refuses a shape whose id holds the separator of an item key, which no item could name', () => {
 		expect(validateExercise(withForms([{ ...form, id: 'maj@7' }]))).toMatch(
-			new RegExp(`^${id}: forms\\[0\\] \\(maj@7\\) has an id with "@"`)
+			new RegExp(`^${id}: shapes\\[0\\] \\(maj@7\\) has an id with "@"`)
 		);
 	});
 
-	it('runs a voicing whose occurrence the neck does not hold when the round derives nothing', () => {
+	it('refuses frets where the voicing has no place even when the round derives nothing', () => {
 		const round = ARPEGGIO_EXERCISE.round!;
 		const [entry] = round.expectations;
 		const exercise: ExerciseDefinition = {
 			...ARPEGGIO_EXERCISE,
-			items: ['C|maj|3:1,2:3,1:5@9@4'],
+			items: [long('C|maj|3:1,2:3,1:5@9-9-9')],
 			round: { ...round, expectations: [{ ...entry, content: null }] } as RoundTemplate
 		};
-		expect(validateExercise(exercise)).toBeNull();
+		expect(validateExercise(exercise)).toMatch(/no place at frets 9-9-9/);
+	});
+});
+
+describe('validateExercise limits', () => {
+	const plainLevels = (count: number) => Array.from({ length: count }, () => ({ params: {} }));
+	const manyParams = (count: number) =>
+		Object.fromEntries(Array.from({ length: count }, (_, i) => [`free.p${i}`, i]));
+	const ladderOf = (count: number): Ladder =>
+		Array.from({ length: count }, () => ({ params: { leadBeats: 2, aided: false } }));
+
+	it('refuses more exercise levels than MAX_EXERCISE_LEVELS', () => {
+		expect(MAX_EXERCISE_LEVELS).toBe(100);
+		expect(validateExercise({ ...LOCATE_NECK, levels: plainLevels(1000) })).toBe(
+			'locate-note-string: levels has 1000 entries, more than 100'
+		);
+		expect(validateExercise({ ...LOCATE_NECK, levels: plainLevels(100) })).toBeNull();
+	});
+
+	it('refuses a ladder of more levels than MAX_LADDER_LEVELS', () => {
+		expect(MAX_LADDER_LEVELS).toBe(100);
+		expect(validateExercise(withParams({ ladder: ladderOf(101) }))).toBe(
+			'locate-note-string: params.ladder has 101 levels, more than 100'
+		);
+		expect(validateExercise(withParams({ ladder: ladderOf(100) }))).toBeNull();
+	});
+
+	it('refuses a level writing more params than MAX_LEVEL_PARAMS', () => {
+		expect(MAX_LEVEL_PARAMS).toBe(200);
+		const levels = [...plainLevels(3), { params: manyParams(201) }];
+		expect(validateExercise({ ...LOCATE_NECK, levels })).toBe(
+			'locate-note-string: levels[3].params has 201 entries, more than 200'
+		);
+		const ladder: Ladder = [
+			...ladderOf(2),
+			{ params: { leadBeats: 2, aided: false, ...manyParams(199) } }
+		];
+		expect(validateExercise(withParams({ ladder }))).toBe(
+			'locate-note-string: params.ladder[2].params has 201 entries, more than 200'
+		);
+		expect(validateExercise({ ...LOCATE_NECK, levels: [{ params: manyParams(200) }] })).toBeNull();
+	});
+
+	it('refuses more items than MAX_EXERCISE_ITEMS', () => {
+		expect(MAX_EXERCISE_ITEMS).toBe(2000);
+		const items = Array.from({ length: 2001 }, () => ARPEGGIO_EXERCISE.items![0]);
+		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items })).toBe(
+			'test-arpeggio-sequence: items has 2001 entries, more than 2000'
+		);
+	});
+
+	it('refuses figures × levels asking more round checks than MAX_ROUND_CHECKS, for an exercise that serves its figures', () => {
+		const figures = Array.from({ length: 201 }, (_, i) => ({
+			...RHYTHM_OFFBEATS.figures![0],
+			id: `f${i}`
+		}));
+		const levels = plainLevels(100);
+		const start = performance.now();
+		expect(validateExercise({ ...RHYTHM_OFFBEATS, figures, levels })).toBe(
+			'rhythm-offbeats: figures × levels asks 20100 round checks, more than 20000'
+		);
+		expect(performance.now() - start).toBeLessThan(200);
+	});
+
+	it('refuses an exercise that serves its figures when none fits its round at a level, naming the level', () => {
+		// A figure of two bars: a round of three bars plays it no whole number of times.
+		const twoBars = { id: 'two', figure: parseLilyPond('c8 c c c c c c c | c8 c c c c c c c') };
+		const levels = [...plainLevels(2), { params: { cycleBars: 3 } }];
+		const exercise = {
+			...RHYTHM_OFFBEATS,
+			figures: [twoBars],
+			params: { ...RHYTHM_OFFBEATS.params, cycleBars: 4 },
+			levels
+		};
+		expect(validateExercise(exercise)).toBe(
+			'rhythm-offbeats: no figure fits the round at exercise level 2'
+		);
+		expect(validateExercise({ ...exercise, levels: plainLevels(3) })).toBeNull();
+	});
+
+	it('refuses items × levels asking more round checks than MAX_ROUND_CHECKS, before any', () => {
+		expect(MAX_ROUND_CHECKS).toBe(20_000);
+		// 201 items at 100 exercise levels (one an aid level): 20 100 rounds to compile.
+		const items = Array.from({ length: 201 }, () => ARPEGGIO_EXERCISE.items![0]);
+		const levels = [ARPEGGIO_EXERCISE.levels![0], ...plainLevels(99)];
+		const start = performance.now();
+		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items, levels })).toBe(
+			'test-arpeggio-sequence: items × levels asks 20100 round checks, more than 20000'
+		);
+		expect(performance.now() - start).toBeLessThan(200);
+		expect(
+			validateExercise({ ...ARPEGGIO_EXERCISE, items: items.slice(0, 200), levels })
+		).toBeNull();
+	});
+
+	it('charges its levels, then each round it compiles, to the budget given, and refuses past it in the budget’s words', () => {
+		// Its levels resolved, then 66 items at one level.
+		const levels = levelsCheckCost(LOCATE_NECK);
+		const round = roundCheckCost(LOCATE_NECK);
+		const budget = new CheckBudget(Infinity);
+		expect(validateExercise(LOCATE_NECK, { budget })).toBeNull();
+		expect(budget.spent).toBe(levels + LOCATE_NECK.items!.length * round);
+		const tight = new CheckBudget(levels + 10 * round);
+		expect(validateExercise(LOCATE_NECK, { budget: tight })).toBe(
+			`locate-note-string: this file asks more checking than a start can afford (cost ${levels + 11 * round}, at most ${levels + 10 * round})`
+		);
+	});
+
+	it('charges the levels resolved before resolving them', () => {
+		const many = { ...LOCATE_NECK, levels: [{ params: manyParams(200) }, ...plainLevels(99)] };
+		expect(levelsCheckCost(many)).toBeGreaterThan(levelsCheckCost(LOCATE_NECK));
+		const budget = new CheckBudget(levelsCheckCost(many) - 1);
+		const start = performance.now();
+		expect(validateExercise(many, { budget })).toMatch(/can afford \(cost \d+, at most \d+\)$/);
+		expect(budget.spent).toBe(0);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('charges the notes a figure entry expands to once compiled', () => {
+		// 200 items at 100 levels, quarters: a round plus 3 notes more.
+		const items = Array.from({ length: 200 }, () => ARPEGGIO_EXERCISE.items![0]);
+		const levels = [ARPEGGIO_EXERCISE.levels![0], ...plainLevels(99)];
+		const exercise = { ...ARPEGGIO_EXERCISE, items, levels };
+		const budget = new CheckBudget(Infinity);
+		expect(validateExercise(exercise, { budget })).toBeNull();
+		expect(budget.spent).toBe(
+			levelsCheckCost(exercise) + 200 * 100 * (roundCheckCost(exercise) + 3)
+		);
+	});
+
+	it('refuses a figure that would expand past what the budget leaves, before expanding it, in the budget’s words', () => {
+		const item = ARPEGGIO_EXERCISE.items![0] as { item: string };
+		const exercise = { ...ARPEGGIO_EXERCISE, items: [{ item: item.item, beats: 4_000 }] };
+		const spent = levelsCheckCost(exercise) + roundCheckCost(exercise);
+		const budget = new CheckBudget(spent + 999);
+		const start = performance.now();
+		// 4 000 notes over 1 000 bars, charged as they would have been: past the budget.
+		expect(validateExercise(exercise, { budget })).toBe(
+			`test-arpeggio-sequence: this file asks more checking than a start can afford (cost ${spent + 4_000}, at most ${spent + 999})`
+		);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('refuses at once, compiling nothing, with a budget already spent', () => {
+		const budget = new CheckBudget(1);
+		expect(() => budget.charge(2)).toThrow();
+		const start = performance.now();
+		expect(validateExercise(LOCATE_NECK, { budget })).toBe(
+			'locate-note-string: this file asks more checking than a start can afford (cost 2, at most 1)'
+		);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('charges the rounds of the first passages it compiles', () => {
+		const budget = new CheckBudget(Infinity);
+		expect(validateExercise(GESTURE_JAM, { budget })).toBeNull();
+		expect(budget.spent).toBeGreaterThan(0);
+		const refused = new CheckBudget(budget.spent - 1);
+		expect(validateExercise(GESTURE_JAM, { budget: refused })).toMatch(
+			/^grid-reading: this file asks more checking than a start can afford \(cost \d+, at most \d+\)$/
+		);
 	});
 });

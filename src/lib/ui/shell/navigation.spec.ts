@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeDestination, showsRail } from './navigation';
+import { activeDestination, DESTINATION_PATHS, showsRail } from './navigation';
 
 describe('showsRail', () => {
 	it.each([
@@ -16,6 +16,7 @@ describe('showsRail', () => {
 
 	it.each([
 		'/',
+		'/library',
 		'/map',
 		'/settings',
 		'/calibration',
@@ -34,6 +35,7 @@ describe('activeDestination', () => {
 	it.each([
 		['/', 'practice'],
 		['/summary', 'practice'],
+		['/library', 'library'],
 		['/map', 'progress'],
 		['/settings', 'settings'],
 		['/calibration', 'settings'],
@@ -46,5 +48,14 @@ describe('activeDestination', () => {
 		['/elsewhere', null]
 	])('%s is %s', (path, expected) => {
 		expect(activeDestination(path)).toBe(expected);
+	});
+});
+
+describe('DESTINATION_PATHS', () => {
+	it('leads each link of the rail to a page of its destination, the library to the Library', () => {
+		expect(DESTINATION_PATHS.library).toBe('/library');
+		for (const [destination, path] of Object.entries(DESTINATION_PATHS)) {
+			expect(activeDestination(path), path).toBe(destination);
+		}
 	});
 });

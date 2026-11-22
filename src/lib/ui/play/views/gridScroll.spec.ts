@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { gridPlacement } from './gridScroll';
 
-const IOHEFY = gridChanges(gridById('iohefy-a'));
+/** The line of iohefy-a: each change's place, its symbol its words. */
+const IOHEFY = gridChanges(gridById('iohefy-a')).map(({ at, length, symbol }) => ({
+	at,
+	length,
+	label: symbol,
+	way: null
+}));
 
 /** iohefy-a started on beat 8: Dm7 on 8, G7 on 12, Dm7 on 16, G7 on 20, Cmaj7 on 24… */
 function placement(
@@ -11,7 +17,7 @@ function placement(
 	history: { beatIndex: number; verdict: 'perfect' | 'wrong' }[] = []
 ) {
 	return gridPlacement(
-		{ changes: IOHEFY, beatsPerBar: 4, index, anchorBeat: 8 + IOHEFY[index].at, history },
+		{ rounds: IOHEFY, beatsPerBar: 4, index, anchorBeat: 8 + IOHEFY[index].at, history },
 		{ nowBeat, visibleBars: 4 }
 	);
 }
@@ -60,7 +66,7 @@ describe('gridPlacement', () => {
 		expect(before.bars[0].cells[0]).toMatchObject({ change: 1, state: 'current', verdict: null });
 		const withPast = gridPlacement(
 			{
-				changes: IOHEFY,
+				rounds: IOHEFY,
 				beatsPerBar: 4,
 				index: 1,
 				anchorBeat: 12,
@@ -77,12 +83,23 @@ describe('gridPlacement', () => {
 
 	it('before the first change, shows the grid from its start, the first change next', () => {
 		const p = gridPlacement(
-			{ changes: IOHEFY, beatsPerBar: 4, index: 0, anchorBeat: null, history: [] },
+			{ rounds: IOHEFY, beatsPerBar: 4, index: 0, anchorBeat: null, history: [] },
 			{ nowBeat: 5, visibleBars: 4 }
 		);
 		expect(p.current).toBeNull();
 		expect(p.next).toBe(0);
 		expect(p.bars.map((bar) => bar.bar)).toEqual([0, 1, 2, 3]);
 		expect(p.bars[0].cells[0]).toMatchObject({ change: 0, state: 'next' });
+	});
+
+	it('places an empty line as no bar, without an error', () => {
+		for (const anchorBeat of [null, 8]) {
+			expect(
+				gridPlacement(
+					{ rounds: [], beatsPerBar: 4, index: 0, anchorBeat, history: [] },
+					{ nowBeat: 9, visibleBars: 4 }
+				)
+			).toEqual({ bars: [], current: null, next: null, nextAnnounced: false });
+		}
 	});
 });

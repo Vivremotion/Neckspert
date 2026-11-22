@@ -1,6 +1,6 @@
 /**
  * The view that draws the figure of a round (`figureStage`), the exercise's prompt above it when
- * it writes a presentation. Named here, out of the session core, which never names the mechanic
+ * it writes a presentation. Named here, out of the session core, which never names the set
  * of the same name.
  */
 export const FIGURE_VIEW = 'figure';
@@ -23,3 +23,11 @@ export const PLAY_VIEW_NAMES: readonly string[] = [
 	'lane',
 	'link-lane'
 ];
+
+/**
+ * The views that draw the passage a round belongs to (the grid's cells, the link's tiles): an
+ * exercise that writes its presentation reads them through `passageStage`, and must write
+ * `passages`. The default view (`grid-scroll`) without a presentation stays the screen its
+ * presenter draws.
+ */
+export const PASSAGE_VIEWS: readonly string[] = ['grid-scroll', 'link-lane'];

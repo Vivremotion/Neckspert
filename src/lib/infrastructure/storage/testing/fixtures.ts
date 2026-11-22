@@ -1,43 +1,58 @@
 import type { IdentifyItem, LocateItem } from '$lib/domain/music';
-import { mechanicRules, type IdentifyData, type LocateData } from '$lib/domain/mechanics';
+import { setOfSkill, type IdentifyData, type LocateData } from '$lib/domain/sets';
+import {
+	IDENTIFY_NECK_ID,
+	IDENTIFY_SKILL_ID,
+	LOCATE_NECK_ID,
+	LOCATE_SKILL_ID,
+	ROUTINE_NOTES_ID
+} from '$lib/testing/catalogIds';
 import {
 	DEFAULT_SETTINGS,
 	cardKey,
 	type Attempt,
 	type BackupFile,
 	type CardState,
-	type MechanicId,
-	type SessionRecord
+	type SessionRecord,
+	type SkillId
 } from '$lib/domain/types';
 import type { LevelState } from '$lib/domain/time';
 import type { BackupV7, ProgressionV10 } from '../migrations/v11';
 import { RHYTHM_FIGURE_MECHANIC_V11, type CyclePlanRecordV11 } from '../migrations/v12';
+import { MECHANICS_V12 } from '../migrations/v13';
 
 export const LOCATE_ITEM: LocateItem = { string: 2, pitch: 'F' };
 
 export const IDENTIFY_ITEM: IdentifyItem = { string: 5, fret: 8 };
 
-function keyOf(mechanic: MechanicId, item: unknown): string {
-	return cardKey(mechanic, mechanicRules(mechanic).itemKey(item));
+function keyOf(skill: SkillId, item: unknown): string {
+	return cardKey(skill, setOfSkill(skill).itemKey(item));
 }
 
-function defaultItem(mechanic: MechanicId): unknown {
-	return mechanic === 'identify' ? IDENTIFY_ITEM : LOCATE_ITEM;
+/** A card key as versions 1 to 12 wrote it: prefixed by its mechanic. */
+function keyOfV12(mechanic: string, item: unknown): string {
+	const rules = MECHANICS_V12.find((frozen) => frozen.id === mechanic);
+	if (!rules) throw new Error(`no frozen mechanic ${mechanic}`);
+	return `${mechanic}:${rules.itemKey(item)}`;
 }
 
-/** A correct cold locate attempt on LOCATE_ITEM; `mechanic: 'identify'` gives one on IDENTIFY_ITEM. */
+function defaultItem(skill: SkillId): unknown {
+	return skill === IDENTIFY_SKILL_ID ? IDENTIFY_ITEM : LOCATE_ITEM;
+}
+
+/** A correct cold locate attempt on LOCATE_ITEM; the identify skill gives one on IDENTIFY_ITEM. */
 export function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
-	const mechanic = overrides.mechanic ?? 'locate';
-	const identify = mechanic === 'identify';
+	const skill = overrides.skill ?? LOCATE_SKILL_ID;
+	const identify = skill === IDENTIFY_SKILL_ID;
 	const data: LocateData | IdentifyData = identify
 		? { item: IDENTIFY_ITEM, answer: { pitch: 'F' }, confusion: null }
 		: { item: LOCATE_ITEM, answer: { midi: 65 }, confusion: null };
 	const finalData = (overrides.data ?? data) as { item: unknown };
 	return {
 		sessionId: 's1',
-		exerciseId: identify ? 'identify-neck' : 'locate-neck',
-		mechanic,
-		cardKey: keyOf(mechanic, finalData.item),
+		exerciseId: identify ? IDENTIFY_NECK_ID : LOCATE_NECK_ID,
+		skill,
+		cardKey: overrides.cardKey ?? keyOf(skill, finalData.item),
 		phase: 'review',
 		temperature: 'cold',
 		aids: [],
@@ -57,13 +72,13 @@ export function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
 	};
 }
 
-/** A learned locate card on LOCATE_ITEM; `mechanic: 'identify'` gives one on IDENTIFY_ITEM. */
+/** A learned locate card on LOCATE_ITEM; the identify skill gives one on IDENTIFY_ITEM. */
 export function makeCard(overrides: Partial<CardState> = {}): CardState {
-	const mechanic = overrides.mechanic ?? 'locate';
-	const item = overrides.item ?? defaultItem(mechanic);
+	const skill = overrides.skill ?? LOCATE_SKILL_ID;
+	const item = overrides.item ?? defaultItem(skill);
 	return {
-		key: keyOf(mechanic, item),
-		mechanic,
+		key: overrides.key ?? keyOf(skill, item),
+		skill,
 		item,
 		introducedAt: 1000,
 		introducedInSession: 's1',
@@ -86,18 +101,64 @@ export function makeCard(overrides: Partial<CardState> = {}): CardState {
 	};
 }
 
+/** The ids versions 1 to 12 gave the two neck exercises. */
+const LOCATE_NECK_ID_V12 = 'locate-neck';
+const IDENTIFY_NECK_ID_V12 = 'identify-neck';
+
+/**
+ * An attempt as versions 1 to 12 stored it: named by its mechanic, its card key prefixed by it,
+ * its exercise by its id then.
+ * A correct cold locate attempt on LOCATE_ITEM; `mechanic: 'identify'` gives one on IDENTIFY_ITEM.
+ */
+export function makeAttemptV12(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const mechanic = (overrides.mechanic as string | undefined) ?? 'locate';
+	const live = makeAttempt({
+		skill: mechanic === 'identify' ? IDENTIFY_SKILL_ID : LOCATE_SKILL_ID
+	});
+	const { skill: _skill, cardKey: _cardKey, ...fields } = live;
+	const data = (overrides.data ?? fields.data) as { item: unknown };
+	const exerciseId = mechanic === 'identify' ? IDENTIFY_NECK_ID_V12 : LOCATE_NECK_ID_V12;
+	return { ...fields, exerciseId, mechanic, cardKey: keyOfV12(mechanic, data.item), ...overrides };
+}
+
+/**
+ * A card as versions 6 to 12 stored it: named by its mechanic, its key prefixed by it. A learned
+ * locate card on LOCATE_ITEM; `mechanic: 'identify'` gives one on IDENTIFY_ITEM.
+ */
+export function makeCardV12(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const mechanic = (overrides.mechanic as string | undefined) ?? 'locate';
+	const live = makeCard({ skill: mechanic === 'identify' ? IDENTIFY_SKILL_ID : LOCATE_SKILL_ID });
+	const { skill: _skill, key: _key, ...fields } = live;
+	const item = overrides.item ?? fields.item;
+	return { ...fields, mechanic, key: keyOfV12(mechanic, item), item, ...overrides };
+}
+
 export function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
 	return {
 		id: 's1',
-		kind: 'learn',
+		routine: ROUTINE_NOTES_ID,
 		startedAt: 1000,
 		endedAt: 2000,
 		fatigueDetected: false,
 		executions: [
-			{ exerciseId: 'locate-neck', tempoBpm: 80 },
-			{ exerciseId: 'identify-neck', tempoBpm: null }
+			{ exerciseId: LOCATE_NECK_ID, tempoBpm: 80 },
+			{ exerciseId: IDENTIFY_NECK_ID, tempoBpm: null }
 		],
 		latencyMs: 0,
+		...overrides
+	};
+}
+
+/** A session as versions 2 to 12 stored it: its kind, its exercises by their ids then. */
+export function makeSessionV12(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { routine: _routine, ...fields } = makeSession();
+	return {
+		...fields,
+		kind: 'learn',
+		executions: [
+			{ exerciseId: LOCATE_NECK_ID_V12, tempoBpm: 80 },
+			{ exerciseId: IDENTIFY_NECK_ID_V12, tempoBpm: null }
+		],
 		...overrides
 	};
 }
@@ -105,7 +166,7 @@ export function makeSession(overrides: Partial<SessionRecord> = {}): SessionReco
 /** A tempo progression as versions 2 to 6 of the backup hold it. */
 export function makeProgressionV6(overrides: Partial<ProgressionV10> = {}): ProgressionV10 {
 	return {
-		exerciseId: 'locate-neck',
+		exerciseId: LOCATE_NECK_ID_V12,
 		mechanic: 'locate',
 		tempoBpm: 96,
 		updatedAt: 1000,
@@ -116,20 +177,37 @@ export function makeProgressionV6(overrides: Partial<ProgressionV10> = {}): Prog
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 8,
+		version: 9,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
 		cards: [makeCard()],
 		attempts: [makeAttempt({ id: 1 })],
 		sessions: [makeSession()],
 		levelStates: [],
+		definitionFiles: [],
+		...overrides
+	};
+}
+
+/**
+ * A version 8 export: cards and attempts named by their mechanic, keyed by it; sessions by their
+ * kind; exercises by their ids then.
+ */
+export function makeBackupV8(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { definitionFiles: _definitionFiles, ...v9 } = makeBackup();
+	return {
+		...v9,
+		version: 8,
+		cards: [makeCardV12()],
+		attempts: [makeAttemptV12({ id: 1 })],
+		sessions: [makeSessionV12()],
 		...overrides
 	};
 }
 
 /** A version 7 export: its rhythm attempts are of the version-11 rhythm mechanic, with a cycle plan. */
 export function makeBackupV7(overrides: Record<string, unknown> = {}): BackupV7 {
-	return { ...makeBackup(), version: 7, ...overrides } as unknown as BackupV7;
+	return { ...makeBackupV8(), version: 7, ...overrides } as unknown as BackupV7;
 }
 
 /** A version 6 export: its tempo progressions; attempts may hold a `tempoScope`. */
@@ -139,7 +217,7 @@ export function makeBackupV6(overrides: Record<string, unknown> = {}): Record<st
 
 /** A card as versions 1 to 5 of the backup hold it: with its lead, 8 by default. */
 export function makeCardV5(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	return { ...makeCard(overrides as Partial<CardState>), leadBeats: 8, ...overrides };
+	return { ...makeCardV12(overrides), leadBeats: 8, ...overrides };
 }
 
 /** A version 5 export: its cards hold their lead, no triad card has a level state. */
@@ -327,7 +405,7 @@ export function makeCycleAttemptV11(
 ): Record<string, unknown> {
 	const { exerciseId, level, figureId, record } = CYCLE_PLANS_V11[2];
 	return {
-		...makeAttempt({ id: 1 }),
+		...makeAttemptV12({ id: 1 }),
 		exerciseId,
 		mechanic: RHYTHM_FIGURE_MECHANIC_V11,
 		cardKey: `${RHYTHM_FIGURE_MECHANIC_V11}:${figureId}@${level}`,

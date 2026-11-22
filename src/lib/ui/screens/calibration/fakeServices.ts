@@ -5,10 +5,15 @@ import type {
 	CalibrationPort,
 	CalibrationProgress
 } from '$lib/application/ports';
-import type { BackupFile, HomeStats, NeckMapCell, SessionSummary } from '$lib/domain/types';
+import type { BackupFile, NeckMapCell, SessionSummary } from '$lib/domain/types';
 import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import { validateBackup } from '$lib/infrastructure/storage';
-import { FakeDiagnostics, FakeNoteDetector, InMemorySettingsRepository } from '$lib/testing/fakes';
+import {
+	FakeDefinitionsService,
+	FakeDiagnostics,
+	FakeNoteDetector,
+	InMemorySettingsRepository
+} from '$lib/testing/fakes';
 
 export class FakeCalibration implements CalibrationPort {
 	nextOutcome: CalibrationOutcome = {
@@ -74,13 +79,14 @@ export class FakeCalibration implements CalibrationPort {
 export class FakeBackup implements BackupPort {
 	private file: BackupFile = {
 		app: 'neckspert-play',
-		version: 8,
+		version: 9,
 		exportedAt: 1,
 		settings: { ...DEFAULT_SETTINGS },
 		cards: [],
 		attempts: [],
 		sessions: [],
-		levelStates: []
+		levelStates: [],
+		definitionFiles: []
 	};
 
 	constructor(private readonly settingsRepo: InMemorySettingsRepository) {}
@@ -101,13 +107,6 @@ export class FakeBackup implements BackupPort {
 	}
 }
 
-const EMPTY_HOME: HomeStats = {
-	dueCount: 0,
-	nextReviewAt: null,
-	medianColdOffsetMs: null,
-	trend: null
-};
-
 const EMPTY_SUMMARY: SessionSummary = {
 	sessionId: 'none',
 	pool: 'cold',
@@ -122,7 +121,10 @@ const EMPTY_SUMMARY: SessionSummary = {
 	nextReviewAt: null,
 	grade: null,
 	tempoBpm: null,
-	kind: 'learn'
+	chords: false,
+	memory: true,
+	exercises: [],
+	misses: []
 };
 
 export function createFakeAppServices(overrides: Partial<AppServices> = {}): AppServices & {
@@ -139,21 +141,20 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 	const diagnostics = new FakeDiagnostics();
 
 	return {
-		homeStats: async () => EMPTY_HOME,
-		triads: async () => ({ anchorDue: 0, zoneDue: null }),
-		gesture: async () => ({ open: false }),
+		routines: async () => [],
+		library: async () => [],
 		contest: async () => {},
 		replayRun: async () => {},
 		stopReplay: () => {},
-		resting: async () => [],
 		sessionSummary: async () => EMPTY_SUMMARY,
 		neckMap: async (): Promise<NeckMapCell[]> => [],
-		startSession: async () => {
-			throw new Error('startSession is not used by I3 screens');
+		startRoutine: async () => {
+			throw new Error('startRoutine is not used by I3 screens');
 		},
 		startExercise: async () => {
 			throw new Error('startExercise is not used by I3 screens');
 		},
+		definitions: new FakeDefinitionsService(),
 		...overrides,
 		settings,
 		detector,

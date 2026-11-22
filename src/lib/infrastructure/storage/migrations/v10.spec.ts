@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise/catalog';
+import { EXERCISE_IDS_V13 } from './v13';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { TRIAD_LADDER_V10, backupV5ToV6, cardToV10, levelStatesV10, triadLevelOfCard } from './v10';
 import { neckLevelOfCard } from './v9';
+import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 type Row = Record<string, unknown>;
 
@@ -118,13 +119,21 @@ describe('TRIAD_LADDER_V10', () => {
 	// Tripwire, as for NECK_LADDER_V9: the migration never reads the catalog, but a divergence must
 	// be noticed, then decided (the frozen ladder stays as it is).
 	it('keeps the frozen ladder equal to the catalog', () => {
-		const anchor = ladderOf(TRIADS_ANCHOR, 'triad-anchor');
-		const zone = ladderOf(TRIADS_ZONE, 'triad-zone');
+		const anchor = ladderOf(TRIADS_ANCHOR);
+		const zone = ladderOf(TRIADS_ZONE);
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(anchor.map((level) => level.params.leadBeats));
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(zone.map((level) => level.params.leadBeats));
-		expect(TRIAD_LADDER_V10.exercises).toEqual({
-			[TRIADS_ANCHOR.mechanic]: TRIADS_ANCHOR.id,
-			[TRIADS_ZONE.mechanic]: TRIADS_ZONE.id
+		// Version 13 renamed the exercises the frozen table names (`EXERCISE_IDS_V13`).
+		expect(
+			Object.fromEntries(
+				Object.entries(TRIAD_LADDER_V10.exercises).map(([mechanic, id]) => [
+					mechanic,
+					EXERCISE_IDS_V13[id]
+				])
+			)
+		).toEqual({
+			'triad-anchor': TRIADS_ANCHOR.id,
+			'triad-zone': TRIADS_ZONE.id
 		});
 	});
 });

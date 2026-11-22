@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK, RHYTHM_SILENT_BARS, type ExerciseDefinition } from '$lib/domain/exercise';
+import { type ExerciseDefinition } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import {
 	Fraction,
@@ -18,10 +18,11 @@ import {
 	roundGiven,
 	runSetup
 } from './compilePlan';
+import { LOCATE_NECK, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const note: PlannedItem = {
 	exerciseId: LOCATE_NECK.id,
-	mechanic: 'locate',
+	skill: 'locate-note-string',
 	exerciseLevel: 0,
 	item: { string: 3, fret: 5 },
 	phase: 'free',
@@ -32,7 +33,7 @@ const note: PlannedItem = {
 
 const eighths = (level: number): PlannedItem => ({
 	exerciseId: RHYTHM_SILENT_BARS.id,
-	mechanic: 'figure',
+	skill: 'inner-pulse',
 	exerciseLevel: level,
 	item: { figureId: 'eighths', level },
 	phase: 'free',
@@ -115,6 +116,17 @@ describe('compilePlan', () => {
 		);
 		expect(aidedBeyondLevel(LOCATE_NECK, note, ['show-position'])).toBe(true);
 		expect(aidedBeyondLevel(LOCATE_NECK, note, [])).toBe(false);
+		// The aid level is the level itself, for a response round too.
+		expect(aidedBeyondLevel(LOCATE_NECK, note, ['aid-level'])).toBe(false);
+		expect(aidedBeyondLevel(LOCATE_NECK, note, ['aid-level', 'show-position'])).toBe(true);
+		expect(aidedBeyondLevel(LOCATE_NECK, note, ['string-aid'])).toBe(true);
+		// A cursor its level gives is the level itself; one it does not give helped.
+		const withCursor: ExerciseDefinition = {
+			...LOCATE_NECK,
+			params: { ...LOCATE_NECK.params, cursor: true }
+		};
+		expect(aidedBeyondLevel(withCursor, note, ['cursor'])).toBe(false);
+		expect(aidedBeyondLevel(LOCATE_NECK, note, ['cursor'])).toBe(true);
 	});
 
 	it('opens a cycle’s run with its listen-in, its accompaniment and its entry', () => {

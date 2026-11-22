@@ -3,6 +3,7 @@ import type {
 	BackupFile,
 	CardKey,
 	CardState,
+	DefinitionFileRecord,
 	LevelState,
 	RecordedObservation,
 	SessionRecord,
@@ -49,6 +50,18 @@ export interface LevelStateRepositoryPort {
 	/** Replaces the state stored under the same exercise, scope and item. */
 	put(state: LevelState): Promise<void>;
 	all(): Promise<LevelState[]>;
+}
+
+export type { DefinitionFileRecord };
+
+/** The definition files the player imported, by name. */
+export interface DefinitionFileRepositoryPort {
+	/** By name. */
+	all(): Promise<DefinitionFileRecord[]>;
+	/** Replaces the file of the same name. */
+	put(file: DefinitionFileRecord): Promise<void>;
+	/** Removes the file of that name; nothing when it holds none. */
+	delete(name: string): Promise<void>;
 }
 
 export interface SettingsRepositoryPort {

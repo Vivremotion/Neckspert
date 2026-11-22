@@ -1,9 +1,10 @@
 import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
-import { MECHANIC_PRESENTERS } from '$lib/application/mechanics';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
+import { createDefinitionsService } from '$lib/application/definitions/service';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
 import { CalibrationService, REFERENCE_ATTACK_CONFIG } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
@@ -25,8 +26,11 @@ import {
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
+import { DexieDefinitionFileRepository } from '$lib/infrastructure/storage/DexieDefinitionFileRepository';
+import { LocalStorageLoadMark } from '$lib/infrastructure/storage/LocalStorageLoadMark';
 import { createDiagnosticJournal, journalNotes } from './diagnostics';
-import { loadLocalExercises } from './localExercises';
+import { CATALOG_FILES } from './catalogFiles';
+import { loadDefinitions, loadedDefinitions } from './definitions';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
@@ -44,22 +48,14 @@ export interface CreateAppOptions {
  * every repository and DexieBackup. Calibration measures the input it is given and may open a
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
- * chord verifier write to it; the core never sees it. In development builds, the exercises of
- * `exercises.local/` are added to the catalog before anything reads it (`docs/exercices-locaux.md`).
+ * chord verifier write to it; the core never sees it. Before anything reads them, the registries
+ * are filled from the definition files of `catalog/`; `definitions.ready()` loads them again with
+ * the imported files stored, and replacing the data from a backup reloads them.
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
-	// The private exercises, read as text at build time, in development builds only: a production
-	// build drops this branch and the files with it. A refused file (its JSON unreadable
-	// included) is reported, never fatal.
-	if (import.meta.env.DEV) {
-		loadLocalExercises(
-			import.meta.glob<string>('/exercises.local/*.json', {
-				eager: true,
-				query: '?raw',
-				import: 'default'
-			})
-		);
-	}
+	// The catalog's definition files, read as text at build time, unless something is loaded
+	// already (tests register their own objects before calling). A refusal is reported, never fatal.
+	if (loadedDefinitions() === null) loadDefinitions({ catalog: CATALOG_FILES });
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).
@@ -72,6 +68,15 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const levels = new DexieLevelStateRepository(db);
 	const settings = new DexieSettingsRepository(db);
 	const backup = new DexieBackup(db);
+	// The imported definition files, loaded after the catalog once `ready()` has read them.
+	const definitions = createDefinitionsService({
+		files: new DexieDefinitionFileRepository(db),
+		load: (imported) => loadDefinitions({ catalog: CATALOG_FILES, imported }),
+		now: () => Date.now(),
+		// Kept across page loads: a load of the imported files that never finished is not tried
+		// again at the next start.
+		mark: new LocalStorageLoadMark()
+	});
 
 	const journal = createDiagnosticJournal(settings, { name: options.diagnosticsDatabaseName });
 	const input = new WebAudioInput(context, { resume: () => clock.resume(), diagnostics: journal });
@@ -121,6 +126,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		memory: new SessionMemory(),
 		settings,
 		backup,
+		definitions,
 		calibration,
 		diagnostics: {
 			usage: () => journal.usage(),
@@ -133,7 +139,8 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		development: dev,
 		newId: () => crypto.randomUUID(),
-		mechanics: MECHANIC_PRESENTERS,
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
 		sensors: {
 			note: noteSensor(detector),
 			tap: tapSensor(),

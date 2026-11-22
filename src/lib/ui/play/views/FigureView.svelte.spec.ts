@@ -1,16 +1,19 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FigureStageModel, SettledCycle } from '$lib/application/session/series/figureStage';
-import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 import { Fraction, METER_4_4, type CycleReport, type Figure } from '$lib/domain/time';
 import { compileRound } from '$lib/domain/exercise/round';
-import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import type { PlannedItem } from '$lib/domain/types';
 import { figureStage } from '$lib/application/session/series/figureStage';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PLAY_VIEWS } from './index';
 import FigureView from './FigureView.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+
+registerTestSkills();
 
 // jsdom has no canvas, and VexFlow measures its text on one: a fixed-size stand-in.
 beforeAll(() => {
@@ -215,6 +218,51 @@ describe('FigureView', () => {
 		});
 	});
 
+	it('jumps from a line to the next: never back to the top, and the cursor does not slide across', async () => {
+		const { voices, meter } = figure(0);
+		const long: Figure = {
+			schema: figure(0).schema,
+			meter,
+			bars: 16,
+			voices: [
+				{ id: 'main', elements: Array.from({ length: 16 }, () => voices[0].elements).flat() }
+			]
+		};
+		const at = (bar: number) =>
+			model({ figure: long, cycleBars: 16, barInCycle: bar, cursor: Fraction.of(bar) });
+		const topOf = () => Number.parseFloat(screen.getByTestId('figure-cursor').style.top);
+		const { rerender } = render(FigureView, { props: { controller: running(), model: at(0) } });
+		await engraved();
+		const score = screen.getByTestId('figure-score');
+		const engraving = score.querySelector('svg');
+		// Every place the box is sent to, in order.
+		const sent: number[] = [];
+		let held = score.scrollTop;
+		Object.defineProperty(score, 'scrollTop', {
+			configurable: true,
+			get: () => held,
+			set: (value: number) => {
+				held = value;
+				sent.push(value);
+			}
+		});
+		// The last bar of a line that is not the first, then each bar after it until the line changes.
+		let bar = 1;
+		await rerender({ model: at(bar) });
+		while (topOf() === 0) await rerender({ model: at(++bar) });
+		const first = { cursor: screen.getByTestId('figure-cursor'), top: topOf() };
+		await vi.waitFor(() => expect(score.scrollTop).toBe(first.top - 24));
+		while (topOf() === first.top) await rerender({ model: at(++bar) });
+		const second = topOf();
+		expect(second).toBeGreaterThan(first.top);
+		await vi.waitFor(() => expect(score.scrollTop).toBe(second - 24));
+		// Straight from a line to the next, the figure engraved once.
+		expect(sent).toEqual([first.top - 24, second - 24]);
+		expect(score.querySelector('svg')).toBe(engraving);
+		// A new cursor on the new line: the old one would slide from the end of its line.
+		expect(screen.getByTestId('figure-cursor')).not.toBe(first.cursor);
+	});
+
 	it('marks each note as it plays under its line, at a level that asks for it', async () => {
 		render(FigureView, {
 			props: {
@@ -363,9 +411,9 @@ describe('FigureView', () => {
 		] as const) {
 			const item: PlannedItem = {
 				exerciseId: ARPEGGIO_EXERCISE.id,
-				mechanic: ARPEGGIO_EXERCISE.mechanic,
+				skill: ARPEGGIO_EXERCISE.practices,
 				exerciseLevel: -1,
-				item: voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`),
+				item: { ...placedVoicingSet.parseItem('C|maj|3:1,2:3,1:5@5-5-3'), beats },
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'none',

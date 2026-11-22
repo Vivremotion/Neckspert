@@ -2,6 +2,7 @@ import Dexie, { type EntityTable, type Table } from 'dexie';
 import {
 	type Attempt,
 	type CardState,
+	type DefinitionFileRecord,
 	type LevelState,
 	type SessionRecord,
 	type Settings
@@ -12,6 +13,7 @@ import { levelStatesV9 } from './migrations/v9';
 import { cardToV10, levelStatesV10 } from './migrations/v10';
 import { attemptToV11, levelStatesV11 } from './migrations/v11';
 import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
+import { attemptToV13, cardsToV13, levelStatesToV13, sessionToV13 } from './migrations/v13';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -32,6 +34,8 @@ export class NeckspertDb extends Dexie {
 	settings!: EntityTable<SettingsRow, 'id'>;
 	/** Where each exercise stands in its levels, by exercise, scope and item ('' when absent). */
 	levelStates!: Table<LevelState, [string, string, string]>;
+	/** The definition files the player imported, by name (empty until a later plan fills it). */
+	definitionFiles!: EntityTable<DefinitionFileRecord, 'name'>;
 
 	constructor(name: string) {
 		super(name);
@@ -246,6 +250,38 @@ export class NeckspertDb extends Dexie {
 					.filter((row) => row.mechanic === RHYTHM_FIGURE_MECHANIC_V11)
 					.modify((row, ref) => {
 						ref.value = attemptToV12(row);
+					});
+			});
+		// Version 13 (chantier 2, plan 2a): a card and an attempt name the skill they practise, their
+		// key prefixed by it; eight exercises take the name of their skill; a session says the
+		// routine or the exercise it played instead of its kind. A card's key is its primary key:
+		// every card is written again under its new key, or its old one when a card already holds
+		// the new (`cardsToV13`). Same conversion as the import of a version 8 backup
+		// (`migrations/v13.ts`). The imported definition files get their table, empty.
+		this.version(13)
+			.stores({ ...stores, levelStates: '[exerciseId+scope+item]', definitionFiles: 'name' })
+			.upgrade(async (tx) => {
+				const cards = tx.table('cards');
+				const upgraded = cardsToV13(await cards.toArray());
+				await cards.clear();
+				await cards.bulkAdd(upgraded);
+				await tx
+					.table('attempts')
+					.toCollection()
+					.modify((row, ref) => {
+						ref.value = attemptToV13(row);
+					});
+				// A level state's exercise is part of its primary key: every one is written again, a
+				// state whose new key is already held keeping its old one (`levelStatesToV13`).
+				const levelStates = tx.table('levelStates');
+				const states = levelStatesToV13(await levelStates.toArray());
+				await levelStates.clear();
+				await levelStates.bulkAdd(states);
+				await tx
+					.table('sessions')
+					.toCollection()
+					.modify((row, ref) => {
+						ref.value = sessionToV13(row);
 					});
 			});
 	}

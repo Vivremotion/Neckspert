@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { finishDestination } from '$lib/application/session/finishDestination';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise';
-import type { TriadAnchorData, TriadZoneData } from '$lib/domain/mechanics';
+import type { TriadAnchorData, TriadZoneData } from '$lib/domain/sets';
 import {
 	closeTriadVoicings,
 	parseVoicingKey,
@@ -32,6 +31,7 @@ import {
 	type TriadSeen,
 	type TriadsApp
 } from '$lib/testing/triadsSeries';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 /**
  * The triads' sessions on the session controller (plan H5, Task 7): the real wiring of
@@ -52,8 +52,8 @@ async function quitAndRead(app: TriadsApp, controller: PlaySessionController): P
 	return app.deps.attempts.listBySession(controller.sessionId);
 }
 
-async function cardOf(app: TriadsApp, mechanic: string, voicing: string) {
-	return app.deps.cards.get(`${mechanic}:${voicing}`);
+async function cardOf(app: TriadsApp, skill: string, voicing: string) {
+	return app.deps.cards.get(`${skill}:${voicing}`);
 }
 
 /** Plays rounds, one at a time, until `done` holds (checked after each round has settled). */
@@ -101,17 +101,17 @@ describe('the triads exercises, from the probe to the zone', () => {
 			app,
 			firstSession,
 			(round) => (round.n === 0 ? { root: 'none', chord: 'none' } : allRight()),
-			async () => (await cardOf(app, 'triad-anchor', C))?.learnedAt != null
+			async () => (await cardOf(app, 'chord-anchor', C))?.learnedAt != null
 		);
 		await quitAndRead(app, firstSession);
-		expect(first[0]).toMatchObject({ mechanic: 'triad-anchor', voicing: C, aided: false });
+		expect(first[0]).toMatchObject({ skill: 'chord-anchor', voicing: C, aided: false });
 		const cPrompts = first.filter((p) => p.voicing === C);
 		expect(cPrompts[1]).toMatchObject({ aided: true });
 		expect(cPrompts.length).toBeGreaterThanOrEqual(5);
-		const learned = await cardOf(app, 'triad-anchor', C);
+		const learned = await cardOf(app, 'chord-anchor', C);
 		expect(learned?.learnedAt).not.toBeNull();
 		expect(learned?.acquiredAt).toBeNull();
-		expect(first.every((p) => p.mechanic === 'triad-anchor')).toBe(true);
+		expect(first.every((p) => p.skill === 'chord-anchor')).toBe(true);
 
 		// A later session, past the cold delay: C is reviewed cold and acquired.
 		app.clock.advance(3 * DAY_S);
@@ -120,11 +120,11 @@ describe('the triads exercises, from the probe to the zone', () => {
 			app,
 			secondSession,
 			allRight,
-			async () => (await cardOf(app, 'triad-anchor', C))?.acquiredAt != null
+			async () => (await cardOf(app, 'chord-anchor', C))?.acquiredAt != null
 		);
 		await quitAndRead(app, secondSession);
 		expect(second.some((p) => p.voicing === C)).toBe(true);
-		expect(second.every((p) => p.mechanic === 'triad-anchor')).toBe(true);
+		expect(second.every((p) => p.skill === 'chord-anchor')).toBe(true);
 
 		// The zone exercise, its own session: C is asked around a fret.
 		const thirdSession = await startTriads(app, 'triads-zone');
@@ -134,12 +134,12 @@ describe('the triads exercises, from the probe to the zone', () => {
 			allRight,
 			async () => {
 				const attempts = await app.deps.attempts.listBySession(thirdSession.sessionId);
-				return attempts.some((a) => a.cardKey === `triad-zone:${C}`);
+				return attempts.some((a) => a.cardKey === `chord-zone:${C}`);
 			},
 			20
 		);
 		await quitAndRead(app, thirdSession);
-		expect(third.every((p) => p.mechanic === 'triad-zone')).toBe(true);
+		expect(third.every((p) => p.skill === 'chord-zone')).toBe(true);
 		const zone = third.find((p) => p.voicing === C);
 		expect(zone).toBeDefined();
 		// The sensor listens for the shape that covers the fret named, and that shape only.
@@ -151,10 +151,29 @@ describe('the triads exercises, from the probe to the zone', () => {
 		expect(zone?.prompt.secondary).toMatch(/^vers la case \d+$/);
 		const attempts = await app.deps.attempts.all();
 		const cold = attempts.find(
-			(a) => a.cardKey === `triad-anchor:${C}` && a.phase === 'review' && a.temperature === 'cold'
+			(a) => a.cardKey === `chord-anchor:${C}` && a.phase === 'review' && a.temperature === 'cold'
 		);
 		expect(cold?.success).toBe(true);
 	}, 30_000);
+
+	it('keeps an anchor card and a zone card of one voicing apart, each keyed by its skill', async () => {
+		const app = await triadsApp({ cards: [learnedTriad('chord-anchor', C)] });
+		const controller = await startTriads(app, 'triads-zone');
+		await playUntil(
+			app,
+			controller,
+			allRight,
+			async () => (await cardOf(app, 'chord-zone', C)) !== undefined,
+			20
+		);
+		await quitAndRead(app, controller);
+		const ofC = (await app.deps.cards.all()).filter(
+			(card) => (card.item as { voicingKey: string }).voicingKey === C
+		);
+		expect(ofC.map((card) => card.key).sort()).toEqual([`chord-anchor:${C}`, `chord-zone:${C}`]);
+		// The zone's card keeps its voicing alone: the position belongs to the prompt.
+		expect((await cardOf(app, 'chord-zone', C))?.item).toEqual({ voicingKey: C });
+	});
 
 	it('probes a new chord unaided, then shows it aided on the next prompt after a miss, not at once', async () => {
 		const app = await triadsApp();
@@ -189,13 +208,13 @@ describe('the triads exercises, from the probe to the zone', () => {
 		expect(aided.prompt.pictures).not.toEqual([]);
 		// A missed probe measures no forgetting: stored hot.
 		expect(attempts[0]).toMatchObject({
-			cardKey: `triad-anchor:${C}`,
+			cardKey: `chord-anchor:${C}`,
 			phase: 'probe',
 			temperature: 'hot',
 			success: false,
 			aids: []
 		});
-		expect(attempts[2]).toMatchObject({ cardKey: `triad-anchor:${C}`, phase: 'learning' });
+		expect(attempts[2]).toMatchObject({ cardKey: `chord-anchor:${C}`, phase: 'learning' });
 		expect(attempts[2].aids).toEqual(expect.arrayContaining(['show-position']));
 	});
 
@@ -242,9 +261,9 @@ describe('the triads exercises, from the probe to the zone', () => {
 		// Stored before H5: the item names its position, no fret.
 		const old: Attempt = {
 			sessionId: 's-old',
-			exerciseId: 'triads-zone',
-			mechanic: 'triad-zone',
-			cardKey: `triad-zone:${C}`,
+			exerciseId: 'chord-zone',
+			skill: 'chord-zone',
+			cardKey: `chord-zone:${C}`,
 			phase: 'review',
 			temperature: 'cold',
 			aids: [],
@@ -262,14 +281,14 @@ describe('the triads exercises, from the probe to the zone', () => {
 			observations: null
 		};
 		const app = await triadsApp({
-			cards: [learnedTriad('triad-anchor', C), learnedTriad('triad-zone', C)],
+			cards: [learnedTriad('chord-anchor', C), learnedTriad('chord-zone', C)],
 			attempts: [old]
 		});
 		const controller = await startTriads(app, 'triads-zone');
 		const [round] = await playTriads(app, controller, allRight, { rounds: 1 });
 		await runUntil(app, () => controller.view.status !== 'awaiting');
 		const [attempt] = await quitAndRead(app, controller);
-		expect(round).toMatchObject({ mechanic: 'triad-zone', voicing: C });
+		expect(round).toMatchObject({ skill: 'chord-zone', voicing: C });
 		const asked = occurrenceOfId(round.expectation.expected[0]);
 		expect(asked && occurrencePosition(asked)).not.toBe(last);
 		expect((attempt.data as TriadZoneData).item.position).not.toBe(last);
@@ -279,7 +298,7 @@ describe('the triads exercises, from the probe to the zone', () => {
 describe('the anchor in time', () => {
 	it('judges the root on the beat, early or late as any timed note', async () => {
 		const app = await triadsApp({
-			cards: ORDER.slice(0, 3).map((voicing) => learnedTriad('triad-anchor', voicing))
+			cards: ORDER.slice(0, 3).map((voicing) => learnedTriad('chord-anchor', voicing))
 		});
 		const controller = await startTriads(app, 'triads');
 		const offsets = [-200, 200, 0];
@@ -299,7 +318,7 @@ describe('the anchor in time', () => {
 	});
 
 	it('takes the chord in the band only: one strummed before it is no answer', async () => {
-		const app = await triadsApp({ cards: [learnedTriad('triad-anchor', C)] });
+		const app = await triadsApp({ cards: [learnedTriad('chord-anchor', C)] });
 		const controller = await startTriads(app, 'triads');
 		// The right chord, half a beat after the root: the band opens a beat after it.
 		await playTriads(app, controller, () => ({ chordBeats: 0.5 }), { rounds: 1 });
@@ -321,7 +340,7 @@ describe('what feeds FSRS', () => {
 	it('leaves a card’s scheduling as it was on a hot attempt, moving its level only', async () => {
 		const app = await triadsApp();
 		const controller = await startTriads(app, 'triads');
-		const key = `triad-anchor:${C}`;
+		const key = `chord-anchor:${C}`;
 		/** Steps until the session has stored `count` attempts. */
 		const stored = async (count: number) => {
 			for (let i = 0; i < 5000; i++) {
@@ -393,7 +412,7 @@ describe('a triad put right in the band', () => {
 		expect(attempts[0].data).toMatchObject({
 			answer: { chord: { decided: wrong }, correction: { decided: right } }
 		});
-		expect((await cardOf(app, 'triad-anchor', round.voicing))?.learnedAt ?? null).toBeNull();
+		expect((await cardOf(app, 'chord-anchor', round.voicing))?.learnedAt ?? null).toBeNull();
 	});
 
 	it('offers « Joué juste » on a miss in development only', async () => {
@@ -464,7 +483,7 @@ describe('what the chord sensor is told', () => {
 		// C's three inversions due: each is the others' look-alike.
 		const family = ORDER.slice(0, 3);
 		const app = await triadsApp({
-			cards: family.map((voicing) => learnedTriad('triad-anchor', voicing))
+			cards: family.map((voicing) => learnedTriad('chord-anchor', voicing))
 		});
 		const inversionsOf = (voicing: string) => {
 			const parsed = parseVoicingKey(voicing);
@@ -494,21 +513,22 @@ describe('what the chord sensor is told', () => {
 
 describe('the length and the tempo of a triads session', () => {
 	it('ends on the summary when the zone has nothing to ask', async () => {
-		const app = await triadsApp({ cards: [learnedTriad('triad-anchor', C, { acquired: false })] });
+		const app = await triadsApp({ cards: [learnedTriad('chord-anchor', C, { acquired: false })] });
 		const controller = await startTriads(app, 'triads-zone');
 		await drain();
 		expect(controller.view.status).toBe('finished');
 		expect(finishDestination(controller.sessionId)).toContain(controller.sessionId);
 		const record = await app.deps.sessions.get(controller.sessionId);
-		expect(record).toMatchObject({ kind: 'triads-zone' });
+		expect(record).toMatchObject({ routine: 'chords-zone' });
+		expect(record).not.toHaveProperty('kind');
 		expect(record?.endedAt).not.toBeNull();
 		const summary = await app.services.sessionSummary(controller.sessionId);
-		expect(summary).toMatchObject({ kind: 'triads-zone', attemptCount: 0 });
+		expect(summary).toMatchObject({ chords: true, attemptCount: 0 });
 	});
 
 	it('ends after SESSION_MS, a round under way finishing', async () => {
 		const app = await triadsApp({
-			cards: ORDER.slice(0, 6).map((voicing) => learnedTriad('triad-anchor', voicing))
+			cards: ORDER.slice(0, 6).map((voicing) => learnedTriad('chord-anchor', voicing))
 		});
 		const controller = await startTriads(app, 'triads');
 		const startedAt = (await app.deps.sessions.get(controller.sessionId))?.startedAt as number;
@@ -531,7 +551,7 @@ describe('the length and the tempo of a triads session', () => {
 
 	it('plays at 80 bpm', async () => {
 		const app = await triadsApp({
-			cards: ORDER.slice(0, 2).map((voicing) => learnedTriad('triad-anchor', voicing))
+			cards: ORDER.slice(0, 2).map((voicing) => learnedTriad('chord-anchor', voicing))
 		});
 		const controller = await startTriads(app, 'triads');
 		await playTriads(app, controller, allRight, { rounds: 2 });
@@ -541,11 +561,16 @@ describe('the length and the tempo of a triads session', () => {
 		expect(attempts.map((a) => a.tempoBpm)).toEqual([80, 80]);
 		const record = await app.deps.sessions.get(controller.sessionId);
 		expect(record?.executions).toEqual([{ exerciseId: TRIADS_ANCHOR.id, tempoBpm: 80 }]);
+		// The session says the routine it played, no longer a kind.
+		expect(record?.routine).toBe('chords');
+		expect(record).not.toHaveProperty('kind');
+		expect(record).not.toHaveProperty('exercise');
+		expect(record).not.toHaveProperty('free');
 	});
 
 	it('stores the attempt data as before', async () => {
 		const app = await triadsApp({
-			cards: [learnedTriad('triad-anchor', C), learnedTriad('triad-zone', C)]
+			cards: [learnedTriad('chord-anchor', C), learnedTriad('chord-zone', C)]
 		});
 		const anchor = await startTriads(app, 'triads');
 		const [asked] = await playTriads(app, anchor, allRight, { rounds: 1 });
@@ -578,15 +603,20 @@ describe('the length and the tempo of a triads session', () => {
 });
 
 describe('the play screen before the audio clock exists', () => {
-	it.each([['triads'], ['triads-zone'], ['learn'], ['free']] as const)(
+	it.each([
+		['triads', 'chords', false],
+		['triads-zone', 'chords-zone', false],
+		['learn', 'notes', false],
+		['free', 'notes', true]
+	] as const)(
 		'shows the start screen of a %s session before any gesture, then starts on the clock resumed',
-		async (kind) => {
+		async (_kind, routine, free) => {
 			const clock = new UnresumedClock();
 			const app = await triadsApp({
 				clock,
-				cards: [learnedTriad('triad-anchor', C), learnedTriad('triad-zone', C)]
+				cards: [learnedTriad('chord-anchor', C), learnedTriad('chord-zone', C)]
 			});
-			const controller = await app.services.startSession(kind);
+			const controller = await app.services.startRoutine(routine, { free });
 			// The page asks it ready on mount, before any gesture: no audio clock to read yet.
 			await controller.ready?.();
 			expect(clock.resumed).toBe(false);

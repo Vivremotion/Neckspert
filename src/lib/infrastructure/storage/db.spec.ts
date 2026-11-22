@@ -7,14 +7,18 @@ import { triadLevelOfCard } from './migrations/v10';
 import { DexieBackup } from './DexieBackup';
 import {
 	makeAttempt,
+	makeAttemptV12,
 	makeBackupV5,
 	makeBackupV6,
 	makeBackupV7,
 	makeCard,
+	makeCardV12,
 	makeCycleAttemptV11
 } from './testing/fixtures';
 import { attemptToV12 } from './migrations/v12';
+import { attemptToV13, cardToV13, levelStateToV13, sessionToV13 } from './migrations/v13';
 import type { LevelState } from '$lib/domain/time';
+import v8Export from './fixtures/backup-v8.json';
 
 describe('createDatabase', () => {
 	it('uses the app name by default', () => {
@@ -23,11 +27,12 @@ describe('createDatabase', () => {
 		expect(db.name).toBe('neckspert-play');
 	});
 
-	it('declares the five tables with their keys and indexes', () => {
+	it('declares the six tables with their keys and indexes', () => {
 		const db = createDatabase(crypto.randomUUID());
 		expect(db.tables.map((table) => table.name).sort()).toEqual([
 			'attempts',
 			'cards',
+			'definitionFiles',
 			'levelStates',
 			'sessions',
 			'settings'
@@ -44,6 +49,7 @@ describe('createDatabase', () => {
 		expect(db.sessions.schema.indexes.map((index) => index.name)).toEqual(['startedAt']);
 		expect(db.settings.schema.primKey.keyPath).toBe('id');
 		expect(db.levelStates.schema.primKey.keyPath).toEqual(['exerciseId', 'scope', 'item']);
+		expect(db.definitionFiles.schema.primKey.keyPath).toBe('name');
 	});
 
 	it('empties every table when a version 1 database is opened', async () => {
@@ -64,7 +70,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -98,16 +104,18 @@ describe('createDatabase', () => {
 		const attempts = await db.attempts.orderBy('promptedAt').toArray();
 		expect(attempts.map((a) => a.phase)).toEqual(['probe', 'probe', 'review']);
 		expect(attempts.map((a) => a.temperature)).toEqual(['cold', 'hot', 'cold']);
-		expect((await db.sessions.toArray()).map((session) => session.kind)).toEqual([
-			'learn',
-			'learn'
+		// Version 13 then recorded the routine they played instead of their kind.
+		expect((await db.sessions.toArray()).map((session) => session.routine)).toEqual([
+			'notes',
+			'notes'
 		]);
+		expect((await db.sessions.toArray()).some((session) => 'kind' in session)).toBe(false);
 		expect(await db.settings.get('settings')).toEqual({
 			id: 'settings',
 			latency: {},
 			clickBleed: false
 		});
-		expect((await db.cards.toArray()).map((card) => card.mechanic)).toEqual(['locate']);
+		expect((await db.cards.toArray()).map((card) => card.skill)).toEqual(['locate-note-string']);
 		db.close();
 	});
 
@@ -151,9 +159,13 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const cards = await db.cards.orderBy('key').toArray();
-		expect(cards.map((card) => card.key)).toEqual(['identify:5:8', 'locate:3:C', 'locate:6:A']);
+		expect(cards.map((card) => card.key)).toEqual([
+			'identify-note:5:8',
+			'locate-note-string:3:C',
+			'locate-note-string:6:A'
+		]);
 		expect(cards.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 		// Lead 4 is locate's level 1, the one-beat step moved to 2 its top.
 		expect(
@@ -190,20 +202,25 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 
 		const { target: _target, leadBeats: _lead, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
-			{ ...card, mechanic: 'locate', item: { string: 6, pitch: 'A' } }
+			{
+				...card,
+				key: 'locate-note-string:6:A',
+				skill: 'locate-note-string',
+				item: { string: 6, pitch: 'A' }
+			}
 		]);
 
 		const [locate, identify] = await db.attempts.orderBy('promptedAt').toArray();
 		expect(locate).toEqual({
 			id: 1,
 			sessionId: 's1',
-			exerciseId: 'locate-neck',
-			mechanic: 'locate',
-			cardKey: 'locate:6:A',
+			exerciseId: 'locate-note-string',
+			skill: 'locate-note-string',
+			cardKey: 'locate-note-string:6:A',
 			phase: 'review',
 			temperature: 'cold',
 			aids: [],
@@ -222,8 +239,8 @@ describe('createDatabase', () => {
 		});
 		expect(identify).toMatchObject({
 			id: 2,
-			exerciseId: 'identify-neck',
-			mechanic: 'identify',
+			exerciseId: 'identify-note',
+			skill: 'identify-note',
 			tempoBpm: null,
 			data: { item: { string: 6, fret: 3 }, answer: { pitch: 'G' }, confusion: null }
 		});
@@ -233,13 +250,13 @@ describe('createDatabase', () => {
 		expect(await db.sessions.toArray()).toEqual([
 			{
 				id: 's1',
-				kind: 'learn',
+				routine: 'notes',
 				startedAt: 1,
 				endedAt: 2,
 				fatigueDetected: false,
 				executions: [
-					{ exerciseId: 'locate-neck', tempoBpm: 100 },
-					{ exerciseId: 'identify-neck', tempoBpm: null }
+					{ exerciseId: 'locate-note-string', tempoBpm: 100 },
+					{ exerciseId: 'identify-note', tempoBpm: null }
 				],
 				latencyMs: null
 			}
@@ -294,11 +311,14 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
-		const { aid: _aid, ...kept } = attempt;
+		expect(db.verno).toBe(13);
+		const { aid: _aid, mechanic: _mechanic, ...kept } = attempt;
 		expect(await db.attempts.toArray()).toEqual([
 			{
 				...kept,
+				exerciseId: 'locate-note-string',
+				skill: 'locate-note-string',
+				cardKey: 'locate-note-string:6:A',
 				id: 1,
 				observations: null,
 				success: true,
@@ -308,14 +328,14 @@ describe('createDatabase', () => {
 				plan: null
 			}
 		]);
-		expect(await db.sessions.toArray()).toEqual([{ ...session, latencyMs: null }]);
+		expect(await db.sessions.toArray()).toEqual([{ ...sessionToV13(session), latencyMs: null }]);
 		db.close();
 	});
 
-	it('opens at version 12 and stores rows', async () => {
+	it('opens at version 13 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
 		db.close();
@@ -450,7 +470,7 @@ describe('version 7', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		expect(await db.levelStates.count()).toBe(0);
 		db.close();
@@ -510,24 +530,27 @@ describe('version 9', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
-		// Version 10 then took the lead off every card, and gave the triad card its level.
+		expect(db.verno).toBe(13);
+		// Version 10 then took the lead off every card, and gave the triad card its level; version 13
+		// named each by its skill.
 		expect(await db.cards.orderBy('key').toArray()).toEqual(
-			[...cards]
-				.sort((a, b) => a.key.localeCompare(b.key))
-				.map(({ leadBeats: _lead, ...card }) => card)
+			cards
+				.map(({ leadBeats: _lead, ...card }) => cardToV13(card))
+				.sort((a, b) => String(a.key).localeCompare(String(b.key)))
 		);
-		expect(await db.attempts.toArray()).toEqual([{ ...attempts[0], id: 1 }]);
+		expect(await db.attempts.toArray()).toEqual([attemptToV13({ ...attempts[0], id: 1 })]);
 		// Version 11 dropped the locate progression: locate plays at a fixed tempo.
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		const states = await db.levelStates.toArray();
 		expect(states).toHaveLength(5);
-		expect(states).toContainEqual(triadLevelOfCard(cards[3]));
+		// Version 13 then renamed their exercises.
+		const renamed = (state: Record<string, unknown> | null) => state && levelStateToV13(state);
+		expect(states).toContainEqual(renamed(triadLevelOfCard(cards[3])));
 		expect(states).toContainEqual(rhythm);
 		// Seeded at 80 bpm, the progression's 160 aside: a lead of 4 is level 1.
-		expect(states).toContainEqual(neckLevelOfCard(cards[0]));
-		expect(states).toContainEqual(neckLevelOfCard(cards[1]));
-		expect(states).toContainEqual(neckLevelOfCard(cards[2]));
+		expect(states).toContainEqual(renamed(neckLevelOfCard(cards[0])));
+		expect(states).toContainEqual(renamed(neckLevelOfCard(cards[1])));
+		expect(states).toContainEqual(renamed(neckLevelOfCard(cards[2])));
 		expect(states.find((state) => state.item === '6:F')?.level).toBe(1);
 		expect(states.find((state) => state.item === '5:A')?.level).toBe(0);
 		expect(states.find((state) => state.item === '6:3')?.level).toBe(1);
@@ -551,7 +574,7 @@ describe('version 10', () => {
 		const v9Card =
 			(mechanic: string, item: Record<string, unknown>, itemKey: string) =>
 			(leadBeats: number, learnedAt: number | null) => ({
-				...makeCard({ mechanic: 'locate', learnedAt }),
+				...makeCardV12({ learnedAt }),
 				key: `${mechanic}:${itemKey}`,
 				mechanic,
 				item,
@@ -575,7 +598,7 @@ describe('version 10', () => {
 			failures: 0,
 			resumeAfter: null
 		};
-		const attempts = [{ ...makeAttempt(), id: 1 }];
+		const attempts = [{ ...makeAttemptV12(), id: 1 }];
 		await old.table('cards').bulkAdd(cards);
 		await old.table('attempts').bulkAdd(attempts);
 		await old.table('levelStates').add(locateLevel);
@@ -583,24 +606,25 @@ describe('version 10', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const stored = await db.cards.orderBy('key').toArray();
 		expect(stored.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 		expect(stored).toEqual(
-			[...cards]
-				.sort((a, b) => a.key.localeCompare(b.key))
-				.map(({ leadBeats: _lead, ...card }) => card)
+			cards
+				.map(({ leadBeats: _lead, ...card }) => cardToV13(card))
+				.sort((a, b) => String(a.key).localeCompare(String(b.key)))
 		);
-		expect(await db.attempts.toArray()).toEqual(attempts);
+		expect(await db.attempts.toArray()).toEqual(attempts.map(attemptToV13));
 		const states = await db.levelStates.toArray();
 		const levelOf = (exerciseId: string, item: string) =>
 			states.find((state) => state.exerciseId === exerciseId && state.item === item)?.level;
 		expect(states).toHaveLength(4);
-		expect(states).toContainEqual(locateLevel);
-		expect(levelOf('triads-anchor', 'D|maj|3:5,2:1,1:3')).toBe(1);
-		expect(levelOf('triads-anchor', 'C|maj|3:5,2:1,1:3')).toBe(2);
-		expect(levelOf('triads-zone', 'D|maj|3:5,2:1,1:3')).toBe(0);
-		const triads = states.filter((state) => state.exerciseId.startsWith('triads'));
+		// Version 13 then renamed their exercises.
+		expect(states).toContainEqual(levelStateToV13(locateLevel));
+		expect(levelOf('chord-anchor', 'D|maj|3:5,2:1,1:3')).toBe(1);
+		expect(levelOf('chord-anchor', 'C|maj|3:5,2:1,1:3')).toBe(2);
+		expect(levelOf('chord-zone', 'D|maj|3:5,2:1,1:3')).toBe(0);
+		const triads = states.filter((state) => state.exerciseId.startsWith('chord-'));
 		expect(triads).toHaveLength(3);
 		for (const state of triads) {
 			expect(state).toMatchObject({ scope: '', successes: 0, failures: 0, resumeAfter: null });
@@ -664,8 +688,8 @@ describe('version 11', () => {
 			resumeAfter: null
 		};
 		const attempts = [
-			{ ...makeAttempt({ id: 1 }), tempoScope: 'blues-f' },
-			{ ...makeAttempt({ id: 2 }) }
+			{ ...makeAttemptV12({ id: 1 }), tempoScope: 'blues-f' },
+			{ ...makeAttemptV12({ id: 2 }) }
 		];
 		await old.table('progressions').bulkAdd(progressions);
 		await old.table('scopedProgressions').bulkAdd(scopedProgressions);
@@ -675,7 +699,7 @@ describe('version 11', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		expect(db.tables.map((table) => table.name)).not.toContain('scopedProgressions');
 		expect([...db.backendDB().objectStoreNames]).not.toContain('progressions');
@@ -692,15 +716,20 @@ describe('version 11', () => {
 		const byKey = (a: LevelState, b: LevelState) =>
 			`${a.exerciseId}/${a.scope}`.localeCompare(`${b.exerciseId}/${b.scope}`);
 		const states = (await db.levelStates.toArray()).sort(byKey);
+		// Version 13 then renamed their exercises.
 		expect(states).toEqual(
-			[level('gesture-climb', 'blues-f', 6), level('gesture-link', '', 3), jam].sort(byKey)
+			[
+				level('grid-in-direction', 'blues-f', 6),
+				level('inversion-run', '', 3),
+				{ ...jam, exerciseId: 'grid-reading' }
+			].sort(byKey)
 		);
 		const stored = await db.attempts.orderBy('id').toArray();
 		expect(stored.some((attempt) => Object.hasOwn(attempt, 'tempoScope'))).toBe(false);
 		const { tempoScope: _scope, ...first } = attempts[0] as (typeof attempts)[0] & {
 			tempoScope: string;
 		};
-		expect(stored).toEqual([{ ...first, scope: 'blues-f' }, attempts[1]]);
+		expect(stored).toEqual([{ ...first, scope: 'blues-f' }, attempts[1]].map(attemptToV13));
 
 		// The equivalent backup 6 lands on the same rows.
 		const imported = createDatabase(crypto.randomUUID());
@@ -734,18 +763,22 @@ describe('version 12', () => {
 			levelStates: '[exerciseId+scope+item]'
 		});
 		const rhythm = makeCycleAttemptV11({ id: 1 });
-		const locate = makeAttempt({ id: 2 });
+		const locate = makeAttemptV12({ id: 2 });
 		await old.table('attempts').bulkAdd([rhythm, locate]);
 		old.close();
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const [upgraded, other] = await db.attempts.orderBy('id').toArray();
-		expect(upgraded).toEqual(attemptToV12(rhythm));
-		expect(upgraded).toMatchObject({ mechanic: 'figure', cardKey: 'figure:offbeats-2@2' });
+		// Version 13 then named each by the skill of its exercise.
+		expect(upgraded).toEqual(attemptToV13(attemptToV12(rhythm)));
+		expect(upgraded).toMatchObject({
+			skill: 'figure-independence',
+			cardKey: 'figure-independence:offbeats-2@2'
+		});
 		expect(upgraded.plan).not.toHaveProperty('cycleBars');
-		expect(other).toEqual(locate);
+		expect(other).toEqual(attemptToV13(locate));
 
 		// The equivalent backup 7 lands on the same rows.
 		const imported = createDatabase(crypto.randomUUID());
@@ -754,6 +787,487 @@ describe('version 12', () => {
 		);
 		expect(await imported.attempts.orderBy('id').toArray()).toEqual([upgraded, other]);
 		imported.close();
+		db.close();
+	});
+});
+
+describe('version 13', () => {
+	it('upgrades 12 to 13: every card and attempt names its skill, its key prefixed by it; eight exercises take the name of their skill; a session says its routine', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const triad = 'D|maj|3:5,2:1,1:3';
+		const cards = [
+			makeCardV12(),
+			makeCardV12({ mechanic: 'identify' }),
+			makeCardV12({
+				mechanic: 'triad-anchor',
+				key: `triad-anchor:${triad}`,
+				item: { voicingKey: triad }
+			}),
+			makeCardV12({
+				mechanic: 'triad-zone',
+				key: `triad-zone:${triad}`,
+				item: { voicingKey: triad }
+			})
+		];
+		const attempt = (exerciseId: string, mechanic: string, key: string, item?: object) => ({
+			...makeAttemptV12(),
+			exerciseId,
+			mechanic,
+			cardKey: `${mechanic}:${key}`,
+			...(item && { data: { item, answer: null, confusion: null } })
+		});
+		const shape = `${triad}@2-3-2`;
+		const attempts = [
+			attempt('locate-neck', 'locate', '2:F'),
+			attempt('identify-neck', 'identify', '5:8'),
+			attempt('triads-anchor', 'triad-anchor', triad),
+			attempt('triads-zone', 'triad-zone', triad),
+			attempt('gesture-jam', 'chord-grid', 'jam:iohefy-a#0', {
+				rule: 'jam',
+				element: 'jam:iohefy-a',
+				index: 0
+			}),
+			attempt('gesture-link', 'chord-grid', 'link:D|maj:3,2,1#1', {
+				rule: 'link',
+				element: 'link:D|maj:3,2,1',
+				index: 1,
+				shape
+			}),
+			attempt('rhythm-offbeats', 'figure', 'offbeats-2@2'),
+			attempt('somewhere-else', 'figure', 'x@0'),
+			attempt('my-arpeggios', 'voicing-figure', `${triad}@0@4`),
+			attempt('my-shapes', 'form-figure', 'maj7@d@4')
+		];
+		const level = (exerciseId: string, scope: string, item: string) => ({
+			exerciseId,
+			scope,
+			item,
+			level: 2,
+			successes: 1,
+			failures: 0,
+			resumeAfter: null
+		});
+		const levelStates = [
+			level('locate-neck', '', '2:F'),
+			level('triads-zone', '', triad),
+			level('gesture-climb', 'blues-f', ''),
+			level('gesture-link', '', ''),
+			level('rhythm-offbeats', '', '')
+		];
+		const session = (id: string, kind: string, extra: object = {}) => ({
+			id,
+			kind,
+			startedAt: 1,
+			endedAt: 2,
+			fatigueDetected: false,
+			executions: [],
+			latencyMs: 0,
+			...extra
+		});
+		const sessions = [
+			session('learn', 'learn', {
+				executions: [
+					{ exerciseId: 'locate-neck', tempoBpm: 80 },
+					{ exerciseId: 'identify-neck', tempoBpm: null }
+				]
+			}),
+			session('free', 'free'),
+			session('triads', 'triads', { executions: [{ exerciseId: 'triads-anchor', tempoBpm: 80 }] }),
+			session('triads-zone', 'triads-zone'),
+			session('gesture', 'gesture', {
+				executions: [{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 85 }]
+			}),
+			session('exercise', 'exercise', { exerciseId: 'rhythm-offbeats', levelReached: 1 })
+		];
+		await old.table('cards').bulkAdd(cards);
+		await old.table('attempts').bulkAdd(attempts);
+		await old.table('levelStates').bulkAdd(levelStates);
+		await old.table('sessions').bulkAdd(sessions);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		const states = await db.levelStates.toArray();
+		expect(states).toHaveLength(levelStates.length);
+		expect(states.map((state) => [state.exerciseId, state.scope, state.item]).sort()).toEqual(
+			[
+				['locate-note-string', '', '2:F'],
+				['chord-zone', '', triad],
+				['grid-in-direction', 'blues-f', ''],
+				['inversion-run', '', ''],
+				['rhythm-offbeats', '', '']
+			].sort()
+		);
+		expect(states.every((state) => state.level === 2 && state.successes === 1)).toBe(true);
+		// Read back by its new key.
+		expect(await db.levelStates.get(['grid-in-direction', 'blues-f', ''])).toEqual(
+			level('grid-in-direction', 'blues-f', '')
+		);
+		const reshaped = await db.sessions.orderBy('id').toArray();
+		expect(reshaped).toHaveLength(sessions.length);
+		const common = { startedAt: 1, endedAt: 2, fatigueDetected: false, latencyMs: 0 };
+		expect(reshaped).toEqual([
+			{ ...common, id: 'exercise', exercise: 'rhythm-offbeats', levelReached: 1, executions: [] },
+			{ ...common, id: 'free', routine: 'notes', free: true, executions: [] },
+			{
+				...common,
+				id: 'gesture',
+				routine: 'changes',
+				executions: [{ exerciseId: 'grid-in-direction', scope: 'blues-f', tempoBpm: 85 }]
+			},
+			{
+				...common,
+				id: 'learn',
+				routine: 'notes',
+				executions: [
+					{ exerciseId: 'locate-note-string', tempoBpm: 80 },
+					{ exerciseId: 'identify-note', tempoBpm: null }
+				]
+			},
+			{
+				...common,
+				id: 'triads',
+				routine: 'chords',
+				executions: [{ exerciseId: 'chord-anchor', tempoBpm: 80 }]
+			},
+			{ ...common, id: 'triads-zone', routine: 'chords-zone', executions: [] }
+		]);
+		const stored = await db.cards.toArray();
+		expect(stored).toHaveLength(cards.length);
+		expect(stored.map((card) => card.key).sort()).toEqual(
+			[
+				'locate-note-string:2:F',
+				'identify-note:5:8',
+				`chord-anchor:${triad}`,
+				`chord-zone:${triad}`
+			].sort()
+		);
+		for (const card of stored) {
+			expect(card).not.toHaveProperty('mechanic');
+			const before = cards.find((old) =>
+				String(old.key).endsWith(card.key.slice(card.skill.length))
+			);
+			expect(card.scheduling).toEqual(before?.scheduling);
+		}
+		const upgraded = await db.attempts.orderBy('id').toArray();
+		expect(upgraded.map(({ skill, cardKey }) => [skill, cardKey])).toEqual([
+			['locate-note-string', 'locate-note-string:2:F'],
+			['identify-note', 'identify-note:5:8'],
+			['chord-anchor', `chord-anchor:${triad}`],
+			['chord-zone', `chord-zone:${triad}`],
+			['grid-reading', 'grid-reading:iohefy-a#0'],
+			['inversion-run', `inversion-run:${shape}`],
+			['figure-independence', 'figure-independence:offbeats-2@2'],
+			// An exercise the catalog of version 12 did not hold: its id names its skill.
+			['somewhere-else', 'somewhere-else:x@0'],
+			// The key says the element only: no length, a shape's place by its frets.
+			['my-arpeggios', `my-arpeggios:${shape}`],
+			['my-shapes', 'my-shapes:maj7@d']
+		]);
+		expect(upgraded.some((row) => Object.hasOwn(row, 'mechanic'))).toBe(false);
+		expect(upgraded.map((row) => row.exerciseId)).toEqual([
+			'locate-note-string',
+			'identify-note',
+			'chord-anchor',
+			'chord-zone',
+			'grid-reading',
+			'inversion-run',
+			'rhythm-offbeats',
+			'somewhere-else',
+			'my-arpeggios',
+			'my-shapes'
+		]);
+		db.close();
+	});
+
+	it('opens 12 at 13 when a renamed row would take a key already held: that row keeps its old one', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const level = (exerciseId: string, value: number) => ({
+			exerciseId,
+			scope: 'blues-f',
+			item: '',
+			level: value,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		// A local exercise of version 12 that took one of the new ids, and a card stored under a
+		// key of version 13.
+		const levelStates = [level('gesture-climb', 3), level('grid-in-direction', 7)];
+		const holder: Record<string, unknown> = {
+			...makeCardV12(),
+			key: 'locate-note-string:2:F',
+			mechanic: 'locate-note-string'
+		};
+		const cards = [makeCardV12(), holder];
+		await old.table('levelStates').bulkAdd(levelStates);
+		await old.table('cards').bulkAdd(cards);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		const states = await db.levelStates.toArray();
+		expect(states).toHaveLength(2);
+		expect(await db.levelStates.get(['gesture-climb', 'blues-f', ''])).toEqual(levelStates[0]);
+		expect(await db.levelStates.get(['grid-in-direction', 'blues-f', ''])).toEqual(levelStates[1]);
+		const stored = await db.cards.toArray();
+		expect(stored).toHaveLength(2);
+		const { mechanic: _mechanic, ...renamed } = cards[0];
+		expect(await db.cards.get('locate:2:F')).toEqual({ ...renamed, skill: 'locate' });
+		expect(await db.cards.get('locate-note-string:2:F')).toMatchObject({
+			skill: 'locate-note-string',
+			scheduling: holder.scheduling
+		});
+		db.close();
+	});
+
+	it('opens 12 at 13 with three cards when a card would take the old key of one renamed away', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const card = (key: string, mechanic: string) => ({ ...makeCardV12(), key, mechanic });
+		// In this order the second card used to be orphaned onto the key the first had taken.
+		await old
+			.table('cards')
+			.bulkAdd([
+				card('a:2:F', 'locate'),
+				card('locate-note-string:2:F', 'identify'),
+				card('identify-note:2:F', 'identify')
+			]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		expect((await db.cards.orderBy('key').toArray()).map((row) => [row.key, row.skill])).toEqual([
+			['a:2:F', 'locate'],
+			['identify-note:2:F', 'identify-note'],
+			['locate-note-string:2:F', 'identify']
+		]);
+		db.close();
+	});
+});
+
+describe('the whole chain to version 13', () => {
+	type Row = Record<string, unknown>;
+	const fixture = () => structuredClone(v8Export) as unknown as Record<string, Row[]> & Row;
+	const sortedBy = <T>(rows: T[], key: (row: T) => unknown) =>
+		[...rows].sort((a, b) => JSON.stringify(key(a)).localeCompare(JSON.stringify(key(b))));
+
+	/** Every table but the settings, each sorted by its primary key. */
+	async function tables(db: NeckspertDb): Promise<Record<string, Row[]>> {
+		return {
+			cards: sortedBy(await db.cards.toArray(), (card) => card.key),
+			attempts: sortedBy(await db.attempts.toArray(), (attempt) => attempt.id),
+			sessions: sortedBy(await db.sessions.toArray(), (session) => session.id),
+			levelStates: sortedBy(await db.levelStates.toArray(), (state) => [
+				state.exerciseId,
+				state.scope,
+				state.item
+			]),
+			definitionFiles: await db.definitionFiles.toArray()
+		} as unknown as Record<string, Row[]>;
+	}
+
+	/** A version 12 database holding exactly the rows of the version 8 fixture, opened at 13. */
+	async function migrated(): Promise<NeckspertDb> {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const { cards, attempts, sessions, levelStates, settings } = fixture();
+		await old.table('cards').bulkAdd(cards);
+		await old.table('attempts').bulkAdd(attempts);
+		await old.table('sessions').bulkAdd(sessions);
+		await old.table('levelStates').bulkAdd(levelStates);
+		await old.table('settings').put({ ...(settings as unknown as Row), id: 'settings' });
+		old.close();
+		const db = createDatabase(name);
+		await db.open();
+		return db;
+	}
+
+	it('opens a version 12 database of the fixture at 13: the same rows in every table, every card scheduled as it was', async () => {
+		const db = await migrated();
+		const v8 = fixture();
+		expect(db.verno).toBe(13);
+		const after = await tables(db);
+		for (const table of ['cards', 'attempts', 'sessions', 'levelStates'] as const) {
+			expect(after[table]).toHaveLength(v8[table].length);
+		}
+		expect(after.definitionFiles).toEqual([]);
+		for (const card of v8.cards) {
+			const upgraded = await db.cards.get(cardToV13(card).key as string);
+			const { key: _key, mechanic: _mechanic, ...kept } = card;
+			expect(upgraded).toMatchObject(kept);
+			expect(upgraded?.scheduling).toEqual(card.scheduling);
+		}
+		expect(await db.settings.get('settings')).toEqual({ ...v8.settings, id: 'settings' });
+		db.close();
+	});
+
+	it('imports the fixture to the same rows as the migrated database', async () => {
+		const db = await migrated();
+		const imported = createDatabase(crypto.randomUUID());
+		await new DexieBackup(imported).importAll(fixture());
+		// Both paths keep the ids the fixture gives its attempts.
+		expect(await tables(imported)).toEqual(await tables(db));
+		// The input device belongs to the browser that exported the file.
+		expect(await imported.settings.get('settings')).toEqual({
+			...(await db.settings.get('settings')),
+			inputDeviceId: null
+		});
+		imported.close();
+		db.close();
+	});
+
+	it('gives the same rows when the migrated database is exported and imported again', async () => {
+		const db = await migrated();
+		const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+		expect(exported.version).toBe(9);
+		const again = createDatabase(crypto.randomUUID());
+		await new DexieBackup(again).importAll(exported);
+		expect(await tables(again)).toEqual(await tables(db));
+		expect(await new DexieBackup(again, () => 1).exportAll()).toEqual({
+			...exported,
+			settings: { ...exported.settings, inputDeviceId: null }
+		});
+		again.close();
+		db.close();
+	});
+
+	it('opens 12 at 13 with a link attempt that names no shape, and its export imports back to the same rows', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const link = { rule: 'link', element: 'link:D|maj:3,2,1', index: 1 };
+		await old.table('attempts').bulkAdd([
+			makeAttemptV12({
+				id: 1,
+				exerciseId: 'gesture-link',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:link:D|maj:3,2,1#1',
+				data: { item: link, answer: null, confusion: null }
+			})
+		]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(await db.attempts.get(1)).toMatchObject({
+			skill: 'inversion-run',
+			cardKey: 'inversion-run:link:D|maj:3,2,1#1'
+		});
+		const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+		const again = createDatabase(crypto.randomUUID());
+		await new DexieBackup(again).importAll(exported);
+		expect(await again.attempts.toArray()).toEqual(await db.attempts.toArray());
+		again.close();
+		db.close();
+	});
+
+	it('opens 12 at 13 with the three orphans, and its export imports back to the same rows', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const state = (exerciseId: string, level: number) => ({
+			exerciseId,
+			scope: 'blues-f',
+			item: '',
+			level,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		// A card and a level state whose new keys are taken; an attempt that names nothing.
+		const holder = {
+			...makeCardV12(),
+			key: 'locate-note-string:2:F',
+			mechanic: 'locate-note-string'
+		};
+		const {
+			exerciseId: _exerciseId,
+			mechanic: _mechanic,
+			...nameless
+		} = makeAttemptV12({
+			id: 1
+		});
+		await old.table('cards').bulkAdd([makeCardV12(), holder]);
+		await old.table('attempts').bulkAdd([nameless]);
+		await old
+			.table('levelStates')
+			.bulkAdd([state('gesture-climb', 3), state('grid-in-direction', 7)]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		expect(await db.cards.get('locate:2:F')).toMatchObject({ skill: 'locate' });
+		expect(await db.cards.get('locate:2:F')).not.toHaveProperty('mechanic');
+		expect(await db.attempts.get(1)).toMatchObject({
+			skill: 'unknown',
+			exerciseId: 'unknown',
+			cardKey: 'unknown:2:F'
+		});
+		expect(await db.levelStates.get(['gesture-climb', 'blues-f', ''])).toEqual(
+			state('gesture-climb', 3)
+		);
+
+		const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+		const again = createDatabase(crypto.randomUUID());
+		await new DexieBackup(again).importAll(exported);
+		const rows = async (base: NeckspertDb) => ({
+			cards: await base.cards.orderBy('key').toArray(),
+			attempts: await base.attempts.orderBy('id').toArray(),
+			sessions: await base.sessions.orderBy('id').toArray(),
+			levelStates: await base.levelStates.toArray(),
+			definitionFiles: await base.definitionFiles.toArray()
+		});
+		expect(await rows(again)).toEqual(await rows(db));
+		expect((await rows(again)).cards).toHaveLength(2);
+		expect((await rows(again)).levelStates).toHaveLength(2);
+		again.close();
 		db.close();
 	});
 });

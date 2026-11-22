@@ -1,5 +1,7 @@
-import { mechanicRules } from '../mechanics';
-import { FORM_ITEM_SEPARATOR } from '../mechanics/formFigure';
+import { exerciseItemSet } from '../sets';
+import { hasSkill, skillById } from '../skill/registry';
+import { SHAPE_ITEM_SEPARATOR } from '../sets/placedShape';
+import { itemEntryKey, itemOfEntry } from './itemEntries';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
@@ -8,8 +10,28 @@ import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
-import { compileRound } from './round/compile';
+import {
+	compileRound,
+	figureItemsAt,
+	RoundCheckExceeded,
+	RoundCompileError,
+	type ResolutionCache
+} from './round/compile';
+import { isFigureEntry } from './round/types';
+import { MAX_PASSAGE_ROUND_CHECKS, passagesProblem } from './passage/validate';
+import { passageIndices, passageMembers } from './passage/indices';
+import { compilePassageRound, firstEach, isUnplayable, passageRound } from './passage/round';
+import type { PassageIndex } from './passage/types';
+import { passageDerivation, type Member } from '../families';
+import type { LevelSweep } from './selection/validate';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
+import {
+	CheckBudget,
+	CheckBudgetExceeded,
+	compiledExtra,
+	levelsCheckCost,
+	roundCheckCost
+} from './checkCost';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
@@ -20,10 +42,69 @@ const naturalNumber = (value: unknown) =>
 
 const SCENES = ['guitar', 'screen'];
 
-function tempoProblem(definition: ExerciseDefinition): string | null {
-	const { tempo } = definition;
-	if (tempo === undefined || positive(tempo)) return null;
-	return `tempo must be a positive number, got ${tempo}`;
+/**
+ * What checking an exercise may cost, so that a small file cannot hold the application at its
+ * start: each is checked before the work it bounds.
+ */
+export const MAX_EXERCISE_LEVELS = 100;
+/** Levels of one ladder (`params.ladder`). */
+export const MAX_LADDER_LEVELS = 100;
+/** Entries of one level's `params`, an exercise level's or a ladder level's. */
+export const MAX_LEVEL_PARAMS = 200;
+export const MAX_EXERCISE_ITEMS = 2000;
+/** Rounds compiled to check the items: one per item at each exercise level. */
+export const MAX_ROUND_CHECKS = 20_000;
+
+/** The number of entries of a level's params; 0 when it writes no object (refused later). */
+const paramCount = (level: unknown): number =>
+	isObject(level) && isObject(level.params) ? Object.keys(level.params).length : 0;
+
+/** Why checking the exercise would cost more than the limits allow; null when it would not. */
+function limitsProblem(definition: ExerciseDefinition): string | null {
+	const { levels, items, round } = definition;
+	if (Array.isArray(levels)) {
+		if (levels.length > MAX_EXERCISE_LEVELS) {
+			return `levels has ${levels.length} entries, more than ${MAX_EXERCISE_LEVELS}`;
+		}
+		for (const [index, level] of levels.entries()) {
+			const count = paramCount(level);
+			if (count > MAX_LEVEL_PARAMS) {
+				return `levels[${index}].params has ${count} entries, more than ${MAX_LEVEL_PARAMS}`;
+			}
+		}
+	}
+	const ladder = isObject(definition.params) ? definition.params.ladder : undefined;
+	if (Array.isArray(ladder)) {
+		if (ladder.length > MAX_LADDER_LEVELS) {
+			return `params.ladder has ${ladder.length} levels, more than ${MAX_LADDER_LEVELS}`;
+		}
+		for (const [index, level] of ladder.entries()) {
+			const count = paramCount(level);
+			if (count > MAX_LEVEL_PARAMS) {
+				return `params.ladder[${index}].params has ${count} entries, more than ${MAX_LEVEL_PARAMS}`;
+			}
+		}
+	}
+	if (Array.isArray(items)) {
+		if (items.length > MAX_EXERCISE_ITEMS) {
+			return `items has ${items.length} entries, more than ${MAX_EXERCISE_ITEMS}`;
+		}
+		// `itemsProblem` compiles the round of each item at each exercise level.
+		const exerciseLevels = Array.isArray(levels) && levels.length > 0 ? levels.length : 1;
+		const checks = items.length * exerciseLevels;
+		if (round !== undefined && checks > MAX_ROUND_CHECKS) {
+			return `items × levels asks ${checks} round checks, more than ${MAX_ROUND_CHECKS}`;
+		}
+	} else if (servesFigures(definition)) {
+		// `servedFiguresProblem` compiles the round of each figure at each exercise level.
+		const exerciseLevels = Array.isArray(levels) && levels.length > 0 ? levels.length : 1;
+		const figures = Array.isArray(definition.figures) ? definition.figures.length : 0;
+		const checks = figures * exerciseLevels;
+		if (checks > MAX_ROUND_CHECKS) {
+			return `figures × levels asks ${checks} round checks, more than ${MAX_ROUND_CHECKS}`;
+		}
+	}
+	return null;
 }
 
 function ladderProblem(params: ExerciseDefinition['params']): string | null {
@@ -31,126 +112,147 @@ function ladderProblem(params: ExerciseDefinition['params']): string | null {
 		const invalid = validateLadder(params.ladder as Ladder);
 		if (invalid !== null) return `params.ladder ${invalid}`;
 	}
-	if (params.ladders !== undefined) {
-		if (typeof params.ladders !== 'object' || params.ladders === null) {
-			return 'params.ladders must map mechanics to ladders';
-		}
-		for (const [mechanic, ladder] of Object.entries(params.ladders)) {
-			const invalid = validateLadder(ladder as Ladder);
-			if (invalid !== null) return `params.ladders.${mechanic} ${invalid}`;
-		}
-	}
 	return null;
 }
 
-function paramsProblem(definition: ExerciseDefinition): string | null {
-	const { params } = definition;
-	const ladder = ladderProblem(params);
-	if (ladder !== null) return ladder;
-	if (params.windows !== undefined) {
-		if (typeof params.windows !== 'object' || params.windows === null) {
-			return 'params.windows must map windows to numbers';
-		}
-		for (const [field, value] of Object.entries(params.windows)) {
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Why the values of params cannot be run, named by their path: the params an exercise writes
+ * (with its `tempo`, `read` `'params'`), and alike the params resolved at each of its levels
+ * (`read` `'level'`), so that a value is checked the same wherever it is written. At a level only
+ * what the engine reads from the resolved params is checked (tempo, windows, pacing); the
+ * learning settings are read from the exercise's params alone. A value
+ * left out passes: its default is runnable.
+ */
+function valuesProblem(
+	values: Readonly<Record<string, unknown>>,
+	read: 'params' | 'level'
+): string | null {
+	const { tempo } = values;
+	if (tempo !== undefined && !positive(tempo)) {
+		return `tempo must be a positive number, got ${tempo}`;
+	}
+	if (values.windows !== undefined) {
+		if (!isObject(values.windows)) return 'params.windows must map windows to numbers';
+		for (const [field, value] of Object.entries(values.windows)) {
 			if (!finite(value) || value < 0) {
 				return `params.windows.${field} must be a non-negative number, got ${value}`;
 			}
 		}
 		// Placed on the beat: an exact fraction of one.
-		const anchor = (params.windows as Record<string, unknown>).anchorChordFromBeats;
+		const anchor = values.windows.anchorChordFromBeats;
 		if (anchor !== undefined && !isBeatCount(anchor)) {
 			return `params.windows.anchorChordFromBeats must be an exact fraction of a beat, got ${anchor}`;
 		}
 	}
-	if (params.learning !== undefined) {
-		const learning = params.learning as Record<string, unknown>;
-		const gaps = learning.retestGaps;
+	if (values.pacing !== undefined) {
+		if (!isObject(values.pacing)) return `params.pacing must be an object, got ${values.pacing}`;
+		const pacing = values.pacing;
+		// A round on the beat lasts its breath: 0 bars would make it last nothing.
+		const bars = pacing.respirationBars;
+		if (bars !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
+			return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
+		}
+		const rounds = pacing.roundsPerBreath;
+		if (rounds !== undefined && !(naturalNumber(rounds) && (rounds as number) >= 1)) {
+			return `params.pacing.roundsPerBreath must be a positive integer, got ${rounds}`;
+		}
+		const breathMs = pacing.breathMinMs;
+		if (breathMs !== undefined && !(finite(breathMs) && breathMs >= 0)) {
+			return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
+		}
+		const listenIn = pacing.listenInBars;
+		if (listenIn !== undefined && !naturalNumber(listenIn)) {
+			return `params.pacing.listenInBars must be a non-negative integer, got ${listenIn}`;
+		}
+		const countIn = pacing.countIn;
+		if (countIn !== undefined && typeof countIn !== 'boolean') {
+			return `params.pacing.countIn must be true or false, got ${countIn}`;
+		}
+	}
+	// Read from the exercise's own params only (`itemLearningOf`): what a level writes there is
+	// without effect.
+	if (read === 'level') return null;
+	if (values.learning !== undefined) {
+		if (!isObject(values.learning)) return 'params.learning must be an object';
+		const gaps = values.learning.retestGaps;
 		if (
 			gaps !== undefined &&
 			!(Array.isArray(gaps) && gaps.length === 2 && gaps.every(naturalNumber))
 		) {
 			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
 		}
-		const fade = learning.aidFadeSuccesses;
+		const fade = values.learning.aidFadeSuccesses;
 		if (fade !== undefined && !naturalNumber(fade)) {
 			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
-	const pacing = params.pacing as Record<string, unknown> | undefined;
-	// A round on the beat lasts its breath: 0 bars would make it last nothing.
-	const bars = pacing?.respirationBars;
-	if (bars !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
-		return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
-	}
-	const rounds = pacing?.roundsPerBreath;
-	if (rounds !== undefined && !(naturalNumber(rounds) && (rounds as number) >= 1)) {
-		return `params.pacing.roundsPerBreath must be a positive integer, got ${rounds}`;
-	}
-	const breathMs = pacing?.breathMinMs;
-	if (
-		breathMs !== undefined &&
-		!(typeof breathMs === 'number' && Number.isFinite(breathMs) && breathMs >= 0)
-	) {
-		return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
-	}
-	const listenIn = pacing?.listenInBars;
-	if (listenIn !== undefined && !naturalNumber(listenIn)) {
-		return `params.pacing.listenInBars must be a non-negative integer, got ${listenIn}`;
-	}
-	const countIn = pacing?.countIn;
-	if (countIn !== undefined && typeof countIn !== 'boolean') {
-		return `params.pacing.countIn must be true or false, got ${countIn}`;
-	}
-	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
-		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
-	}
 	return null;
 }
 
+function paramsProblem(definition: ExerciseDefinition): string | null {
+	return (
+		valuesProblem({ ...definition.params, tempo: definition.tempo }, 'params') ??
+		ladderProblem(definition.params)
+	);
+}
+
 /**
- * Why a run could not start at a level's resolved params (`checkStart` at run start): a listen-in
- * that is not a whole number of bars, a count that is not a boolean, or neither a listen-in nor a
- * counted bar (the listen-in is 0 by default, the counted bar on by default).
+ * Why the skill an exercise practises cannot be learned by its round: a memory skill (its items
+ * kept as cards, each attempt one answer) with a round judged by cycle.
  */
-function startProblem(atLevel: Readonly<Record<string, unknown>>): string | null {
-	const pacing = (atLevel.pacing ?? {}) as Record<string, unknown>;
+function memoryProblem(definition: ExerciseDefinition): string | null {
+	const memory = hasSkill(definition.practices) && skillById(definition.practices).memory;
+	return memory && definition.round?.policy?.unit === 'cycle'
+		? 'practices a memory skill with a round judged by cycle'
+		: null;
+}
+
+/**
+ * Why a run could not start or end at a level's resolved params, once their values are known to
+ * be runnable: neither a listen-in nor a counted bar (`checkStart` at run start; the listen-in is
+ * 0 by default, the counted bar on by default), or a round judged by cycle with no
+ * `pacing.roundsPerBreath`, whose run would never breathe.
+ */
+function runProblem(
+	definition: ExerciseDefinition,
+	atLevel: Readonly<Record<string, unknown>>
+): string | null {
+	const pacing = atLevel.pacing as Record<string, unknown>;
 	const listenIn = pacing.listenInBars ?? 0;
-	if (!naturalNumber(listenIn)) {
-		return `resolves params.pacing.listenInBars ${listenIn}, not a non-negative integer`;
-	}
 	const countIn = pacing.countIn ?? true;
-	if (typeof countIn !== 'boolean') {
-		return `resolves params.pacing.countIn ${countIn}, not true or false`;
-	}
 	if (!countIn && listenIn === 0) {
 		return 'resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other';
 	}
+	if (definition.round?.policy?.unit === 'cycle' && pacing.roundsPerBreath === undefined) {
+		return 'resolves no rounds per breath: params.pacing.roundsPerBreath is required for a round judged by cycle';
+	}
 	return null;
 }
 
-/** The ladders an exercise writes, by the field that holds them. */
+/** The ladder an exercise writes, by the field that holds it; none when it writes none. */
 function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
-	const ladders: [string, Ladder][] = [];
-	if (params.ladder !== undefined) ladders.push(['params.ladder', params.ladder as Ladder]);
-	if (typeof params.ladders === 'object' && params.ladders !== null) {
-		for (const [mechanic, ladder] of Object.entries(params.ladders)) {
-			ladders.push([`params.ladders.${mechanic}`, ladder as Ladder]);
-		}
-	}
-	return ladders;
+	return params.ladder === undefined ? [] : [['params.ladder', params.ladder as Ladder]];
 }
 
 /**
- * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, a
- * path of an exercise or item level through a value that is not an object (named by its level in
- * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive,
- * a run a level could not start (`startProblem`).
- * A path no piece reads passes: it is without effect.
+ * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, an
+ * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
+ * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
+ * its level in `levels` (aid levels counted) or on its ladder, a run a level could not start or
+ * end (`runProblem`). A path no piece reads at a level passes, the learning settings among them:
+ * it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
 	const { levels } = definition;
 	if (levels !== undefined) {
 		if (!Array.isArray(levels)) return 'levels is not a list of levels';
+		for (const [index, level] of levels.entries()) {
+			if (!isObject(level)) return `levels[${index}] must be an object`;
+			if (!isObject(level.params)) return `levels[${index}].params must be an object`;
+		}
 		try {
 			levelRange(levels);
 		} catch (error) {
@@ -171,21 +273,23 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 		} catch (error) {
 			return `${field} ${(error as Error).message}`;
 		}
-		if (!positive(atLevel.tempo)) {
-			return `${field} resolves a tempo that is not a positive number, got ${atLevel.tempo}`;
-		}
-		const start = startProblem(atLevel);
-		if (start !== null) return `${field} ${start}`;
+		const values = valuesProblem(atLevel, 'level');
+		if (values !== null) return `${field}: ${values}`;
+		const run = runProblem(definition, atLevel);
+		if (run !== null) return `${field} ${run}`;
 		resolved.push(atLevel);
 	}
 	for (const [field, ladder] of laddersOf(definition.params)) {
 		for (const [index, level] of ladder.entries()) {
 			for (const atLevel of resolved) {
+				let atItemLevel: Readonly<Record<string, unknown>>;
 				try {
-					overrideParams(atLevel, level.params as LevelOverrides);
+					atItemLevel = overrideParams(atLevel, level.params as LevelOverrides);
 				} catch (error) {
 					return `${field} level ${index}: ${(error as Error).message}`;
 				}
+				const values = valuesProblem(atItemLevel, 'level');
+				if (values !== null) return `${field} level ${index}: ${values}`;
 			}
 		}
 	}
@@ -213,17 +317,17 @@ function figuresProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
- * Why a form the exercise writes cannot be played: an id already taken or that no item key could
+ * Why a shape the exercise writes cannot be played: an id already taken or that no item key could
  * name, no note, or a note written on a string where no fret gives its pitch.
  */
-function formsProblem(definition: ExerciseDefinition): string | null {
-	const forms = definition.forms ?? [];
-	for (const [index, { id, notes }] of forms.entries()) {
-		const field = `forms[${index}] (${id})`;
-		const same = forms.findIndex((form) => form.id === id);
-		if (same !== index) return `${field} has the id of forms[${same}]`;
-		if (id.includes(FORM_ITEM_SEPARATOR)) {
-			return `${field} has an id with "${FORM_ITEM_SEPARATOR}", which separates the parts of an item key`;
+function shapesProblem(definition: ExerciseDefinition): string | null {
+	const shapes = definition.shapes ?? [];
+	for (const [index, { id, notes }] of shapes.entries()) {
+		const field = `shapes[${index}] (${id})`;
+		const same = shapes.findIndex((shape) => shape.id === id);
+		if (same !== index) return `${field} has the id of shapes[${same}]`;
+		if (id.includes(SHAPE_ITEM_SEPARATOR)) {
+			return `${field} has an id with "${SHAPE_ITEM_SEPARATOR}", which separates the parts of an item key`;
 		}
 		if (notes.length === 0) return `${field} has no note`;
 		for (const [k, { midi, string }] of notes.entries()) {
@@ -235,32 +339,120 @@ function formsProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
- * Why an item the exercise lists cannot be played: an empty list, a key its mechanic cannot read
- * (`parseItem`), or an item its round cannot compile at one of its exercise levels (an occurrence
- * the neck does not hold, a form moved off it, a pattern note beyond its notes…), naming the item
- * and the level. What the round does not derive it does not need. Checked once the round is known
- * to be valid.
+ * Why an item the exercise lists cannot be played: an empty list, an entry that is neither a key
+ * nor `{ item, beats }` with a positive length, a key its set cannot read (`parseItem`), or an
+ * item its round cannot compile at one of its exercise levels (a shape moved off the neck, a
+ * pattern note beyond its notes, a length the round reads and the entry does not give…), naming
+ * the item and the level. What the round does not derive it does not need. Checked once the round
+ * is known to be valid.
  */
-function itemsProblem(definition: ExerciseDefinition): string | null {
+function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): string | null {
 	const { items, round } = definition;
 	if (items === undefined) return null;
+	if (!Array.isArray(items)) return 'items must be a list';
 	if (items.length === 0) return 'items lists no item';
-	const rules = mechanicRules(definition.mechanic);
+	const set = exerciseItemSet(definition);
 	const meter = definition.meter ?? METER_4_4;
 	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
-	for (const [i, key] of items.entries()) {
-		const field = `items[${i}] (${JSON.stringify(key)})`;
+	// An exercise that writes a ladder plays each item from the ladder's first level, which gives
+	// the lead its round reads: its rounds are compiled there.
+	const ladder = isObject(definition.params) ? definition.params.ladder : undefined;
+	const itemLevels: { level?: number; leadBeats: number | null }[] = [{ leadBeats: null }];
+	if (Array.isArray(ladder) && ladder.length > 0) {
+		const written = (ladder as Ladder)[0];
+		const lead = isObject(written?.params) ? written.params.leadBeats : null;
+		itemLevels[0] = {
+			level: levelRange(ladder as Ladder).lowest,
+			leadBeats: typeof lead === 'number' ? lead : null
+		};
+	}
+	// What depends on a level alone is resolved once for all the items.
+	const cache: ResolutionCache = new Map();
+	const weight = roundCheckCost(definition);
+	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
-			item = rules.parseItem(key);
+			item = itemOfEntry((key) => set.parseItem(key), entry, i);
 		} catch (error) {
-			return `${field}: ${(error as Error).message}`;
+			return (error as Error).message;
 		}
+		const field = `items[${i}] (${JSON.stringify(itemEntryKey(entry))})`;
+		const unplayable = set.itemProblem?.(item);
+		if (unplayable) return `${field}: ${unplayable}`;
 		if (round === undefined) continue;
 		for (let level = lowest; level <= highest; level++) {
+			for (const at of itemLevels) {
+				const planned: PlannedItem = {
+					exerciseId: definition.id,
+					skill: definition.practices,
+					exerciseLevel: level,
+					...(at.level !== undefined && { level: at.level }),
+					item,
+					phase: 'free',
+					temperature: 'hot',
+					aid: 'none',
+					leadBeats: at.leadBeats
+				};
+				budget.charge(weight);
+				let compiled: number;
+				try {
+					compiled = compileRound(definition, planned, meter, {
+						previewBeats: definition.flow?.previewBeats ?? 0,
+						fromRunStart: null,
+						cache,
+						maxExpectations: budget.left
+					}).expectations.length;
+				} catch (error) {
+					// What the check could not afford: the file's budget says so.
+					if (error instanceof RoundCheckExceeded) budget.charge(error.cost);
+					// The compiler names the exercise too: it is named once.
+					const problem = (error as Error).message.replace(`${definition.id}: `, '');
+					return `${field} does not compile at exercise level ${level}: ${problem}`;
+				}
+				budget.charge(compiledExtra(round, compiled));
+			}
+		}
+	}
+	return null;
+}
+
+/** Whether the round's first figure entry reads its figure on the item: an exercise session serves its figures. */
+function servesFigures(definition: ExerciseDefinition): boolean {
+	const expectations: unknown = definition.round?.expectations;
+	if (!Array.isArray(expectations)) return false;
+	const first = expectations.find((e) => isObject(e) && isFigureEntry(e as never));
+	return isObject(first) && isObject(first.figure) && 'item' in first.figure;
+}
+
+/**
+ * Why a figure an exercise session serves cannot be played, for an exercise that lists no items
+ * and whose round reads its figure on the item (`figureItemsAt`, what the session serves): at an
+ * exercise level, no figure that fits its round, or a figure's round that does not compile there
+ * (a round that would expand past `MAX_FIGURE_ROUND_NOTES` among them), naming the figure and the
+ * level. Each round charged to the file's budget before it is compiled.
+ */
+function servedFiguresProblem(definition: ExerciseDefinition, budget: CheckBudget): string | null {
+	if (definition.items !== undefined || definition.passages !== undefined) return null;
+	if (definition.round === undefined || !servesFigures(definition)) return null;
+	const meter = definition.meter ?? METER_4_4;
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const cache: ResolutionCache = new Map();
+	const weight = roundCheckCost(definition);
+	const named = (error: unknown) => (error as Error).message.replace(`${definition.id}: `, '');
+	for (let level = lowest; level <= highest; level++) {
+		let served: ReturnType<typeof figureItemsAt>;
+		try {
+			served = figureItemsAt(definition, level, meter);
+		} catch (error) {
+			if (!(error instanceof RoundCompileError)) throw error;
+			return `the round does not compile at exercise level ${level}: ${named(error)}`;
+		}
+		if (served === null) return null;
+		if (served.length === 0) return `no figure fits the round at exercise level ${level}`;
+		for (const { id, item } of served) {
 			const planned: PlannedItem = {
 				exerciseId: definition.id,
-				mechanic: definition.mechanic,
+				skill: definition.practices,
 				exerciseLevel: level,
 				item,
 				phase: 'free',
@@ -268,41 +460,117 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 				aid: 'none',
 				leadBeats: null
 			};
+			budget.charge(weight);
+			let compiled: number;
 			try {
-				compileRound(definition, planned, meter, {
+				compiled = compileRound(definition, planned, meter, {
 					previewBeats: definition.flow?.previewBeats ?? 0,
-					fromRunStart: null
-				});
+					fromRunStart: null,
+					cache,
+					maxExpectations: budget.left
+				}).expectations.length;
 			} catch (error) {
-				// The compiler names the exercise too: it is named once.
-				const problem = (error as Error).message.replace(`${definition.id}: `, '');
-				return `${field} does not compile at exercise level ${level}: ${problem}`;
+				if (error instanceof RoundCheckExceeded) budget.charge(error.cost);
+				if (!(error instanceof RoundCompileError)) throw error;
+				return `figures (${JSON.stringify(id)}) does not compile at exercise level ${level}: ${named(error)}`;
 			}
+			budget.charge(compiledExtra(definition.round, compiled));
 		}
 	}
 	return null;
 }
 
 /**
+ * Why a passage's member cannot be played: the round of a member of an index's first passage
+ * (each passage param at its first value, the params of level 1) does not compile, naming the
+ * member, its rank and the index. More rounds than `MAX_PASSAGE_ROUND_CHECKS` are refused, counted once
+ * the first passages' members are read and before any round is compiled. An index whose first
+ * passage has no member, or that cannot be read (`isUnplayable`), is left to the source, which
+ * skips it at play. Checked once the round and the passages are known to be valid.
+ */
+function passageRoundsProblem(definition: ExerciseDefinition, budget: CheckBudget): string | null {
+	const { passages, round } = definition;
+	if (passages === undefined || round === undefined) return null;
+	const derivation = passageDerivation(passages.members.family);
+	if (!derivation) return null;
+	const each = firstEach(definition);
+	const firsts: { index: PassageIndex; members: Member[] }[] = [];
+	let count = 0;
+	for (const index of passageIndices(definition)) {
+		let members: Member[];
+		try {
+			members = passageMembers(definition, index, each);
+		} catch (error) {
+			if (isUnplayable(error)) continue;
+			throw error;
+		}
+		count += members.length;
+		if (members.length > 0) firsts.push({ index, members });
+	}
+	if (count > MAX_PASSAGE_ROUND_CHECKS) {
+		return `passages gives ${count} rounds to check in the first passage of each index, more than ${MAX_PASSAGE_ROUND_CHECKS}`;
+	}
+	// What depends on a level alone is resolved once for all the members.
+	const cache: ResolutionCache = new Map();
+	const weight = roundCheckCost(definition);
+	for (const { index, members } of firsts) {
+		for (const [rank, member] of members.entries()) {
+			budget.charge(weight);
+			let compiled: number;
+			try {
+				const item = derivation.itemOf(member);
+				compiled = compilePassageRound(
+					definition,
+					passageRound(definition, index, each, item, rank, members.length),
+					cache,
+					budget.left
+				).expectations.length;
+			} catch (error) {
+				if (error instanceof RoundCheckExceeded) budget.charge(error.cost);
+				if (!isUnplayable(error)) throw error;
+				// The compiler names the exercise too: it is named once.
+				const problem = (error as Error).message.replace(`${definition.id}: `, '');
+				return `passages.members[${rank}] (${JSON.stringify(member.id)}) of index ${index.key} does not compile: ${problem}`;
+			}
+			budget.charge(compiledExtra(round, compiled));
+		}
+	}
+	return null;
+}
+
+/** How an exercise is checked: the sensors the session has, and the budget of its file. */
+export interface ExerciseCheckOptions extends RoundCheckOptions {
+	/**
+	 * What checking its file may still cost, charged before each round compiled; absent: a budget
+	 * of its own. Once spent, the exercise is refused in its words.
+	 */
+	budget?: CheckBudget;
+}
+
+/**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
- * string, forms with one id or no note (`formsProblem`), levels it cannot resolve (`levelsProblem`),
+ * field: more to check than the limits allow (`limitsProblem`, before any other check), a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
+ * string, shapes with one id or no note (`shapesProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
- * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
- * (`itemsProblem`). It never
+ * template (`roundProblem`; `options.sensors`: the sensors the session has), the passages it
+ * writes (`passagesProblem`), an item it lists (`itemsProblem`), a figure its session serves
+ * (`servedFiguresProblem`), the round of a member of an
+ * index's first passage (`passageRoundsProblem`), more rounds compiled than its file's check
+ * budget leaves (`options.budget`, `MAX_FILE_CHECK_COST`). It never
  * judges what an exercise is worth: anything runnable passes.
  */
 export function validateExercise(
 	definition: ExerciseDefinition,
-	options: RoundCheckOptions = {}
+	options: ExerciseCheckOptions = {}
 ): string | null {
-	const problem = ((): string | null => {
+	const budget = options.budget ?? new CheckBudget();
+	const checked = (): string | null => {
+		const limits = limitsProblem(definition);
+		if (limits !== null) return limits;
 		if (definition.meter !== undefined) {
 			const meter = validateMeter(definition.meter);
 			if (meter !== null) return `meter ${meter}`;
 		}
-		const tempo = tempoProblem(definition);
-		if (tempo !== null) return tempo;
 		const flow = definition.flow;
 		// Beats are counted whole on the transport.
 		if (flow?.previewBeats !== undefined && !naturalNumber(flow.previewBeats)) {
@@ -320,15 +588,36 @@ export function validateExercise(
 		if (flow?.demonstration !== undefined && typeof flow.demonstration !== 'boolean') {
 			return `flow.demonstration must be true or false, got ${String(flow.demonstration)}`;
 		}
+		const memory = memoryProblem(definition);
+		if (memory !== null) return memory;
 		const params = paramsProblem(definition);
 		if (params !== null) return params;
+		// Every level resolved, here and in the sweeps of the selections: charged before.
+		budget.charge(levelsCheckCost(definition));
 		const levels = levelsProblem(definition);
 		if (levels !== null) return levels;
 		const figures = figuresProblem(definition);
 		if (figures !== null) return figures;
-		const forms = formsProblem(definition);
-		if (forms !== null) return forms;
-		return roundProblem(definition, options) ?? itemsProblem(definition);
-	})();
+		const shapes = shapesProblem(definition);
+		if (shapes !== null) return shapes;
+		// Before the round, whose selections read the passage params; the levels swept for the
+		// members' selection serve the round's.
+		const sweep: LevelSweep = new Map();
+		const passages = passagesProblem(definition, sweep);
+		if (passages !== null) return passages;
+		return (
+			roundProblem(definition, options, sweep) ??
+			itemsProblem(definition, budget) ??
+			servedFiguresProblem(definition, budget) ??
+			passageRoundsProblem(definition, budget)
+		);
+	};
+	let problem: string | null;
+	try {
+		problem = budget.refusal ?? checked();
+	} catch (error) {
+		if (!(error instanceof CheckBudgetExceeded)) throw error;
+		problem = error.message;
+	}
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

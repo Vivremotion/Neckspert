@@ -10,12 +10,17 @@ const sources = import.meta.glob('/src/lib/domain/exercise/round/**/*.ts', {
 const MODULE = '/src/lib/domain/exercise/round/';
 
 /**
- * The mechanics the compiler never names: the vocabulary of derivations does. The figure
- * mechanic (`figure`) is not among them: its id is also the word of a figure entry (its key
+ * The sets the compiler never names, by their ids and their old ones: the vocabulary of
+ * derivations does. The figure set (`figure`) is not among them: its id is also the word of a figure entry (its key
  * `figure`, the content `{ from: 'figure' }`), which the compiler writes; it reads a figure on an
  * item only through `ITEM_FIGURES`.
  */
-const MECHANICS = [
+const SETS = [
+	'note-on-string',
+	'placed-note',
+	'voicing-on-strings',
+	'placed-voicing',
+	'placed-shape',
 	'locate',
 	'identify',
 	'triad-anchor',
@@ -25,17 +30,25 @@ const MECHANICS = [
 	'form-figure'
 ];
 
+/** The families it never names either: it looks them up by the names the data gives. */
+const FAMILY_IDS = ['note-places', 'chord-shapes'];
+
 /** What it may take from the derivations: their registries, looked up by name. */
-const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES'];
+const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES', 'ITEM_VALUES'];
+
+/** What a module imports: `from '…'`, a bare `import '…'` or a dynamic `import('…')`. */
+const IMPORT_SPECIFIER = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]*)['"]/g;
 
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];
 	for (const [path, text] of Object.entries(files)) {
 		if (!path.startsWith(MODULE) || /\.spec\.ts$/.test(path)) continue;
-		for (const name of MECHANICS) {
+		for (const name of [...SETS, ...FAMILY_IDS]) {
 			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
+		for (const match of text.matchAll(IMPORT_SPECIFIER))
+			if (/families\/guitar/.test(match[1])) offenders.push(`${path}: imports ${match[1]}`);
 		for (const match of text.matchAll(
 			/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]*derivations[^'"]*)['"]/g
 		)) {
@@ -50,14 +63,14 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the round compiler', () => {
-	it('names no mechanic and takes only the registries of the derivations', () => {
+	it('names no set and takes only the registries of the derivations', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
 	it('actually scans the compiler', () => {
 		expect(Object.keys(sources)).toContain(`${MODULE}compile.ts`);
 		const file = `${MODULE}x.ts`;
-		for (const name of MECHANICS) {
+		for (const name of SETS) {
 			expect(offendersIn({ [file]: `const m = '${name}';` })).toEqual([`${file}: ${name}`]);
 		}
 		expect(
@@ -66,6 +79,19 @@ describe('the round compiler', () => {
 		expect(
 			offendersIn({ [file]: `import { rootPosition } from '$lib/domain/derivations';` })
 		).toEqual([`${file}: imports rootPosition from derivations`]);
+		for (const name of FAMILY_IDS) {
+			expect(offendersIn({ [file]: `const f = "${name}";` })).toEqual([`${file}: ${name}`]);
+		}
+		expect(
+			offendersIn({ [file]: `import { chordShapes } from '../../families/guitar/chordShapes';` })
+		).toEqual([`${file}: imports ../../families/guitar/chordShapes`]);
+		expect(offendersIn({ [file]: `import '../../families/guitar/notes';` })).toEqual([
+			`${file}: imports ../../families/guitar/notes`
+		]);
+		expect(
+			offendersIn({ [file]: `const m = await import('../../families/guitar/chordShapes');` })
+		).toEqual([`${file}: imports ../../families/guitar/chordShapes`]);
+		expect(offendersIn({ [file]: `import { familyNamed } from '../../families';` })).toEqual([]);
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
 	});
 });

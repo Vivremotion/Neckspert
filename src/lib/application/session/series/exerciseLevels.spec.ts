@@ -1,16 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import type { CycleReport } from '$lib/domain/time';
 import type { LevelState } from '$lib/domain/time';
 import { InMemoryLevelStateRepository } from '$lib/testing/fakes';
 import { ExerciseLevels } from './exerciseLevels';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 /** A data exercise with three tempo levels, each passed after two successes, dropped after two misses. */
 const CLIMB: ExerciseDefinition = {
 	id: 'climb',
-	version: 1,
-	mechanic: 'chord-grid',
+	practices: 'grid-reading',
 	params: {},
 	tempo: 80,
 	levels: [80, 90, 100].map((tempo) => ({
@@ -238,6 +237,36 @@ describe('ExerciseLevels', () => {
 		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
 		const at = { exerciseId: 'blocking', scope: 'blues-f' };
 		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
+			role: 'end',
+			reason: 'change-of-air'
+		});
+	});
+
+	it('lets the (exercise, scope) that changed air leave: the series goes on, its rest kept', async () => {
+		const { levels, repository } = await setup();
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
+		expect(levels.resting()).toEqual({ exerciseId: 'blocking', scope: 'blues-f' });
+		levels.leave('blocking', 'blues-f');
+		expect(levels.resting()).toBeNull();
+		expect(levels.breaking()).toBeNull();
+		// Another scope of it, and another exercise, go on.
+		const other = { exerciseId: 'blocking', scope: 'iohefy-a' };
+		expect(levels.boundary(other, 0, 1000, { chains: false, countIn: true }).next.role).toBe(
+			'round'
+		);
+		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next.role).toBe('round');
+		// Its rest is written as before.
+		const rested = await repository.get({ exerciseId: 'blocking', scope: 'blues-f', item: '' });
+		expect(rested?.resumeAfter).not.toBeNull();
+	});
+
+	it('names the next (exercise, scope) that changes air once one has left', async () => {
+		const { levels } = await setup();
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
+		levels.leave('blocking', 'blues-f');
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'iohefy-a', 'blocking'));
+		expect(levels.resting()).toEqual({ exerciseId: 'blocking', scope: 'iohefy-a' });
+		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next).toEqual({
 			role: 'end',
 			reason: 'change-of-air'
 		});

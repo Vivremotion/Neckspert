@@ -2,6 +2,7 @@ import type { BackupPort } from '$lib/application/ports';
 import type { BackupFile } from '$lib/domain/types';
 import { SETTINGS_ROW_ID, type NeckspertDb } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
+import { DexieDefinitionFileRepository } from './DexieDefinitionFileRepository';
 import { DexieLevelStateRepository } from './DexieLevelStateRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
@@ -17,16 +18,17 @@ export class DexieBackup implements BackupPort {
 		const { db } = this;
 		return db.transaction(
 			'r',
-			[db.attempts, db.cards, db.sessions, db.settings, db.levelStates],
+			[db.attempts, db.cards, db.sessions, db.settings, db.levelStates, db.definitionFiles],
 			async (): Promise<BackupFile> => ({
 				app: 'neckspert-play',
-				version: 8,
+				version: 9,
 				exportedAt: this.now(),
 				settings: await new DexieSettingsRepository(db).get(),
 				cards: await db.cards.toArray(),
 				attempts: await new DexieAttemptRepository(db).all(),
 				sessions: await new DexieSessionRepository(db).list(),
-				levelStates: await new DexieLevelStateRepository(db).all()
+				levelStates: await new DexieLevelStateRepository(db).all(),
+				definitionFiles: await new DexieDefinitionFileRepository(db).all()
 			})
 		);
 	}
@@ -34,7 +36,14 @@ export class DexieBackup implements BackupPort {
 	async importAll(file: unknown): Promise<void> {
 		const backup = validateBackup(file);
 		const { db } = this;
-		const tables = [db.attempts, db.cards, db.sessions, db.settings, db.levelStates];
+		const tables = [
+			db.attempts,
+			db.cards,
+			db.sessions,
+			db.settings,
+			db.levelStates,
+			db.definitionFiles
+		];
 		await db.transaction('rw', tables, async () => {
 			await Promise.all(tables.map((table) => table.clear()));
 			// Device ids belong to one browser and one origin: an imported one would not open.
@@ -43,6 +52,7 @@ export class DexieBackup implements BackupPort {
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);
 			await db.levelStates.bulkAdd(backup.levelStates);
+			await db.definitionFiles.bulkAdd(backup.definitionFiles);
 		});
 	}
 }

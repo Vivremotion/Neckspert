@@ -1,5 +1,4 @@
-import type { GridStageModel } from '$lib/application/mechanics/chordGrid';
-import type { GridChange } from '$lib/domain/grid';
+import type { PassageRound, PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { ResponseVerdict } from '$lib/domain/types';
 
 /** Far below a beat: absorbs floating-point error when matching a verdict to its change. */
@@ -31,13 +30,14 @@ export interface GridPlacement {
 }
 
 /**
- * Where each chord of a passage sits on the scrolling line (spec 2026-10-10, section 6): the bars
- * from the current one, the change on show, the next one, announced at least a beat ahead, and
- * the verdict of each change played (from the model's history, at the change's beat). Before its
- * round opens, the model's `anchorBeat` is null: the grid shows from its start, the change next.
+ * Where each round of a passage sits on the scrolling line, written with its words (its `label`)
+ * (spec 2026-10-10, section 6): the bars from the current one, the round on show, the next one,
+ * announced at least a beat ahead, and the verdict of each round played (from the model's
+ * history, at the round's beat). Before its round opens, the model's `anchorBeat` is null: the
+ * grid shows from its start, the round next.
  */
 export function gridPlacement(
-	model: Pick<GridStageModel, 'changes' | 'beatsPerBar' | 'index' | 'anchorBeat' | 'history'>,
+	model: Pick<PassageStageModel, 'rounds' | 'beatsPerBar' | 'index' | 'anchorBeat' | 'history'>,
 	input: {
 		nowBeat: number;
 		visibleBars: number;
@@ -45,19 +45,20 @@ export function gridPlacement(
 		barsBefore?: number;
 	}
 ): GridPlacement {
-	const { changes, beatsPerBar, index, anchorBeat, history } = model;
+	const { rounds, beatsPerBar, index, anchorBeat, history } = model;
 	const { nowBeat } = input;
+	if (rounds.length === 0) return { bars: [], current: null, next: null, nextAnnounced: false };
 	const opened = anchorBeat !== null;
 	const current = opened ? index : null;
 	const nextIndex = opened ? index + 1 : index;
-	const next = nextIndex < changes.length ? nextIndex : null;
-	const start = opened ? anchorBeat - changes[index].at : null;
+	const next = nextIndex < rounds.length ? nextIndex : null;
+	const start = opened ? anchorBeat - rounds[index].at : null;
 	const nextAnnounced =
-		next !== null && start !== null && start + changes[next].at - nowBeat <= 1 + BEAT_TOLERANCE;
+		next !== null && start !== null && start + rounds[next].at - nowBeat <= 1 + BEAT_TOLERANCE;
 
-	const verdictAt = (change: GridChange): ResponseVerdict | null => {
+	const verdictAt = (round: PassageRound): ResponseVerdict | null => {
 		if (start === null) return null;
-		const beat = start + change.at;
+		const beat = start + round.at;
 		return (
 			history.find((entry) => Math.abs(entry.beatIndex - beat) < BEAT_TOLERANCE)?.verdict ?? null
 		);
@@ -69,26 +70,26 @@ export function gridPlacement(
 	};
 
 	const totalBars = Math.ceil(
-		(changes.at(-1)!.at + changes.at(-1)!.length) / beatsPerBar - BEAT_TOLERANCE
+		(rounds.at(-1)!.at + rounds.at(-1)!.length) / beatsPerBar - BEAT_TOLERANCE
 	);
-	const focus = changes[current ?? next ?? 0];
+	const focus = rounds[current ?? next ?? 0];
 	const firstBar = Math.max(0, Math.floor(focus.at / beatsPerBar) - (input.barsBefore ?? 0));
 	const lastBar = Math.min(totalBars, firstBar + input.visibleBars) - 1;
 	const bars: GridPlacement['bars'] = [];
 	for (let bar = firstBar; bar <= lastBar; bar++) {
 		const from = bar * beatsPerBar;
 		const to = from + beatsPerBar;
-		const cells = changes.flatMap((change, k): GridCell[] => {
-			const end = change.at + change.length;
-			if (end <= from + BEAT_TOLERANCE || change.at >= to - BEAT_TOLERANCE) return [];
+		const cells = rounds.flatMap((round, k): GridCell[] => {
+			const end = round.at + round.length;
+			if (end <= from + BEAT_TOLERANCE || round.at >= to - BEAT_TOLERANCE) return [];
 			return [
 				{
 					change: k,
-					symbol: change.symbol,
-					beats: Math.min(end, to) - Math.max(change.at, from),
-					continued: change.at < from - BEAT_TOLERANCE,
+					symbol: round.label,
+					beats: Math.min(end, to) - Math.max(round.at, from),
+					continued: round.at < from - BEAT_TOLERANCE,
 					state: stateOf(k),
-					verdict: verdictAt(change)
+					verdict: verdictAt(round)
 				}
 			];
 		});

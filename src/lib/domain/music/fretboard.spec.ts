@@ -7,7 +7,20 @@ import {
 	STRING_NUMBERS,
 	pitchOfMidi
 } from '$lib/domain/music/types';
-import { acceptableMidis, fretOf, fretsForPitch, midiOnString, pitchOnString } from './fretboard';
+import {
+	acceptableMidis,
+	fretOf,
+	fretsForPitch,
+	midiOnString,
+	openPitch,
+	pitchOnString
+} from './fretboard';
+
+describe('openPitch', () => {
+	it('names each string by its open note', () => {
+		expect(STRING_NUMBERS.map((s) => openPitch(s))).toEqual(['E', 'B', 'G', 'D', 'A', 'E']);
+	});
+});
 
 describe('midiOnString', () => {
 	it('adds the fret to the open string in standard tuning', () => {

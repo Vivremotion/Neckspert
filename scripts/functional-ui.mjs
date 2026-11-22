@@ -1,21 +1,262 @@
 /**
- * Functional checks for the screens served under /dev, in a real browser.
- * Not a unit test: it loads the dev servers and drives the pages.
+ * Functional checks for the screens served under /dev, and for the real pages (the home, the
+ * Library, the settings' imported files, sessions played past their first prompts), in a real
+ * browser. Not a unit test: it loads the dev servers and drives the pages.
  *
  * Start the dev servers from the checkout under test, on the ports it expects
- * (5201 serves /dev/rhythm; override with RHYTHM_URL):
+ * (5201 serves /dev/rhythm, override with RHYTHM_URL; the real pages are played on APP_URL,
+ * http://127.0.0.1:5191 by default, whose site data is cleared first):
  *   for port in 5191 5180 5193 5201; do
  *     npx vite dev --port $port --strictPort --host 127.0.0.1 &
  *   done
  *
  *   node scripts/functional-ui.mjs
  *
- * Behavior failures and text under 16px both exit 1.
- * Chrome is launched headless on its own debugging port; nothing is added
- * to package.json.
+ * Behavior failures, uncaught page exceptions on the real pages and text under 16px all exit 1.
+ * Chrome is launched headless on its own debugging port, with a fake microphone (a sine wave,
+ * `FAKE_MICROPHONE`: it plays nothing a session takes as right); nothing is added to package.json.
  */
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
+
+const APP_URL = process.env.APP_URL ?? 'http://127.0.0.1:5191';
+
+/** The catalog's definition files, read from the checkout under test. */
+const CATALOG = ['notes', 'chords', 'changes', 'rhythm', 'routines'].map((name) =>
+	JSON.parse(readFileSync(new URL(`../catalog/${name}.json`, import.meta.url), 'utf8'))
+);
+const catalogSkills = CATALOG.flatMap((file) => file.skills ?? []);
+const catalogExercises = CATALOG.flatMap((file) => file.exercises ?? []);
+const catalogRoutines = CATALOG.flatMap((file) => file.routines ?? []);
+/** An exercise's name in French as the Library tells it: its title, else its skill's name. */
+const titleOf = (exercise) =>
+	exercise.title?.fr ?? catalogSkills.find((skill) => skill.id === exercise.practices)?.name.fr;
+
+/**
+ * Imported through the settings, written here only, nothing private: a skill and a figure
+ * exercise on a public figure (a C major scale, every quarter note heard as an attack), a skill
+ * and a passages exercise reading the catalog's blues on G-B-E with no opening (a passages
+ * exercise a fresh profile can play), and a routine over a catalog exercise.
+ */
+const IMPORTED_FILE = {
+	format: 0,
+	skills: [
+		{
+			id: 'functional-line',
+			name: { fr: 'Tenir une gamme', en: 'Hold a scale' },
+			items: 'figure',
+			memory: false
+		},
+		{
+			id: 'functional-changes',
+			name: { fr: 'Lire le blues', en: 'Read the blues' },
+			items: 'change',
+			memory: false
+		}
+	],
+	exercises: [
+		{
+			id: 'functional-scale',
+			title: { fr: 'Gamme importée', en: 'Imported scale' },
+			practices: 'functional-line',
+			params: {
+				accompaniment: { clicks: { beats: [1, 2, 3, 4], accent: [1] }, bars: ['on'] },
+				cycleBars: 2,
+				window: { ms: 80 },
+				feedback: 'every-cycle',
+				listen: 'free',
+				cursor: true,
+				pacing: { listenInBars: 1, roundsPerBreath: 1, breathMinMs: 4000 },
+				thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
+			},
+			tempo: 90,
+			view: 'figure',
+			round: {
+				expectations: [
+					{
+						figure: { item: 'figure' },
+						at: { bars: 0 },
+						sensor: 'attack',
+						content: null,
+						window: { param: 'window' }
+					}
+				],
+				accompaniment: { param: 'accompaniment' },
+				length: { bars: { param: 'cycleBars' } },
+				handover: 'end',
+				policy: {
+					unit: 'cycle',
+					verdict: 'cycle',
+					correction: false,
+					pairing: { mode: 'alignment' }
+				}
+			},
+			figures: [{ id: 'scale', lilypond: "c'4 d'4 e'4 f'4 | g'4 a'4 b'4 c''4" }],
+			pick: 'loop',
+			levels: [{ params: {} }]
+		},
+		{
+			id: 'functional-blues',
+			title: { fr: 'Blues importé', en: 'Imported blues' },
+			practices: 'functional-changes',
+			view: 'grid-scroll',
+			presentation: { primary: '{symbol}', secondary: '{title}' },
+			tempo: 80,
+			params: { strings: [3, 2, 1] },
+			round: {
+				prompt: { lead: 1 },
+				expectations: [
+					{
+						at: { beats: 0 },
+						sensor: 'chord',
+						content: { family: 'chord-shapes' },
+						window: { ms: { param: 'windows.perfectMs' } }
+					}
+				],
+				length: { beats: { item: 'change-beats' } },
+				handover: 'end',
+				countEndsOn: 'target',
+				policy: {
+					unit: 'response',
+					verdict: 'response',
+					correction: false,
+					pairing: {
+						mode: 'first-answer',
+						opens: {
+							beforeMs: { param: 'windows.gridEarlyMs' },
+							maxBeats: { param: 'windows.gridEarlyMaxBeats' }
+						},
+						lateMs: { param: 'windows.lateMs' },
+						lateCapture: 'to-end'
+					}
+				}
+			},
+			passages: { of: { grid: ['blues-f'] }, members: { family: 'grid-changes' } }
+		}
+	],
+	routines: [
+		{
+			id: 'functional-anchor',
+			title: { fr: 'Ancrage importé', en: 'Imported anchor' },
+			exercises: ['chord-anchor']
+		}
+	]
+};
+const IMPORTED_NAME = 'functional.json';
+
+/**
+ * Plays the session on the page from its start screen until `done` holds or `timeoutMs` passes:
+ * « Commencer », then a how-to's pause resumed and a free-time prompt answered with its first key.
+ * Returns what was seen: the prompts met (entries into « awaiting »), the breath (the run played
+ * shown), the statuses, the text at the end.
+ */
+const PLAY = `async (doneSource, timeoutMs) => {
+	const done = eval(doneSource);
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+	const status = () => document.querySelector('[data-status]')?.getAttribute('data-status') ?? 'absent';
+	const button = (label) =>
+		[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === label && !b.disabled);
+	// The play frame first (a home block's « Commencer » is not the session's), then its start.
+	for (let i = 0; i < 100 && !document.querySelector('[data-status]'); i++) await wait(50);
+	for (let i = 0; i < 100 && !button('Commencer'); i++) await wait(50);
+	const startable = Boolean(button('Commencer'));
+	button('Commencer')?.click();
+	const seen = { startable, prompts: 0, breath: false, afterBreath: 0, statuses: [] };
+	let last = null;
+	const started = Date.now();
+	const until = started + timeoutMs;
+	while (Date.now() < until) {
+		const now = status();
+		if (now !== last) {
+			seen.statuses.push(now);
+			if (now === 'awaiting') seen.prompts++;
+			last = now;
+		}
+		// The status stays « awaiting » through a breath: past it is the run played shown, then
+		// no longer shown (the next run under way).
+		const played = Boolean(document.querySelector('[data-testid="figure-played"]'));
+		if (played) {
+			if (!seen.breath) seen.breathAt = (Date.now() - started) / 1000;
+			seen.breath = true;
+		} else if (seen.breath) seen.afterBreath++;
+		if (now === 'paused') button('Reprendre')?.click();
+		if (now === 'awaiting') {
+			const key = document.querySelector('[role="group"] button:not([disabled])');
+			key?.click();
+		}
+		// A closed session may leave for its summary between two polls.
+		if (now === 'finished' || location.pathname.startsWith('/summary') || done(seen)) break;
+		await wait(50);
+	}
+	seen.text = document.body.innerText;
+	seen.url = location.pathname + location.search;
+	// A text of an engraving is drawn at its own size times the drawing's zoom.
+	seen.texts = [...document.querySelectorAll('body *')]
+		.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+		.map((el) => {
+			const size = parseFloat(getComputedStyle(el).fontSize);
+			const zoom = el instanceof SVGElement ? (el.getScreenCTM?.()?.a ?? 1) : 1;
+			return { text: el.textContent.trim().slice(0, 60), fontSize: (size * zoom) + 'px' };
+		});
+	return seen;
+}`;
+
+/** Runs `PLAY` on a page, done when `done` (a function's source, of what was seen) holds. */
+const play = (page, done, timeoutMs) =>
+	evaluate(page.call, `() => (${PLAY})(${JSON.stringify(done)}, ${timeoutMs})`);
+/** Past its first prompts: two entered. */
+const PAST_PROMPTS = '(seen) => seen.prompts >= 2';
+/** Past its breath: the run played shown, then gone (the next run under way). */
+const PAST_BREATH = '(seen) => seen.breath && seen.afterBreath >= 1';
+
+/** Clicks the block of the page whose title is `title` (a link or a button); false when none. */
+const clickBlock = (page, title) =>
+	evaluate(
+		page.call,
+		`async () => {
+			const find = () => [...document.querySelectorAll('.title a, .title button')].find(
+				(el) => el.querySelector('b')?.textContent.trim() === ${JSON.stringify(title)}
+			);
+			for (let i = 0; i < 100 && !find(); i++) await new Promise((resolve) => setTimeout(resolve, 50));
+			const block = find();
+			block?.click();
+			return Boolean(block);
+		}`
+	);
+
+/** The blocks on the page: each title, whether it leads somewhere, and its small line. */
+const blocksOf = (page) =>
+	evaluate(
+		page.call,
+		`async () => {
+			for (let i = 0; i < 100 && !document.querySelector('.title b'); i++) {
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			}
+			return [...document.querySelectorAll('.title b')].map((b) => {
+			const row = b.closest('li') ?? b.parentElement.parentElement.parentElement;
+			return {
+				title: b.textContent.trim(),
+				link: b.closest('a')?.getAttribute('href') ?? null,
+				button: Boolean(b.closest('button')),
+				text: row?.innerText ?? ''
+			};
+			});
+		}`
+	);
+
+const textsOf = (page) =>
+	evaluate(
+		page.call,
+		`() => ({
+			text: document.body.innerText,
+			links: [...document.querySelectorAll('a')].map((a) => a.textContent.trim()),
+			nav: [...document.querySelectorAll('nav a')].map((a) => a.textContent.trim()),
+			texts: [...document.querySelectorAll('body *')]
+				.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+				.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))
+		})`
+	);
 
 const CHROME =
 	process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -30,6 +271,11 @@ const chrome = spawn(
 		`--user-data-dir=/tmp/neckspert-functional-chrome-${PORT}`,
 		'--no-first-run',
 		'--disable-gpu',
+		// A session opens the microphone: a fake one, granted without a prompt, and sound
+		// played without a gesture.
+		'--use-fake-ui-for-media-stream',
+		'--use-fake-device-for-media-stream',
+		'--autoplay-policy=no-user-gesture-required',
 		'about:blank'
 	],
 	{ stdio: 'ignore' }
@@ -38,6 +284,8 @@ const chrome = spawn(
 let ws;
 const pending = new Map();
 let seq = 0;
+/** Uncaught exceptions of the pages, with the session of their target. */
+const exceptions = [];
 
 function send(method, params = {}, sessionId) {
 	const id = ++seq;
@@ -60,6 +308,13 @@ async function connect() {
 			});
 			ws.addEventListener('message', (event) => {
 				const message = JSON.parse(event.data);
+				if (message.method === 'Runtime.exceptionThrown') {
+					const details = message.params.exceptionDetails;
+					exceptions.push({
+						sessionId: message.sessionId,
+						text: details.exception?.description ?? details.text
+					});
+				}
 				if (message.id && pending.has(message.id)) {
 					const { resolve, reject } = pending.get(message.id);
 					pending.delete(message.id);
@@ -84,6 +339,62 @@ async function open(url) {
 	await call('Page.navigate', { url });
 	await delay(700);
 	return call;
+}
+
+/**
+ * The fake microphone of the real pages: a quiet 440 Hz sine wave. Chrome's own fake capture
+ * device (`--use-fake-device-for-media-stream`) never answers `getUserMedia` in headless Chrome
+ * on macOS (seen on 2026-11-20), so a session would never leave its start screen; this stream
+ * takes its place before any script of the page runs.
+ */
+const FAKE_MICROPHONE = `(() => {
+	const devices = navigator.mediaDevices;
+	if (!devices) return;
+	const real = devices.getUserMedia.bind(devices);
+	devices.getUserMedia = async (constraints) => {
+		if (!constraints || !constraints.audio) return real(constraints);
+		const context = new AudioContext();
+		const oscillator = context.createOscillator();
+		oscillator.frequency.value = 440;
+		const gain = context.createGain();
+		gain.gain.value = 0.05;
+		const destination = context.createMediaStreamDestination();
+		oscillator.connect(gain).connect(destination);
+		oscillator.start();
+		return destination.stream;
+	};
+})();`;
+
+/**
+ * A real page of the app: its calls, the exceptions it threw so far, and `close`. Its
+ * exceptions are read by `noExceptions`.
+ */
+async function openApp(path) {
+	const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
+	const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
+	const call = (method, params = {}) => send(method, params, sessionId);
+	await call('Page.enable');
+	await call('Runtime.enable');
+	await call('Page.addScriptToEvaluateOnNewDocument', { source: FAKE_MICROPHONE });
+	await call('Page.navigate', { url: `${APP_URL}${path}` });
+	await delay(1200);
+	return {
+		call,
+		thrown: () => exceptions.filter((e) => e.sessionId === sessionId).map((e) => e.text),
+		close: () => send('Target.closeTarget', { targetId })
+	};
+}
+
+function noExceptions(page, where) {
+	const thrown = page.thrown();
+	check(
+		assert(
+			thrown.length === 0,
+			thrown.length === 0
+				? `${where} : aucune exception`
+				: `${where} : ${thrown.length} exception(s) — ${thrown[0].split('\n')[0]}`
+		)
+	);
 }
 
 async function evaluate(call, expression) {
@@ -142,8 +453,8 @@ try {
 		check(assert(count('Triades') > 0, 'le bouton Triades est présent'));
 		check(
 			assert(
-				page.links.some((link) => link.startsWith('Exercices')),
-				'un bloc Exercices mène à son exercice'
+				!page.links.some((link) => link.startsWith('Exercices')),
+				'l’accueil n’a plus de bloc Exercices'
 			)
 		);
 		check(
@@ -154,8 +465,17 @@ try {
 		);
 		check(assert(body.includes('6 révisions dues'), 'les révisions dues sont comptées'));
 		check(assert(body.includes('dans 2 h'), 'la prochaine révision est « Dans 2 h »'));
-		check(assert(body.includes('40 ms'), 'l’écart au temps de 40 ms est affiché'));
-		check(assert(body.includes('plus près'), 'la tendance « Plus près » est affichée'));
+		check(assert(!body.includes('écart au temps'), 'l’écart au temps n’est plus affiché'));
+		check(assert(!body.includes('plus près'), 'la tendance n’est plus affichée'));
+		check(
+			assert(body.includes('rien à jouer pour l’instant'), 'sans routine ouverte, rien à jouer')
+		);
+		check(
+			assert(
+				body.includes('une partie du catalogue n’a pas pu être chargée'),
+				'le catalogue amputé est dit'
+			)
+		);
 		noteTiny('home', page.texts);
 	}
 
@@ -704,6 +1024,238 @@ try {
 			assert(run.status === 'On la joue ensemble', `l’aide en cours est annoncée (${run.status})`)
 		);
 		noteTiny('figure-along', run.texts);
+	}
+
+	// The real pages, on a fresh profile: the home, the Library, every catalog routine, an
+	// exercise of each kind from the Library, then a file imported in the settings.
+	// Sent on a page's session: the browser's own session does not serve the Storage domain.
+	{
+		const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
+		const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
+		await send('Storage.clearDataForOrigin', { origin: APP_URL, storageTypes: 'all' }, sessionId);
+		await send('Target.closeTarget', { targetId });
+	}
+
+	console.log(`\nAccueil ${APP_URL}/`);
+	const homeRoutines = [];
+	{
+		const page = await openApp('/');
+		const home = await textsOf(page);
+		const blocks = await blocksOf(page);
+		const body = home.text.toLocaleLowerCase('fr');
+		check(
+			assert(
+				!home.links.some((link) => link.startsWith('Exercices')),
+				'l’accueil n’a pas de bloc Exercices'
+			)
+		);
+		check(
+			assert(
+				home.nav.includes('Bibliothèque'),
+				`la navigation mène à la Bibliothèque (${home.nav})`
+			)
+		);
+		check(assert(!body.includes('écart au temps'), 'l’écart au temps n’est pas affiché'));
+		// A fresh profile: the routines that need nothing acquired are offered, the others not.
+		for (const routine of catalogRoutines) {
+			const shown = blocks.some((block) => block.title === routine.title.fr && block.button);
+			if (shown) homeRoutines.push(routine);
+			// Passages that open on acquired triads have no open index yet.
+			const passagesClosed = routine.exercises.every(
+				(id) => catalogExercises.find((e) => e.id === id)?.passages?.opens !== undefined
+			);
+			const expected = routine.opens === undefined && !passagesClosed;
+			check(
+				assert(
+					shown === expected,
+					`la routine « ${routine.title.fr} » est ${expected ? 'proposée' : 'absente'} (${shown ? 'proposée' : 'absente'})`
+				)
+			);
+		}
+		check(
+			assert(
+				blocks.every((block) => catalogRoutines.some((r) => r.title.fr === block.title)),
+				`l’accueil ne liste que des routines (${blocks.map((b) => b.title).join(', ')})`
+			)
+		);
+		noteTiny('app-home', home.texts);
+		noExceptions(page, 'accueil');
+		await page.close();
+	}
+
+	console.log(`\nBibliothèque ${APP_URL}/library`);
+	{
+		const page = await openApp('/library');
+		const blocks = await blocksOf(page);
+		const shown = blocks.map((block) => block.title);
+		check(
+			assert(
+				shown.length === catalogExercises.length,
+				`chaque exercice du catalogue a sa ligne (${shown.length} sur ${catalogExercises.length})`
+			)
+		);
+		for (const exercise of catalogExercises) {
+			check(assert(shown.includes(titleOf(exercise)), `« ${titleOf(exercise)} » est listé`));
+		}
+		// The passages exercises open on triads acquired: none on a fresh profile.
+		for (const exercise of catalogExercises.filter((e) => e.passages?.opens)) {
+			const block = blocks.find((b) => b.title === titleOf(exercise));
+			check(
+				assert(
+					block && block.link === null && block.text.includes('Rien à jouer pour l’instant'),
+					`« ${titleOf(exercise)} » n’a rien à jouer pour l’instant, sans lien`
+				)
+			);
+		}
+		noteTiny('app-library', (await textsOf(page)).texts);
+		noExceptions(page, 'bibliothèque');
+		await page.close();
+	}
+
+	console.log('\nRoutines du catalogue');
+	for (const routine of catalogRoutines) {
+		const offered = homeRoutines.includes(routine);
+		// An offered routine starts from its block on the home; the others by their address,
+		// which does not read the opening: with nothing acquired, they end on their summary.
+		const page = await openApp(offered ? '/' : `/session?routine=${routine.id}`);
+		if (offered) {
+			check(assert(await clickBlock(page, routine.title.fr), `« ${routine.title.fr} » se lance`));
+			await delay(800);
+		}
+		const seen = await play(page, PAST_PROMPTS, 45_000);
+		check(
+			assert(
+				!seen.text.includes('Séance introuvable'),
+				`« ${routine.title.fr} » ouvre sa séance (${seen.url})`
+			)
+		);
+		check(
+			assert(
+				offered
+					? seen.prompts >= 2
+					: seen.prompts >= 2 ||
+							seen.statuses.includes('finished') ||
+							seen.url.startsWith('/summary'),
+				offered
+					? `« ${routine.title.fr} » est jouée au-delà de ses premières consignes (${seen.prompts}, ${seen.statuses.join(' › ')})`
+					: `« ${routine.title.fr} », fermée, joue ou s’achève sans rien à demander (${seen.prompts}, ${seen.statuses.join(' › ')})`
+			)
+		);
+		noteTiny(`app-routine-${routine.id}`, seen.texts);
+		noExceptions(page, `routine ${routine.id}`);
+		await page.close();
+	}
+
+	console.log('\nUn exercice de chaque sorte, depuis la Bibliothèque');
+	const fromLibrary = async (title, done, timeoutMs, what) => {
+		const page = await openApp('/library');
+		check(assert(await clickBlock(page, title), `« ${title} » se lance depuis la Bibliothèque`));
+		await delay(800);
+		const seen = await play(page, done, timeoutMs);
+		check(
+			assert(
+				eval(done)(seen),
+				`« ${title} » est joué ${what} (${seen.prompts} consignes, ${seen.statuses.join(' › ')})`
+			)
+		);
+		noteTiny(`app-exercise-${title}`, seen.texts);
+		noExceptions(page, `exercice « ${title} »`);
+		await page.close();
+	};
+	const rhythm = catalogExercises.find((e) => e.view === 'figure');
+	await fromLibrary(titleOf(rhythm), PAST_BREATH, 90_000, 'au-delà de sa respiration');
+	const memory = catalogExercises.find((e) => e.view === 'lane' && Array.isArray(e.items));
+	await fromLibrary(
+		titleOf(memory),
+		PAST_PROMPTS,
+		45_000,
+		'en jeu libre, au-delà de ses premières consignes'
+	);
+
+	console.log('\nFichier importé, depuis les Réglages');
+	{
+		const page = await openApp('/settings');
+		const imported = await evaluate(
+			page.call,
+			`async () => {
+				const input = document.querySelector('#imported-files input[type="file"]');
+				if (!input) return { input: false };
+				const file = new File([${JSON.stringify(JSON.stringify(IMPORTED_FILE))}], ${JSON.stringify(IMPORTED_NAME)}, { type: 'application/json' });
+				const transfer = new DataTransfer();
+				transfer.items.add(file);
+				input.files = transfer.files;
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+				const section = () => document.querySelector('#imported-files')?.innerText ?? '';
+				for (let i = 0; i < 60 && !section().includes(${JSON.stringify(IMPORTED_NAME)}); i++) {
+					await new Promise((resolve) => setTimeout(resolve, 100));
+				}
+				return {
+					input: true,
+					text: section(),
+					refused: document.querySelectorAll('#imported-files .refused, #imported-files .refusal').length
+				};
+			}`
+		);
+		check(assert(imported.input, 'la section « Fichiers importés » a son champ de fichier'));
+		check(
+			assert(
+				imported.text?.includes(IMPORTED_NAME) &&
+					imported.text.includes('2 capacités, 2 exercices, 1 routine'),
+				`le fichier importé est lu en entier (${imported.text?.replace(/\s+/g, ' ').slice(0, 160)})`
+			)
+		);
+		check(assert(imported.refused === 0, `rien n’est refusé (${imported.refused})`));
+		noteTiny('app-settings-imported', (await textsOf(page)).texts);
+		noExceptions(page, 'réglages');
+		await page.close();
+	}
+	{
+		const page = await openApp('/library');
+		const blocks = await blocksOf(page);
+		for (const exercise of IMPORTED_FILE.exercises) {
+			const block = blocks.find((b) => b.title === exercise.title.fr);
+			check(
+				assert(
+					block?.link?.includes(`exercise=${exercise.id}`),
+					`« ${exercise.title.fr} », importé, est listé et se joue (${block?.link})`
+				)
+			);
+		}
+		noExceptions(page, 'bibliothèque après l’import');
+		await page.close();
+	}
+	await fromLibrary(
+		IMPORTED_FILE.exercises[0].title.fr,
+		PAST_BREATH,
+		90_000,
+		'au-delà de sa respiration'
+	);
+	await fromLibrary(
+		IMPORTED_FILE.exercises[1].title.fr,
+		PAST_PROMPTS,
+		45_000,
+		'au-delà de ses premiers changements'
+	);
+	{
+		const routine = IMPORTED_FILE.routines[0];
+		const page = await openApp('/');
+		check(
+			assert(
+				await clickBlock(page, routine.title.fr),
+				`« ${routine.title.fr} », importée, se lance depuis l’accueil`
+			)
+		);
+		await delay(800);
+		const seen = await play(page, PAST_PROMPTS, 45_000);
+		check(
+			assert(
+				seen.prompts >= 2,
+				`« ${routine.title.fr} » est jouée au-delà de ses premières consignes (${seen.prompts}, ${seen.statuses.join(' › ')})`
+			)
+		);
+		noteTiny('app-imported-routine', seen.texts);
+		noExceptions(page, 'routine importée');
+		await page.close();
 	}
 
 	console.log('\nTextes sous 16 px');

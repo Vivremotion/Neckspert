@@ -8,7 +8,6 @@
 // compiler, the figure's JSON and the mechanic's keys are frozen here, with a tripwire test.
 
 import { Fraction } from '$lib/domain/time/fraction';
-import type { MechanicIdentity } from '$lib/domain/mechanics/types';
 import type { BackupV7 } from './v11';
 
 type Row = Record<string, unknown>;
@@ -24,9 +23,12 @@ export const RHYTHM_SENSOR_V11 = 'attack';
  * The rhythm's mechanic as versions 8 to 11 knew it, frozen: a skill, its item a figure at a level
  * (`figureId@level`), the key version 12 keeps. Backups up to version 7 are read with it.
  */
-export const RHYTHM_FIGURE_RULES_V11: MechanicIdentity<{ figureId: string; level: number }> = {
+export const RHYTHM_FIGURE_RULES_V11: {
+	id: string;
+	itemKey(item: { figureId: string; level: number }): string;
+	parseItem(itemKey: string): { figureId: string; level: number };
+} = {
 	id: RHYTHM_FIGURE_MECHANIC_V11,
-	learner: 'skill',
 	itemKey: ({ figureId, level }) => `${figureId}@${level}`,
 	parseItem: (itemKey) => {
 		const at = itemKey.lastIndexOf('@');

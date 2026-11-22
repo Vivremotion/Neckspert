@@ -1,5 +1,13 @@
 export type Destination = 'practice' | 'library' | 'progress' | 'settings';
 
+/** Where each link of the rail leads: a page of its own destination. */
+export const DESTINATION_PATHS = {
+	practice: '/',
+	library: '/library',
+	progress: '/map',
+	settings: '/settings'
+} as const satisfies Record<Destination, string>;
+
 /** Paths played full screen: no rail (a session, the mode-2 demo, the diagnostics, the dev play views). */
 const RAIL_FREE_PREFIXES = [
 	'/session',
@@ -9,9 +17,10 @@ const RAIL_FREE_PREFIXES = [
 	'/diagnostic'
 ] as const;
 
-/** The pages of each destination; the dev mirrors follow their page. The library is a session: never listed. */
+/** The pages of each destination; the dev mirrors follow their page. */
 const DESTINATION_PREFIXES: readonly (readonly [string, Destination])[] = [
 	['/summary', 'practice'],
+	['/library', 'library'],
 	['/map', 'progress'],
 	['/settings', 'settings'],
 	['/calibration', 'settings']

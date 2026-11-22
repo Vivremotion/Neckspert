@@ -2,16 +2,12 @@ import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '$lib/domain/exe
 import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import type { IdentifyData } from '$lib/domain/mechanics';
-import {
-	asNeckCard,
-	isMirrorPair,
-	locateItems,
-	neckCardKey,
-	openPitch,
-	pitchOnString,
-	type NeckCard
-} from '$lib/domain/music';
+import type { IdentifyData } from '$lib/domain/sets';
+import { LEARNABLE_FRETS, locateItems, neckCardKey, type NeckCard } from '$lib/testing/neck';
+import { openPitch, pitchOnString, type IdentifyItem, type LocateItem } from '$lib/domain/music';
+import type { PitchName } from '$lib/domain/music/types';
+import { introduceCard } from '$lib/domain/progress';
+import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
 import { DEFAULT_ITEM_LEARNING } from '$lib/domain/learning/params';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
@@ -52,10 +48,6 @@ async function quitAndRead(app: NotesApp, controller: PlaySessionController): Pr
 
 const keyOf = (card: NeckCard) => neckCardKey(card);
 
-/** The note an attempt played, from its data. */
-const cardOf = (attempt: Attempt): NeckCard =>
-	asNeckCard({ mechanic: attempt.mechanic, item: (attempt.data as { item: unknown }).item });
-
 /** The note lane on stage, if any. */
 function lane(controller: PlaySessionController): PromptStageModel | null {
 	const stage = controller.view.stage;
@@ -63,12 +55,12 @@ function lane(controller: PlaySessionController): PromptStageModel | null {
 }
 
 /** Every locate note learned, acquired and due: a learn session full of cold reviews on the beat. */
-const ALL_LOCATE = locateItems().map((item) => learnedCard({ mechanic: 'locate', item }));
+const ALL_LOCATE = locateItems().map((item) => learnedCard({ skill: 'locate-note-string', item }));
 
 describe('a learn session of the notes', () => {
 	it('shows the lane of locate from the start screen, before any sound', async () => {
 		const app = await notesApp();
-		const controller = await app.services.startSession('learn');
+		const controller = await app.services.startRoutine('notes');
 		expect(controller.view.stage).toBeNull();
 		await controller.ready?.();
 		expect(controller.view.status).toBe('idle');
@@ -189,8 +181,7 @@ describe('a learn session of the notes', () => {
 		expect((await app.deps.cards.get(keyOf(probed)))?.scheduling).toEqual(afterProbe?.scheduling);
 	});
 
-	it('never serves a note right after itself nor its mirror', async () => {
-		// A on the low E string and E on the A string mirror each other.
+	it('never serves a note right after itself', async () => {
 		const app = await notesApp({
 			cards: [
 				learnedCard(locate(6, 'A')),
@@ -225,7 +216,6 @@ describe('a learn session of the notes', () => {
 			}
 			checked++;
 			expect(after.cardKey).not.toBe(before.cardKey);
-			expect(isMirrorPair(cardOf(before), cardOf(after))).toBe(false);
 		}
 		expect(checked).toBeGreaterThan(20);
 	});
@@ -239,7 +229,7 @@ describe('a learn session of the notes', () => {
 			if (sound.sound === 'click-accent') accents.push(Math.round(sound.time * 1000));
 		}
 		await quitAndRead(app, controller);
-		const notes = rounds.filter((round) => round.card.mechanic === 'locate');
+		const notes = rounds.filter((round) => round.card.skill === 'locate-note-string');
 		expect(notes.length).toBeGreaterThanOrEqual(10);
 		let pairs = 0;
 		for (const [i, note] of notes.entries()) {
@@ -250,7 +240,7 @@ describe('a learn session of the notes', () => {
 			expect(accents).toContain(Math.round(note.dueAt * 1000));
 			// Its lead is one of the ladder's: the prompt on beat 1 or 3.
 			expect([2, 4, 8]).toContain(anchor - prompt);
-			if (i === 0 || rounds[note.n - 1]?.card.mechanic !== 'locate') continue;
+			if (i === 0 || rounds[note.n - 1]?.card.skill !== 'locate-note-string') continue;
 			// After the target before: its breathing bar, then the first bar the lead allows.
 			const previous = notes[i - 1].anchorBeat as number;
 			expect(prompt - previous).toBeGreaterThanOrEqual(DEFAULT_RESPIRATION_BARS * BAR_BEATS);
@@ -284,7 +274,7 @@ describe('a learn session of the notes', () => {
 		expect(kept).toBe(true);
 		const preview = lane(controller);
 		expect(preview?.verdict).toBeNull();
-		expect(onStage(controller)?.card.mechanic).toBe('locate');
+		expect(onStage(controller)?.card.skill).toBe('locate-note-string');
 		const promptBeat = preview?.promptBeat as number;
 		// The next prompt a breathing bar at least after the missed target; its string a beat
 		// before it (to the step).
@@ -312,20 +302,20 @@ describe('a learn session of the notes', () => {
 		controller.answer('A');
 		await runUntil(app, () => controller.view.status === 'awaiting');
 		const first = onStage(controller);
-		expect(first?.card.mechanic).toBe('identify');
+		expect(first?.card.skill).toBe('identify-note');
 		for (let i = 0; i < 60; i++) await step(app);
-		const right = rightName((first?.card as Extract<NeckCard, { mechanic: 'identify' }>).item);
+		const right = rightName(first?.card.item as IdentifyItem);
 		// Two taps: the first answers, the second comes after the answer.
 		controller.answer(right);
 		expect(controller.view.status).toBe('verdict');
 		controller.answer(right === 'C' ? 'D' : 'C');
 		expect(app.sounds.emitted()).toEqual([]);
 		const rest = await playRounds(app, controller, allRight, { rounds: 2 });
-		expect(rest.map((round) => round.card.mechanic)).toEqual(['identify', 'locate']);
+		expect(rest.map((round) => round.card.skill)).toEqual(['identify-note', 'locate-note-string']);
 		const attempts = await quitAndRead(app, controller);
 		const [tapped] = attempts;
 		expect(tapped).toMatchObject({
-			mechanic: 'identify',
+			skill: 'identify-note',
 			phase: 'review',
 			temperature: 'cold',
 			success: true
@@ -340,7 +330,7 @@ describe('a learn session of the notes', () => {
 		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
 		const controller = await startNotes(app, 'learn');
 		const [named] = await playRounds(app, controller, allRight, { rounds: 1 });
-		expect(named.card.mechanic).toBe('identify');
+		expect(named.card.skill).toBe('identify-note');
 		await runUntil(app, () => controller.view.status === 'count-in');
 		// Nothing sounded from the start to the name's answer.
 		const answeredAt = named.answeredAt as number;
@@ -353,7 +343,7 @@ describe('a learn session of the notes', () => {
 			return controller.view.status === 'awaiting';
 		});
 		const note = onStage(controller);
-		expect(note?.card.mechanic).toBe('locate');
+		expect(note?.card.skill).toBe('locate-note-string');
 		const promptTime = app.clock.now();
 		const clicks = app.sounds.emitted().filter((s) => s.time > answeredAt && s.time < promptTime);
 		expect(clicks.length).toBeGreaterThanOrEqual(BAR_BEATS);
@@ -370,7 +360,7 @@ describe('a learn session of the notes', () => {
 		await app.deps.settings.update({ latency: { note: { ms: 30, provenance: 'system' } } });
 		const controller = await startNotes(app, 'learn');
 		const [named, played] = await playRounds(app, controller, allRight, { rounds: 2 });
-		expect([named.card.mechanic, played.card.mechanic]).toEqual(['identify', 'locate']);
+		expect([named.card.skill, played.card.skill]).toEqual(['identify-note', 'locate-note-string']);
 		await quitAndRead(app, controller);
 		expect((await app.deps.sessions.get(controller.sessionId))?.latencyMs).toBe(30);
 	});
@@ -380,7 +370,7 @@ describe('a learn session of the notes', () => {
 		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
 		const controller = await startNotes(app, 'learn');
 		const [named, played] = await playRounds(app, controller, allRight, { rounds: 2 });
-		expect([named.card.mechanic, played.card.mechanic]).toEqual(['identify', 'locate']);
+		expect([named.card.skill, played.card.skill]).toEqual(['identify-note', 'locate-note-string']);
 		// Settled, the lane of the note shows its own tile, none for the name tapped before it.
 		expect(lane(controller)?.history).toEqual([
 			{ beatIndex: played.anchorBeat, verdict: 'perfect' }
@@ -393,16 +383,16 @@ describe('a learn session of the notes', () => {
 		const controller = await startNotes(app, 'learn');
 		await runUntil(app, () => controller.view.status === 'awaiting');
 		const named = onStage(controller);
-		expect(named?.card.mechanic).toBe('identify');
+		expect(named?.card.skill).toBe('identify-note');
 		const beatS = 60 / controller.view.tempoBpm;
 		const nextBar = (Math.floor(controller.timeline.nowBeat() / BAR_BEATS) + 1) * BAR_BEATS;
 		// Tapped a few ms before the next bar line.
 		await runUntil(app, () => (nextBar - controller.timeline.nowBeat()) * beatS <= 0.05);
 		const tappedAt = app.clock.now();
 		expect((nextBar - controller.timeline.nowBeat()) * beatS).toBeGreaterThan(0);
-		controller.answer(rightName((named?.card as Extract<NeckCard, { mechanic: 'identify' }>).item));
+		controller.answer(rightName(named?.card.item as IdentifyItem));
 		await runUntil(app, () => controller.view.status === 'awaiting');
-		expect(onStage(controller)?.card.mechanic).toBe('locate');
+		expect(onStage(controller)?.card.skill).toBe('locate-note-string');
 		// The count's first click, the first sound since the tap.
 		const [first] = app.sounds.emitted().filter((s) => s.time >= tappedAt);
 		expect(first).toBeDefined();
@@ -463,7 +453,7 @@ describe('a learn session of the notes', () => {
 			app,
 			controller,
 			(round) =>
-				round.card.mechanic === 'locate'
+				round.card.skill === 'locate-note-string'
 					? { play: 'right', offsetMs: 30 }
 					: { play: 'right', afterMs: 900 },
 			{ rounds: 2 }
@@ -483,7 +473,7 @@ describe('a learn session of the notes', () => {
 			attemptCount: 2,
 			correctCount: 2,
 			tempoBpm: 80,
-			kind: 'learn'
+			chords: false
 		});
 		expect(summary.medianOffsetMs).toBeCloseTo(30, 0);
 		expect(summary.identifyMedianReactionMs).toBe(named.reactionMs);
@@ -503,6 +493,74 @@ describe('a learn session of the notes', () => {
 			identifyMedianReactionMs: named.reactionMs,
 			coldAccuracy: 1
 		});
+	});
+});
+
+/** A learned card of the neck, not due before long. */
+function notDue(card: NeckCard, options: { acquired?: boolean } = {}) {
+	const learned = learnedCard(card, options);
+	return { ...learned, scheduling: { ...learned.scheduling, due: Number.MAX_SAFE_INTEGER } };
+}
+
+/** The first `count` notes of the locate list the catalog writes. */
+const LOCATE_ORDER = (LOCATE_NECK.items ?? []).map((entry) => {
+	const [string, pitch] = String(entry).split(':');
+	return locate(Number(string) as LocateItem['string'], pitch as PitchName);
+});
+
+describe('the notes on the subject the catalog writes', () => {
+	it('serves a player in mid-learning by category: a due review, a resumed note, then a note to name before a new one', async () => {
+		const resumed = introduceCard(
+			{ key: keyOf(locate(4, 'F')), skill: 'locate-note-string', item: locate(4, 'F').item },
+			0,
+			's-old'
+		);
+		const app = await notesApp({
+			cards: [learnedCard(locate(6, 'G')), notDue(locate(5, 'C')), resumed]
+		});
+		const controller = await startNotes(app, 'learn');
+		await playRounds(app, controller, allRight, { rounds: 6 });
+		const attempts = await quitAndRead(app, controller);
+		expect(attempts.slice(0, 2)).toMatchObject([
+			{ cardKey: keyOf(locate(6, 'G')), phase: 'review', temperature: 'cold' },
+			{ cardKey: keyOf(locate(4, 'F')), phase: 'learning' }
+		]);
+		// The first card introduced names a note already located (6:G, the first of the list).
+		const probes = attempts.filter((attempt) => attempt.phase === 'probe');
+		expect(probes[0]?.cardKey).toBe(keyOf(identify(6, 3)));
+	});
+
+	it('introduces a note in its turn, its mirror still fragile', async () => {
+		const before = LOCATE_ORDER.slice(
+			0,
+			LOCATE_ORDER.findIndex((c) => keyOf(c) === keyOf(locate(5, 'E')))
+		);
+		const fragile = keyOf(locate(6, 'A'));
+		const cards = before.flatMap((card) => {
+			if (keyOf(card) === fragile) return [notDue(card, { acquired: false })];
+			const { string, pitch } = card.item as LocateItem;
+			const fret = LEARNABLE_FRETS.find((f) => pitchOnString(string, f) === pitch)!;
+			return [notDue(card), notDue(identify(string, fret))];
+		});
+		const app = await notesApp({ cards });
+		const controller = await startNotes(app, 'learn');
+		await playRounds(app, controller, allRight, { rounds: 1 });
+		const [first] = await quitAndRead(app, controller);
+		expect(first).toMatchObject({ cardKey: keyOf(locate(5, 'E')), phase: 'probe' });
+	});
+
+	it('keeps the order of the notes whatever triads are being learned', async () => {
+		const voicing = String(TRIADS_ANCHOR.items?.[0]);
+		const anchoring = introduceCard(
+			{ key: `chord-anchor:${voicing}`, skill: 'chord-anchor', item: { voicingKey: voicing } },
+			0,
+			's-old'
+		);
+		const app = await notesApp({ cards: [anchoring] });
+		const controller = await startNotes(app, 'learn');
+		await playRounds(app, controller, allRight, { rounds: 1 });
+		const [first] = await quitAndRead(app, controller);
+		expect(first).toMatchObject({ cardKey: keyOf(LOCATE_ORDER[0]), phase: 'probe' });
 	});
 });
 
@@ -542,8 +600,9 @@ describe('a free session of the notes', () => {
 		expect(rounds.length).toBeGreaterThanOrEqual(10);
 		expect(attempts).toHaveLength(rounds.length);
 		for (const round of rounds) {
-			if (round.card.mechanic === 'identify') expect(round.card.item.fret).not.toBe(0);
-			else expect(round.card.item.pitch).not.toBe(openPitch(round.card.item.string));
+			const item = round.card.item;
+			if (round.card.skill === 'identify-note') expect((item as IdentifyItem).fret).not.toBe(0);
+			else expect((item as LocateItem).pitch).not.toBe(openPitch(item.string));
 		}
 	});
 });
@@ -575,7 +634,7 @@ describe('stops and misses on the notes', () => {
 		});
 		expect(countdowns).toHaveLength(BAR_BEATS);
 		expect(app.sounds.emitted().length).toBeGreaterThanOrEqual(BAR_BEATS);
-		expect(onStage(controller)?.card.mechanic).toBe('locate');
+		expect(onStage(controller)?.card.skill).toBe('locate-note-string');
 		const attempts = await quitAndRead(app, controller);
 		expect(attempts.filter((a) => a.cardKey === key)).toHaveLength(1);
 		expect(attempts[0]).toMatchObject({ cardKey: key, success: false });
@@ -604,7 +663,7 @@ describe('stops and misses on the notes', () => {
 			const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
 			const controller = await startNotes(app, 'learn');
 			await runUntil(app, () => controller.view.status === 'awaiting');
-			expect(onStage(controller)?.card.mechanic).toBe('identify');
+			expect(onStage(controller)?.card.skill).toBe('identify-note');
 			for (let i = 0; i < 100; i++) await step(app);
 			controller[stop]();
 			await drain();

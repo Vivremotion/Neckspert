@@ -1,5 +1,6 @@
+import { TEST_PLACED_VOICING_SKILL, registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it, vi } from 'vitest';
-import { exerciseLevelsOf, RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
+import { exerciseLevelsOf } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
@@ -16,7 +17,7 @@ import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
 import { presentPrompt } from '$lib/application/presentation/presentPrompt';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
-import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import {
 	ARPEGGIO_EXERCISE,
 	ARPEGGIO_ITEMS,
@@ -24,6 +25,11 @@ import {
 	FORM_EXERCISE
 } from '$lib/testing/arpeggioExercise';
 import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
+import { GESTURE_CLIMB, RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+import { servedPassageRound } from '$lib/testing/changesPassages';
+import { presentationProblem } from '$lib/application/presentation/validate';
+
+registerTestSkills();
 
 // The prompt is presented through the real presentation, counted.
 vi.mock('$lib/application/presentation/presentPrompt', async (original) => {
@@ -64,8 +70,7 @@ const QUARTERS: Figure = {
 /** The notes of a chord shape over four quarter notes, its chord and its strings above them. */
 const ARPEGGIO: ExerciseDefinition = {
 	id: 'test-arpeggio',
-	version: 1,
-	mechanic: 'voicing-figure',
+	practices: TEST_PLACED_VOICING_SKILL.id,
 	view: 'figure',
 	figures: [{ id: 'quarters', figure: QUARTERS }],
 	round: {
@@ -87,12 +92,12 @@ const ARPEGGIO: ExerciseDefinition = {
 };
 
 /** C, first inversion on G-B-E: E, G, C. */
-const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', occurrence: 0 };
+const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', frets: [9, 8, 8] };
 
 function planned<I>(definition: ExerciseDefinition, item: I): PlannedItem<I> {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'learning',
@@ -164,7 +169,7 @@ describe('figureStage', () => {
 			params: { ...ARPEGGIO.params, nextBeats: 2, neck: true }
 		};
 		const fourBeats = planned(FORMS, C_FIRST_INVERSION);
-		const coming = planned(FORMS, { voicing: 'G|maj|3:3,2:5,1:1', occurrence: 0 });
+		const coming = planned(FORMS, { voicing: 'G|maj|3:3,2:5,1:1', frets: [4, 3, 3] });
 
 		it('shows only in the last beats of its round', () => {
 			const at = (beat: number) =>
@@ -217,7 +222,7 @@ describe('figureStage', () => {
 	});
 
 	it("shows the exercise's prompt above the figure, and none without a presentation", () => {
-		const fields = ITEM_FIELDS['voicing-figure'].fields(
+		const fields = ITEM_FIELDS['placed-voicing'].fields(
 			C_FIRST_INVERSION,
 			'fr',
 			() => 0,
@@ -231,6 +236,45 @@ describe('figureStage', () => {
 		expect(stage(RHYTHM_SILENT_BARS, rhythm, 'round').prompt).toBeNull();
 		// The notes derive from the shape the prompt names: the rhythm line, not the notes.
 		expect(stage(ARPEGGIO, item, 'round').notation).toEqual({ staff: false, tab: false });
+	});
+
+	it("says the fields of its round's member contents in its prompt", () => {
+		const climbing = servedPassageRound(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 0, {
+			direction: 'up'
+		});
+		const chord = climbing.plan.expectations[0];
+		const reading: ExerciseDefinition = {
+			...ARPEGGIO,
+			round: {
+				...ARPEGGIO.round!,
+				expectations: [
+					...ARPEGGIO.round!.expectations,
+					{ ...GESTURE_CLIMB.round!.expectations[0] }
+				] as never
+			},
+			presentation: { primary: '{chord}', secondary: '{strings} {toward}' }
+		};
+		expect(presentationProblem(reading)).toBeNull();
+		const asked = planned(reading, C_FIRST_INVERSION);
+		const plan = planOf(ARPEGGIO, asked);
+		const withChord = { ...plan, expectations: [...plan.expectations, chord] };
+		const shown = figureStage({
+			definition: reading,
+			item: asked,
+			plan: withChord,
+			moment: 'round',
+			barInRound: 0,
+			beat: 0,
+			startBar: 0,
+			muted: false,
+			settled: [],
+			played: null,
+			locale: 'fr',
+			random: () => 0,
+			chordDiagram: 'strings',
+			endedSessions: 0
+		});
+		expect(shown.prompt?.secondary).toBe('sol‑si‑mi ↑ en montant');
 	});
 
 	it('reads the bars of the round on the plan it is given, compiling nothing on the beat', () => {
@@ -287,7 +331,7 @@ describe('figureStage', () => {
 });
 
 describe('figureStage, the notes it engraves', () => {
-	const c = voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]);
+	const c = { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 };
 	/** The arpeggio's item at exercise level `level` (-1 is its aid level, which shows the tab). */
 	const at = (level: number): PlannedItem => ({
 		...planned(ARPEGGIO_EXERCISE, c),
@@ -341,12 +385,12 @@ describe('figureStage, the notes it engraves', () => {
 describe('figureStage, a round cut inside its figure', () => {
 	/** C major on G-B-E for `beats` beats, at exercise level `level` (-1 writes the tab). */
 	const change = (beats: number, level: number): PlannedItem => ({
-		...planned(ARPEGGIO_EXERCISE, voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`)),
+		...planned(ARPEGGIO_EXERCISE, { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats }),
 		exerciseLevel: level
 	});
 	const kinds = (figure: Figure) => figure.voices[0].elements.map((e) => e.kind);
 	const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(
-		voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+		placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]),
 		ARPEGGIO_EXERCISE
 	) as { midi: number; string: number }[];
 	/** The shape's notes the pattern asks over `count` notes. */
@@ -431,7 +475,9 @@ describe('figureStage, a round cut inside its figure', () => {
 				]
 			}
 		};
-		const item = { ...planned(exercise, voicingFigureRules.parseItem('C|maj|3:1,2:3,1:5@0@8')) };
+		const item = {
+			...planned(exercise, { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 8 })
+		};
 		const model = stage(exercise, item, 'round');
 		expect(model.figure.bars).toBe(2);
 		expect(notesOf(model.figure).map((n) => n.pitch)).toEqual(
@@ -445,10 +491,10 @@ describe('figureStage, a round cut inside its figure', () => {
 });
 
 describe('figureStage, a form moved to its chord', () => {
-	const item = planned(FORM_EXERCISE, { form: 'maj7', first: 'd', beats: 4 });
+	const item = planned(FORM_EXERCISE, { shape: 'maj7', first: 'd', beats: 4 });
 
 	it('draws the whole form on the neck where its level asks it, spelled for its chord', () => {
-		const flat = planned(FORM_EXERCISE, { form: 'maj7', first: 'es', beats: 2 });
+		const flat = planned(FORM_EXERCISE, { shape: 'maj7', first: 'es', beats: 2 });
 		const drawn: ExerciseDefinition = {
 			...FORM_EXERCISE,
 			levels: [{ params: { neck: true } }, { params: {} }]

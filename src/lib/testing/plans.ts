@@ -1,17 +1,16 @@
-import { IDENTIFY_NECK } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import { exerciseById } from '$lib/domain/exercise';
 import { METER_4_4, type Meter, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
+import { IDENTIFY_NECK } from '$lib/testing/catalog';
 
 /** The plans the series compiles, for specs that need one: compiled from the exercise's template. */
 
 function plannedFor(definition: ExerciseDefinition, item: unknown): PlannedItem {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'learning',
@@ -21,13 +20,9 @@ function plannedFor(definition: ExerciseDefinition, item: unknown): PlannedItem 
 	};
 }
 
-/** The round of a change of a grid, as `definition` (the link by default) writes it. */
-export function changePlan(
-	item: ChordGridItem,
-	meter: Meter = METER_4_4,
-	definition: ExerciseDefinition = GESTURE_LINK
-): RoundPlan {
-	return compileRound(definition, plannedFor(definition, item), meter, {
+/** The round of a change of a passage (`testing/gestureSeries`'s `change`), as its exercise writes it. */
+export function changePlan(item: PlannedItem, meter: Meter = METER_4_4): RoundPlan {
+	return compileRound(exerciseById(item.exerciseId), item, meter, {
 		previewBeats: 0,
 		fromRunStart: null
 	});

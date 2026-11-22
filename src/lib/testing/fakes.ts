@@ -17,7 +17,10 @@ import type {
 	AudioClockPort,
 	AudioInputDevice,
 	CardStateRepositoryPort,
+	DefinitionFileRecord,
+	DefinitionFileRepositoryPort,
 	LevelStateRepositoryPort,
+	LoadMarkPort,
 	ChordExpectation,
 	ChordReport,
 	ChordVerifierPort,
@@ -35,6 +38,8 @@ import type {
 } from '$lib/application/ports';
 import type { ScheduledSound, SoundId } from '$lib/domain/time';
 import type { DiagnosticsService } from '$lib/application/app';
+import type { DefinitionsService, ImportedFile } from '$lib/application/definitions/service';
+import { MAX_DEFINITION_FILE_CHARS, type Refusal } from '$lib/domain/definitions';
 
 export class FakeClock implements AudioClockPort {
 	time = 0;
@@ -470,6 +475,15 @@ export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
 	/** By exercise, scope and item: `JSON.stringify([exerciseId, scope, item])`. */
 	private readonly states = new Map<string, LevelState>();
 
+	/** Holds `states` from the start. */
+	constructor(states: readonly LevelState[] = []) {
+		for (const state of states) this.keep(state);
+	}
+
+	private keep(state: LevelState): void {
+		this.states.set(JSON.stringify([state.exerciseId, state.scope, state.item]), { ...state });
+	}
+
 	async get(key: {
 		exerciseId: string;
 		scope: string;
@@ -480,11 +494,106 @@ export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
 	}
 
 	async put(state: LevelState): Promise<void> {
-		this.states.set(JSON.stringify([state.exerciseId, state.scope, state.item]), { ...state });
+		this.keep(state);
 	}
 
 	async all(): Promise<LevelState[]> {
 		return [...this.states.values()].map((state) => ({ ...state }));
+	}
+}
+
+export class InMemoryDefinitionFileRepository implements DefinitionFileRepositoryPort {
+	private readonly files = new Map<string, DefinitionFileRecord>();
+
+	async all(): Promise<DefinitionFileRecord[]> {
+		return [...this.files.values()]
+			.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+			.map((file) => ({ ...file }));
+	}
+
+	async put(file: DefinitionFileRecord): Promise<void> {
+		this.files.set(file.name, { ...file });
+	}
+
+	async delete(name: string): Promise<void> {
+		this.files.delete(name);
+	}
+}
+
+/** The load mark kept in memory; `history` lists every set and clear, in order. */
+export class FakeLoadMark implements LoadMarkPort {
+	history: ('set' | 'clear')[] = [];
+	constructor(private marked = false) {}
+
+	set(): void {
+		this.marked = true;
+		this.history.push('set');
+	}
+
+	clear(): void {
+		this.marked = false;
+		this.history.push('clear');
+	}
+
+	isSet(): boolean {
+		return this.marked;
+	}
+}
+
+/**
+ * The imported files kept in memory, registering nothing (the registries stay as the test filled
+ * them): each file is stored with no object and no refusal. `reloads` counts the reloads asked.
+ */
+export class FakeDefinitionsService implements DefinitionsService {
+	private readonly stored = new Map<string, ImportedFile>();
+	reloads = 0;
+
+	async ready(): Promise<void> {}
+
+	async files(): Promise<ImportedFile[]> {
+		return [...this.stored.values()]
+			.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+			.map((file) => structuredClone(file));
+	}
+
+	async import(
+		files: readonly { name: string; text: string }[]
+	): Promise<{ stored: ImportedFile[]; refused: Refusal[] }> {
+		const stored: ImportedFile[] = [];
+		const refused: Refusal[] = [];
+		// Two files of one name in one call: the last one wins, as in the real service.
+		const byName = new Map(files.map((file) => [file.name, file.text]));
+		for (const [name, text] of byName) {
+			if (text.length > MAX_DEFINITION_FILE_CHARS) {
+				const reason = `the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters`;
+				refused.push({ file: name, kind: 'file', id: null, reason });
+				continue;
+			}
+			const file = {
+				name,
+				importedAt: 0,
+				skills: [],
+				grids: [],
+				exercises: [],
+				routines: [],
+				refusals: []
+			};
+			this.stored.set(name, file);
+			stored.push(structuredClone(file));
+		}
+		return { stored, refused };
+	}
+
+	async remove(name: string): Promise<void> {
+		this.stored.delete(name);
+	}
+
+	async reload(): Promise<void> {
+		this.reloads++;
+	}
+
+	refusals(): readonly Refusal[] {
+		return [];
 	}
 }
 

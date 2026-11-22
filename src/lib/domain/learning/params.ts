@@ -1,4 +1,6 @@
+import type { SelectionTemplate } from '../exercise/selection/types';
 import type { ExerciseDefinition } from '../exercise/types';
+import type { SkillId } from '../skill/types';
 
 /** What an item's exercise sets for it (`params.learning`). */
 export interface ItemLearning {
@@ -68,4 +70,30 @@ export const DEFAULT_SET_LEARNING: SetLearning = {
 export function itemLearningOf(definition: ExerciseDefinition): ItemLearning {
 	const written = definition.params.learning as Partial<ItemLearning> | undefined;
 	return { ...DEFAULT_ITEM_LEARNING, ...written };
+}
+
+/** What lets an item of an exercise enter: an item of another skill is acquired (`params.learning.enter`). */
+export interface EntryCondition {
+	/** `skill`'s card for the item `item` names (a correspondence) must be acquired. */
+	acquired: { skill: SkillId; item: string };
+}
+
+/** What an exercise writes of its learning (`params.learning`), over the defaults. */
+export interface ExerciseLearning extends ItemLearning {
+	enter?: EntryCondition;
+	/** true by default: the aided presentation follows its missed probe at once. */
+	presentAtOnce: boolean;
+	/**
+	 * What a prompt asks of a card's item: a member drawn among those this selection admits for
+	 * it, turned into an item by its set (`ItemSet.asked`), of the family its set asks. No `of`
+	 * (the card's own item is the index), no order and no take: one is drawn.
+	 */
+	asks?: Pick<SelectionTemplate, 'family' | 'where'>;
+}
+
+/** `params.learning` of an exercise over the defaults; `enter` and `asks` only when written. */
+export function exerciseLearningOf(definition: ExerciseDefinition): ExerciseLearning {
+	// Trusts what the definition checks accepted (`learningProblem`).
+	const written = (definition.params.learning ?? {}) as Partial<ExerciseLearning>;
+	return { ...DEFAULT_ITEM_LEARNING, presentAtOnce: true, ...written };
 }

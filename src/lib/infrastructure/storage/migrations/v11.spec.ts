@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { EXERCISE_IDS_V13 } from './v13';
 import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
-import { GESTURE_EXERCISES, readGestureParams } from '$lib/domain/gesture/exercises';
 import type { LevelState } from '$lib/domain/time';
 import {
 	GESTURE_EXERCISES_V11,
@@ -13,6 +13,7 @@ import {
 	type BackupV6,
 	type ProgressionV10
 } from './v11';
+import { GESTURE_EXERCISES } from '$lib/testing/catalog';
 
 function progression(
 	exerciseId: string,
@@ -113,19 +114,21 @@ describe('GESTURE_TEMPOS_V11', () => {
 	// Tripwire, as for TRIAD_LADDER_V10: the migration never reads the catalog, but a divergence
 	// must be noticed, then decided (the frozen tempos stay as they are).
 	it('freezes the gesture tempos against the catalog', () => {
-		expect(GESTURE_EXERCISES.map((definition) => definition.id)).toEqual([
-			...GESTURE_EXERCISES_V11
-		]);
+		// Version 13 renamed the exercises the frozen tables name (`EXERCISE_IDS_V13`).
+		expect(GESTURE_EXERCISES.map((definition) => definition.id)).toEqual(
+			GESTURE_EXERCISES_V11.map((id) => EXERCISE_IDS_V13[id])
+		);
 		for (const definition of GESTURE_EXERCISES) {
-			expect(exerciseLevelsOf(definition).map((_, i) => tempoOf(definition, i))).toEqual([
-				...GESTURE_TEMPOS_V11
-			]);
+			// Its regular levels, from level 1: the aid level below it is no tempo of the old progression.
+			const regular = exerciseLevelsOf(definition).filter((level) => !level.aid);
+			expect(regular.map((_, i) => tempoOf(definition, i))).toEqual([...GESTURE_TEMPOS_V11]);
 		}
+		// The exercises whose level is scoped by grid: their passages say so.
 		expect(
-			GESTURE_EXERCISES.filter(
-				(definition) => (readGestureParams(definition).grids ?? []).length > 0
-			).map((definition) => definition.id)
-		).toEqual([...GESTURE_GRID_EXERCISES_V11]);
+			GESTURE_EXERCISES.filter((definition) => definition.passages?.scope === 'grid').map(
+				(definition) => definition.id
+			)
+		).toEqual(GESTURE_GRID_EXERCISES_V11.map((id) => EXERCISE_IDS_V13[id]));
 	});
 });
 

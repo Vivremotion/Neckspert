@@ -1,0 +1,589 @@
+{
+	"format": 0,
+	"skills": [
+		{
+			"id": "chord-anchor",
+			"name": {
+				"fr": "Ancrer un accord sur sa fondamentale",
+				"en": "Anchor a chord on its root"
+			},
+			"items": "voicing-on-strings",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 1500
+			}
+		},
+		{
+			"id": "chord-zone",
+			"name": {
+				"fr": "Jouer un accord près d'une case",
+				"en": "Play a chord near a fret"
+			},
+			"items": "voicing-on-strings",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 1500
+			}
+		}
+	],
+	"exercises": [
+		{
+			"id": "chord-anchor",
+			"practices": "chord-anchor",
+			"view": "lane",
+			"tempo": 80,
+			"presentation": {
+				"primary": "{chord}",
+				"secondary": {
+					"fr": "fondamentale sur {rootString}",
+					"en": "root on {rootString}"
+				},
+				"detail": "{strings}",
+				"target": "{root}",
+				"band": "{chord}",
+				"aided": {
+					"picture": "lowest-shape"
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": {
+						"param": "leadBeats"
+					}
+				},
+				"expectations": [
+					{
+						"at": {
+							"beats": 0
+						},
+						"sensor": "note",
+						"content": {
+							"family": "note-places",
+							"of": "root"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					},
+					{
+						"at": {
+							"beats": {
+								"param": "windows.anchorChordFromBeats"
+							}
+						},
+						"until": {
+							"bars": 1
+						},
+						"sensor": "chord",
+						"content": {
+							"family": "chord-shapes"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"bars": 1,
+					"breath": true
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": true,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": {
+								"param": "windows.minResponseMs"
+							}
+						},
+						"lateMs": {
+							"param": "windows.lateMs"
+						},
+						"lateCapture": {
+							"ms": {
+								"param": "windows.lateCaptureMs"
+							}
+						}
+					}
+				}
+			},
+			"params": {
+				"pacing": {
+					"respirationBars": 1
+				},
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": 8,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 4,
+							"aided": false
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 2,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				],
+				"learning": {
+					"presentAtOnce": false
+				}
+			},
+			"items": [
+				"C|maj|3:5,2:1,1:3",
+				"C|maj|3:1,2:3,1:5",
+				"C|maj|3:3,2:5,1:1",
+				"C|min|3:1,2:b3,1:5",
+				"C|min|3:b3,2:5,1:1",
+				"C|min|3:5,2:1,1:b3",
+				"D|maj|3:5,2:1,1:3",
+				"D|maj|3:1,2:3,1:5",
+				"D|maj|3:3,2:5,1:1",
+				"D|min|3:5,2:1,1:b3",
+				"D|min|3:1,2:b3,1:5",
+				"D|min|3:b3,2:5,1:1",
+				"E|maj|3:3,2:5,1:1",
+				"E|maj|3:5,2:1,1:3",
+				"E|maj|3:1,2:3,1:5",
+				"E|min|3:b3,2:5,1:1",
+				"E|min|3:5,2:1,1:b3",
+				"E|min|3:1,2:b3,1:5",
+				"F|maj|3:3,2:5,1:1",
+				"F|maj|3:5,2:1,1:3",
+				"F|maj|3:1,2:3,1:5",
+				"F|min|3:b3,2:5,1:1",
+				"F|min|3:5,2:1,1:b3",
+				"F|min|3:1,2:b3,1:5",
+				"G|maj|3:3,2:5,1:1",
+				"G|maj|3:5,2:1,1:3",
+				"G|maj|3:1,2:3,1:5",
+				"G|min|3:b3,2:5,1:1",
+				"G|min|3:5,2:1,1:b3",
+				"G|min|3:1,2:b3,1:5",
+				"A|maj|3:1,2:3,1:5",
+				"A|maj|3:3,2:5,1:1",
+				"A|maj|3:5,2:1,1:3",
+				"A|min|3:1,2:b3,1:5",
+				"A|min|3:b3,2:5,1:1",
+				"A|min|3:5,2:1,1:b3",
+				"B|maj|3:1,2:3,1:5",
+				"B|maj|3:3,2:5,1:1",
+				"B|maj|3:5,2:1,1:3",
+				"B|min|3:1,2:b3,1:5",
+				"B|min|3:b3,2:5,1:1",
+				"B|min|3:5,2:1,1:b3",
+				"C#|maj|3:5,2:1,1:3",
+				"C#|maj|3:1,2:3,1:5",
+				"C#|maj|3:3,2:5,1:1",
+				"C#|min|3:5,2:1,1:b3",
+				"C#|min|3:1,2:b3,1:5",
+				"C#|min|3:b3,2:5,1:1",
+				"D#|maj|3:5,2:1,1:3",
+				"D#|maj|3:1,2:3,1:5",
+				"D#|maj|3:3,2:5,1:1",
+				"D#|min|3:5,2:1,1:b3",
+				"D#|min|3:1,2:b3,1:5",
+				"D#|min|3:b3,2:5,1:1",
+				"F#|maj|3:3,2:5,1:1",
+				"F#|maj|3:5,2:1,1:3",
+				"F#|maj|3:1,2:3,1:5",
+				"F#|min|3:b3,2:5,1:1",
+				"F#|min|3:5,2:1,1:b3",
+				"F#|min|3:1,2:b3,1:5",
+				"G#|maj|3:3,2:5,1:1",
+				"G#|maj|3:5,2:1,1:3",
+				"G#|maj|3:1,2:3,1:5",
+				"G#|min|3:b3,2:5,1:1",
+				"G#|min|3:5,2:1,1:b3",
+				"G#|min|3:1,2:b3,1:5",
+				"A#|maj|3:1,2:3,1:5",
+				"A#|maj|3:3,2:5,1:1",
+				"A#|maj|3:5,2:1,1:3",
+				"A#|min|3:1,2:b3,1:5",
+				"A#|min|3:b3,2:5,1:1",
+				"A#|min|3:5,2:1,1:b3",
+				"C|maj|4:3,3:5,2:1",
+				"C|maj|4:5,3:1,2:3",
+				"C|maj|4:1,3:3,2:5",
+				"C|min|4:b3,3:5,2:1",
+				"C|min|4:5,3:1,2:b3",
+				"C|min|4:1,3:b3,2:5",
+				"D|maj|4:3,3:5,2:1",
+				"D|maj|4:5,3:1,2:3",
+				"D|maj|4:1,3:3,2:5",
+				"D|min|4:b3,3:5,2:1",
+				"D|min|4:5,3:1,2:b3",
+				"D|min|4:1,3:b3,2:5",
+				"E|maj|4:1,3:3,2:5",
+				"E|maj|4:3,3:5,2:1",
+				"E|maj|4:5,3:1,2:3",
+				"E|min|4:1,3:b3,2:5",
+				"E|min|4:b3,3:5,2:1",
+				"E|min|4:5,3:1,2:b3",
+				"F|maj|4:1,3:3,2:5",
+				"F|maj|4:3,3:5,2:1",
+				"F|maj|4:5,3:1,2:3",
+				"F|min|4:1,3:b3,2:5",
+				"F|min|4:b3,3:5,2:1",
+				"F|min|4:5,3:1,2:b3",
+				"G|maj|4:5,3:1,2:3",
+				"G|maj|4:1,3:3,2:5",
+				"G|maj|4:3,3:5,2:1",
+				"G|min|4:1,3:b3,2:5",
+				"G|min|4:b3,3:5,2:1",
+				"G|min|4:5,3:1,2:b3",
+				"A|maj|4:5,3:1,2:3",
+				"A|maj|4:1,3:3,2:5",
+				"A|maj|4:3,3:5,2:1",
+				"A|min|4:5,3:1,2:b3",
+				"A|min|4:1,3:b3,2:5",
+				"A|min|4:b3,3:5,2:1",
+				"B|maj|4:5,3:1,2:3",
+				"B|maj|4:1,3:3,2:5",
+				"B|maj|4:3,3:5,2:1",
+				"B|min|4:5,3:1,2:b3",
+				"B|min|4:1,3:b3,2:5",
+				"B|min|4:b3,3:5,2:1",
+				"C#|maj|4:3,3:5,2:1",
+				"C#|maj|4:5,3:1,2:3",
+				"C#|maj|4:1,3:3,2:5",
+				"C#|min|4:b3,3:5,2:1",
+				"C#|min|4:5,3:1,2:b3",
+				"C#|min|4:1,3:b3,2:5",
+				"D#|maj|4:3,3:5,2:1",
+				"D#|maj|4:5,3:1,2:3",
+				"D#|maj|4:1,3:3,2:5",
+				"D#|min|4:b3,3:5,2:1",
+				"D#|min|4:5,3:1,2:b3",
+				"D#|min|4:1,3:b3,2:5",
+				"F#|maj|4:1,3:3,2:5",
+				"F#|maj|4:3,3:5,2:1",
+				"F#|maj|4:5,3:1,2:3",
+				"F#|min|4:1,3:b3,2:5",
+				"F#|min|4:b3,3:5,2:1",
+				"F#|min|4:5,3:1,2:b3",
+				"G#|maj|4:5,3:1,2:3",
+				"G#|maj|4:1,3:3,2:5",
+				"G#|maj|4:3,3:5,2:1",
+				"G#|min|4:5,3:1,2:b3",
+				"G#|min|4:1,3:b3,2:5",
+				"G#|min|4:b3,3:5,2:1",
+				"A#|maj|4:5,3:1,2:3",
+				"A#|maj|4:1,3:3,2:5",
+				"A#|maj|4:3,3:5,2:1",
+				"A#|min|4:5,3:1,2:b3",
+				"A#|min|4:1,3:b3,2:5",
+				"A#|min|4:b3,3:5,2:1"
+			]
+		},
+		{
+			"id": "chord-zone",
+			"practices": "chord-zone",
+			"view": "lane",
+			"tempo": 80,
+			"presentation": {
+				"primary": "{chord}",
+				"secondary": "{around}",
+				"detail": "{strings}",
+				"aided": {
+					"line": {
+						"fr": "fondamentale sur {rootString}",
+						"en": "root on {rootString}"
+					}
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": {
+						"param": "leadBeats"
+					}
+				},
+				"expectations": [
+					{
+						"at": {
+							"beats": 0
+						},
+						"sensor": "chord",
+						"content": {
+							"family": "chord-shapes",
+							"where": [
+								{
+									"at": {
+										"item": "fret"
+									}
+								}
+							]
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"breath": true
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": false,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": {
+								"param": "windows.minResponseMs"
+							}
+						},
+						"lateMs": {
+							"param": "windows.lateMs"
+						},
+						"lateCapture": {
+							"ms": {
+								"param": "windows.lateCaptureMs"
+							}
+						}
+					}
+				}
+			},
+			"params": {
+				"pacing": {
+					"respirationBars": 1
+				},
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": 8,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 4,
+							"aided": false
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 2,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				],
+				"learning": {
+					"enter": {
+						"acquired": {
+							"skill": "chord-anchor",
+							"item": "same"
+						}
+					},
+					"asks": {
+						"family": "chord-shapes",
+						"where": [
+							{
+								"other": "previous"
+							}
+						]
+					},
+					"presentAtOnce": false
+				}
+			},
+			"items": [
+				"C|maj|3:5,2:1,1:3",
+				"C|maj|3:1,2:3,1:5",
+				"C|maj|3:3,2:5,1:1",
+				"C|min|3:1,2:b3,1:5",
+				"C|min|3:b3,2:5,1:1",
+				"C|min|3:5,2:1,1:b3",
+				"D|maj|3:5,2:1,1:3",
+				"D|maj|3:1,2:3,1:5",
+				"D|maj|3:3,2:5,1:1",
+				"D|min|3:5,2:1,1:b3",
+				"D|min|3:1,2:b3,1:5",
+				"D|min|3:b3,2:5,1:1",
+				"E|maj|3:3,2:5,1:1",
+				"E|maj|3:5,2:1,1:3",
+				"E|maj|3:1,2:3,1:5",
+				"E|min|3:b3,2:5,1:1",
+				"E|min|3:5,2:1,1:b3",
+				"E|min|3:1,2:b3,1:5",
+				"F|maj|3:3,2:5,1:1",
+				"F|maj|3:5,2:1,1:3",
+				"F|maj|3:1,2:3,1:5",
+				"F|min|3:b3,2:5,1:1",
+				"F|min|3:5,2:1,1:b3",
+				"F|min|3:1,2:b3,1:5",
+				"G|maj|3:3,2:5,1:1",
+				"G|maj|3:5,2:1,1:3",
+				"G|maj|3:1,2:3,1:5",
+				"G|min|3:b3,2:5,1:1",
+				"G|min|3:5,2:1,1:b3",
+				"G|min|3:1,2:b3,1:5",
+				"A|maj|3:1,2:3,1:5",
+				"A|maj|3:3,2:5,1:1",
+				"A|maj|3:5,2:1,1:3",
+				"A|min|3:1,2:b3,1:5",
+				"A|min|3:b3,2:5,1:1",
+				"A|min|3:5,2:1,1:b3",
+				"B|maj|3:1,2:3,1:5",
+				"B|maj|3:3,2:5,1:1",
+				"B|maj|3:5,2:1,1:3",
+				"B|min|3:1,2:b3,1:5",
+				"B|min|3:b3,2:5,1:1",
+				"B|min|3:5,2:1,1:b3",
+				"C#|maj|3:5,2:1,1:3",
+				"C#|maj|3:1,2:3,1:5",
+				"C#|maj|3:3,2:5,1:1",
+				"C#|min|3:5,2:1,1:b3",
+				"C#|min|3:1,2:b3,1:5",
+				"C#|min|3:b3,2:5,1:1",
+				"D#|maj|3:5,2:1,1:3",
+				"D#|maj|3:1,2:3,1:5",
+				"D#|maj|3:3,2:5,1:1",
+				"D#|min|3:5,2:1,1:b3",
+				"D#|min|3:1,2:b3,1:5",
+				"D#|min|3:b3,2:5,1:1",
+				"F#|maj|3:3,2:5,1:1",
+				"F#|maj|3:5,2:1,1:3",
+				"F#|maj|3:1,2:3,1:5",
+				"F#|min|3:b3,2:5,1:1",
+				"F#|min|3:5,2:1,1:b3",
+				"F#|min|3:1,2:b3,1:5",
+				"G#|maj|3:3,2:5,1:1",
+				"G#|maj|3:5,2:1,1:3",
+				"G#|maj|3:1,2:3,1:5",
+				"G#|min|3:b3,2:5,1:1",
+				"G#|min|3:5,2:1,1:b3",
+				"G#|min|3:1,2:b3,1:5",
+				"A#|maj|3:1,2:3,1:5",
+				"A#|maj|3:3,2:5,1:1",
+				"A#|maj|3:5,2:1,1:3",
+				"A#|min|3:1,2:b3,1:5",
+				"A#|min|3:b3,2:5,1:1",
+				"A#|min|3:5,2:1,1:b3",
+				"C|maj|4:3,3:5,2:1",
+				"C|maj|4:5,3:1,2:3",
+				"C|maj|4:1,3:3,2:5",
+				"C|min|4:b3,3:5,2:1",
+				"C|min|4:5,3:1,2:b3",
+				"C|min|4:1,3:b3,2:5",
+				"D|maj|4:3,3:5,2:1",
+				"D|maj|4:5,3:1,2:3",
+				"D|maj|4:1,3:3,2:5",
+				"D|min|4:b3,3:5,2:1",
+				"D|min|4:5,3:1,2:b3",
+				"D|min|4:1,3:b3,2:5",
+				"E|maj|4:1,3:3,2:5",
+				"E|maj|4:3,3:5,2:1",
+				"E|maj|4:5,3:1,2:3",
+				"E|min|4:1,3:b3,2:5",
+				"E|min|4:b3,3:5,2:1",
+				"E|min|4:5,3:1,2:b3",
+				"F|maj|4:1,3:3,2:5",
+				"F|maj|4:3,3:5,2:1",
+				"F|maj|4:5,3:1,2:3",
+				"F|min|4:1,3:b3,2:5",
+				"F|min|4:b3,3:5,2:1",
+				"F|min|4:5,3:1,2:b3",
+				"G|maj|4:5,3:1,2:3",
+				"G|maj|4:1,3:3,2:5",
+				"G|maj|4:3,3:5,2:1",
+				"G|min|4:1,3:b3,2:5",
+				"G|min|4:b3,3:5,2:1",
+				"G|min|4:5,3:1,2:b3",
+				"A|maj|4:5,3:1,2:3",
+				"A|maj|4:1,3:3,2:5",
+				"A|maj|4:3,3:5,2:1",
+				"A|min|4:5,3:1,2:b3",
+				"A|min|4:1,3:b3,2:5",
+				"A|min|4:b3,3:5,2:1",
+				"B|maj|4:5,3:1,2:3",
+				"B|maj|4:1,3:3,2:5",
+				"B|maj|4:3,3:5,2:1",
+				"B|min|4:5,3:1,2:b3",
+				"B|min|4:1,3:b3,2:5",
+				"B|min|4:b3,3:5,2:1",
+				"C#|maj|4:3,3:5,2:1",
+				"C#|maj|4:5,3:1,2:3",
+				"C#|maj|4:1,3:3,2:5",
+				"C#|min|4:b3,3:5,2:1",
+				"C#|min|4:5,3:1,2:b3",
+				"C#|min|4:1,3:b3,2:5",
+				"D#|maj|4:3,3:5,2:1",
+				"D#|maj|4:5,3:1,2:3",
+				"D#|maj|4:1,3:3,2:5",
+				"D#|min|4:b3,3:5,2:1",
+				"D#|min|4:5,3:1,2:b3",
+				"D#|min|4:1,3:b3,2:5",
+				"F#|maj|4:1,3:3,2:5",
+				"F#|maj|4:3,3:5,2:1",
+				"F#|maj|4:5,3:1,2:3",
+				"F#|min|4:1,3:b3,2:5",
+				"F#|min|4:b3,3:5,2:1",
+				"F#|min|4:5,3:1,2:b3",
+				"G#|maj|4:5,3:1,2:3",
+				"G#|maj|4:1,3:3,2:5",
+				"G#|maj|4:3,3:5,2:1",
+				"G#|min|4:5,3:1,2:b3",
+				"G#|min|4:1,3:b3,2:5",
+				"G#|min|4:b3,3:5,2:1",
+				"A#|maj|4:5,3:1,2:3",
+				"A#|maj|4:1,3:3,2:5",
+				"A#|maj|4:3,3:5,2:1",
+				"A#|min|4:5,3:1,2:b3",
+				"A#|min|4:1,3:b3,2:5",
+				"A#|min|4:b3,3:5,2:1"
+			]
+		}
+	]
+}

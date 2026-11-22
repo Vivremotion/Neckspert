@@ -1,16 +1,20 @@
-import type { ChordVoicingContent } from '$lib/domain/judges';
-import type { ChordReading } from '$lib/domain/mechanics';
+import { familyNamed, type Filter, type Member } from '$lib/domain/families';
 import {
-	parseVoicingKey,
-	pitchOfMidi,
-	type IdentifyItem,
-	type LocateItem
-} from '$lib/domain/music';
+	expectedShape,
+	type ChordShape,
+	type ChordShapesIndex
+} from '$lib/domain/families/guitar/chordShapes';
+import type { NotePlacesIndex } from '$lib/domain/families/guitar/notePlaces';
+import { admittedMembers, type MemberContent } from '$lib/domain/judges';
+import type { ChordReading } from '$lib/domain/sets';
+import { formatSpelledNote, pitchOfMidi, type IdentifyItem } from '$lib/domain/music';
 import type { Midi, PitchName } from '$lib/domain/music/types';
+import { occurrenceOfId } from '$lib/domain/triads';
 import type { Locale } from '$lib/domain/types';
-import { TRIAD_MESSAGES } from './triadMessages';
+import { CHORD_GRID_MESSAGES } from '$lib/application/sets/chordGridMessages';
+import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
 import { nameChoice, noteName, positionLabel } from './noteWords';
-import type { Picture } from './pictures';
+import { neckWithNext, type NeckNote, type Picture } from './pictures';
 import {
 	chordGap,
 	closestShape,
@@ -18,7 +22,6 @@ import {
 	heardFrets,
 	heardOf,
 	notesOf,
-	shapeAt,
 	shapeOf
 } from './triadWords';
 
@@ -50,15 +53,6 @@ const asPicture = (shape: ReturnType<typeof shapeOf>): Picture => ({ kind: 'shap
 const midiAnswerLabel: ContentView['answerLabel'] = (_value, answer, _locale, random) => {
 	const midi = (answer as { midi?: Midi } | null)?.midi;
 	return midi === undefined ? null : noteName(pitchOfMidi(midi), random);
-};
-
-/** A note on a string: the pitch played, spelled as the prompt spells its target. */
-const noteView: ContentView = {
-	answerLabel: midiAnswerLabel,
-	miss: (value, _outcome, locale) => ({
-		...NO_MISS,
-		correction: positionLabel(value as LocateItem, locale)
-	})
 };
 
 const GAP_WORDS: Record<Locale, (heard: string, expected: string) => string> = {
@@ -110,27 +104,218 @@ const nameView: ContentView = {
 	miss: (value) => ({ ...NO_MISS, correction: nameChoice(value as IdentifyItem) })
 };
 
-/** A triad voicing, anywhere or at a position. */
-const chordVoicingView: ContentView = {
+/** How a member of one family tells an answer and a miss; `value` is the member content judged. */
+interface MemberView {
+	answerLabel(
+		value: MemberContent,
+		answer: unknown,
+		locale: Locale,
+		random: () => number
+	): string | null;
+	miss(
+		value: MemberContent,
+		outcome: { answer: unknown; confusion: unknown },
+		locale: Locale,
+		random: () => number
+	): MissView;
+	/** The fields this content offers to the words of a prompt. */
+	names: readonly string[];
+	/** Every field of `names` for `value`; a field with nothing to say is the empty string. */
+	fields(value: MemberContent, locale: Locale): Record<string, string>;
+	/**
+	 * The picture of members of the family admitted by `value` (now) and at the next round;
+	 * null when there is nothing to draw.
+	 */
+	picture(
+		value: MemberContent,
+		members: readonly Member[],
+		next: readonly Member[]
+	): Picture | null;
+}
+
+/** A place of a note: the pitch played, spelled as the prompt spells its target; its place on its string. */
+const notePlacesView: MemberView = {
+	answerLabel: midiAnswerLabel,
+	names: [],
+	fields: () => ({}),
+	picture: () => null,
+	miss: ({ index }, _outcome, locale) => {
+		const { pitch, string } = index as NotePlacesIndex;
+		return {
+			...NO_MISS,
+			correction: string === undefined ? null : positionLabel({ string, pitch }, locale)
+		};
+	}
+};
+
+/** Between the strings of a set: a hyphen that never breaks the line. */
+const STRING_SEPARATOR = '‑';
+
+/** The first filter of a selection of the kind `key` names; null without one. */
+function filterOf<K extends string>(
+	where: readonly Filter[] | undefined,
+	key: K
+): Extract<Filter, Record<K, unknown>> | null {
+	const found = (where ?? []).find((filter) => Object.hasOwn(filter, key));
+	return (found as Extract<Filter, Record<K, unknown>> | undefined) ?? null;
+}
+
+/** The notes of shapes on the neck, each place once, named by their spelling. */
+function neckOf(shapes: readonly ChordShape[]): Picture & { kind: 'neck' } {
+	const places = new Map<string, NeckNote>();
+	for (const { occurrence } of shapes) {
+		for (const { string, fret, note } of occurrence.notes) {
+			const key = `${string}-${fret}`;
+			if (!places.has(key)) places.set(key, { string, fret, name: formatSpelledNote(note) });
+		}
+	}
+	return { kind: 'neck', notes: [...places.values()] };
+}
+
+/**
+ * After a missed change of a passage, as the changes have told it: the shape heard, the shape
+ * that was due (the admitted one closest to the one heard, else to the one still ringing, else
+ * the first admitted) and the gap its confusion names; no correction in words.
+ */
+function passageMiss(
+	value: MemberContent,
+	{ answer, confusion }: { answer: unknown; confusion: unknown },
+	locale: Locale
+): MissView {
+	const decided = (answer as ChordReading | null)?.decided ?? null;
+	const heard = decided === null ? null : occurrenceOfId(decided);
+	const admitted = admittedMembers(value) as ChordShape[];
+	const expected = expectedShape(admitted, decided, value.previous ?? null);
+	const gap = CHORD_GRID_MESSAGES[locale].gap;
+	const kind = (confusion as { kind?: keyof typeof gap } | null)?.kind;
+	return {
+		correction: null,
+		heard: heard && asPicture(shapeOf(heard)),
+		expected: expected && asPicture(shapeOf(expected.occurrence)),
+		gap: answer === null ? gap.noChordHeard : kind ? (gap[kind] ?? null) : null
+	};
+}
+
+/**
+ * A shape of a chord: the frets heard. After a miss in a passage (its content carries the
+ * member heard before, `previous`), as `passageMiss` tells it; else the shape heard, the shape
+ * expected (the admitted shape nearest the one heard, else the lowest fretted admitted), its
+ * frets and notes, and what tells them apart. Its fields: the strings of its index, the frets
+ * of a zone (`in.frets`) and the way a climb goes (`position.toward`); its picture, the notes of
+ * its shapes on the neck, on the strings of its index (the zone of strings the exercise writes).
+ */
+const chordShapesView: MemberView = {
 	answerLabel: (_value, answer) => heardFrets(answer as ChordReading | null),
-	miss: (raw, { answer, confusion }, locale) => {
-		const { voicingKey, position } = raw as ChordVoicingContent;
-		const voicing = parseVoicingKey(voicingKey);
+	miss: (value, outcome, locale) => {
+		if (Object.hasOwn(value, 'previous')) return passageMiss(value, outcome, locale);
+		const { answer, confusion } = outcome;
+		const admitted = admittedMembers(value) as ChordShape[];
+		if (admitted.length === 0) return NO_MISS;
 		const heard = heardOf(answer as ChordReading | null);
-		const expected = position === null ? closestShape(voicing, heard) : shapeAt(voicing, position);
+		const expected = closestShape(
+			admitted.map((shape) => shape.occurrence),
+			heard
+		)!;
 		return {
 			correction: `${fretsOf(expected)} · ${notesOf(expected)}`,
 			heard: heard && asPicture(shapeOf(heard)),
 			expected: asPicture(shapeOf(expected)),
 			gap: answer === null ? TRIAD_MESSAGES[locale].gap.noChordHeard : chordGap(confusion, locale)
 		};
+	},
+	names: ['strings', 'frets', 'toward'],
+	fields: ({ index, selection }, locale) => {
+		const messages = CHORD_GRID_MESSAGES[locale];
+		const frets = filterOf(selection.where, 'in')?.in.frets;
+		const toward = filterOf(selection.where, 'position')?.position.toward;
+		return {
+			strings: (index as ChordShapesIndex).strings
+				.map((string) => TRIAD_STRING_NAMES[locale][string])
+				.join(STRING_SEPARATOR),
+			frets: frets ? messages.frets(frets[0], frets[1]) : '',
+			toward: toward ? messages.toward[toward] : ''
+		};
+	},
+	picture: ({ index }, members, next) => {
+		if (members.length === 0 && next.length === 0) return null;
+		// The strings of the content's index, low to high: the neck keeps its rows along a passage.
+		const strings = [...(index as ChordShapesIndex).strings].sort((a, b) => b - a);
+		return {
+			...neckWithNext(
+				neckOf(members as readonly ChordShape[]),
+				neckOf(next as readonly ChordShape[]),
+				true
+			),
+			strings
+		};
 	}
+};
+
+/** The views of the members of each family, by family id. */
+const MEMBER_VIEWS: Readonly<Record<string, MemberView>> = {
+	'note-places': notePlacesView,
+	'chord-shapes': chordShapesView
+};
+
+/** The view of a family's members; null for a family without a view. */
+function familyView(family: string): MemberView | null {
+	return Object.hasOwn(MEMBER_VIEWS, family) && familyNamed(family) ? MEMBER_VIEWS[family] : null;
+}
+
+/** The view of a member content's family; null for a value that is none, or a family without a view. */
+function memberViewOf(value: unknown): MemberView | null {
+	if (typeof value !== 'object' || value === null) return null;
+	const { family } = value as Partial<MemberContent>;
+	return typeof family === 'string' ? familyView(family) : null;
+}
+
+/** The names of the fields the member content of a family offers; empty without a view. */
+export function memberFieldNames(family: string): readonly string[] {
+	return familyView(family)?.names ?? [];
+}
+
+/** The fields of a member content; empty for what is none. */
+export function memberFields(value: unknown, locale: Locale): Record<string, string> {
+	return memberViewOf(value)?.fields(value as MemberContent, locale) ?? {};
+}
+
+/**
+ * The fields of a round's member contents, in the order of its expectations: a field is the
+ * first content's that gives it words (an empty field gives way to a later content's).
+ */
+export function roundMemberFields(
+	values: readonly unknown[],
+	locale: Locale
+): Record<string, string> {
+	const fields: Record<string, string> = {};
+	for (const value of values) {
+		for (const [name, text] of Object.entries(memberFields(value, locale))) {
+			if (!Object.hasOwn(fields, name) || fields[name] === '') fields[name] = text;
+		}
+	}
+	return fields;
+}
+
+/** The picture of the members `content` admits now and of those admitted next; null without a view. */
+export function membersPicture(
+	content: MemberContent,
+	now: readonly Member[],
+	next: readonly Member[]
+): Picture | null {
+	return memberViewOf(content)?.picture(content, now, next) ?? null;
+}
+
+/** A member of a family, told as its family tells it; nothing for a family without a view. */
+const memberView: ContentView = {
+	answerLabel: (value, answer, locale, random) =>
+		memberViewOf(value)?.answerLabel(value as MemberContent, answer, locale, random) ?? null,
+	miss: (value, outcome, locale, random) =>
+		memberViewOf(value)?.miss(value as MemberContent, outcome, locale, random) ?? NO_MISS
 };
 
 /** The views of content, by kind of content (the kinds of `CONTENT_JUDGES`). */
 export const CONTENT_VIEWS: Readonly<Record<string, ContentView>> = {
-	note: noteView,
 	name: nameView,
 	pitch: pitchView,
-	'chord-voicing': chordVoicingView
+	member: memberView
 };

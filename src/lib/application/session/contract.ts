@@ -2,7 +2,7 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { StringNumber } from '$lib/domain/music/types';
 import type { ResponseVerdict } from '$lib/domain/types';
 
-/** The view that shows a mechanic's screen model when its exercise names none. */
+/** The view that shows a presenter's screen model when its exercise names none. */
 export const DEFAULT_PLAY_VIEW = 'grid-scroll';
 
 /** The view of an exercise that writes its presentation and names none: the generic lane. */
@@ -52,7 +52,7 @@ export interface VerdictView {
 	answerLabel: string | null;
 	/** After a miss: the right answer, the position in mode 1 ("corde de E grave, case 5"), the name in mode 2. */
 	correction: string | null;
-	/** After a miss of a mechanic that draws shapes: the shape heard (null: none recognized). */
+	/** After a miss of items drawn as shapes: the shape heard (null: none recognized). */
 	heard?: ShapeView | null;
 	/** …the shape asked, and what tells them apart ("autre renversement"). */
 	expected?: ShapeView | null;
@@ -79,6 +79,19 @@ export interface AnswerChoice {
 export type Announcement =
 	'level-up' | 'level-down' | 'aid-level' | 'listen-remedy' | 'play-along' | 'change-of-air';
 
+/**
+ * A stage as a controller sets it: the view and its model, a value built whole and never changed
+ * in place. A class instance on purpose: reactive state wraps plain objects, and a model wrapped
+ * anew at every beat gives everything it holds a new identity, so a view could not tell that the
+ * figure of a round is the one it has already engraved, and engraved it again on every beat.
+ */
+export class PlayStage {
+	constructor(
+		readonly view: string,
+		readonly model: unknown
+	) {}
+}
+
 export interface PlayView {
 	status: PlayStatus;
 	/** The tempo played; 0 while the series has not set it (before its first item), and not shown. */
@@ -87,7 +100,7 @@ export interface PlayView {
 	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */
 	countdown: number | null;
 	/**
-	 * After a miss of a contestable mechanic, until the next prompt: 'available' offers « Joué
+	 * After a miss of a contestable exercise, until the next prompt: 'available' offers « Joué
 	 * juste », 'done' once pressed; null otherwise.
 	 */
 	contest: 'available' | 'done' | null;
@@ -99,7 +112,8 @@ export interface PlayView {
 	audioError: 'input' | 'bleed' | null;
 	/**
 	 * The screen model of the prompt waiting or on show, and the view its exercise names to show
-	 * it; null before a prompt, and at the end.
+	 * it; null before a prompt, and at the end. A controller that shows a model again on every
+	 * beat sets a `PlayStage`, so that what two models share stays the same object for the view.
 	 */
 	stage: { view: string; model: unknown } | null;
 	/**
@@ -113,7 +127,19 @@ export interface PlayView {
 	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` regular levels) and
 	 * the tempo it plays at; a remedy while it plays; null otherwise.
 	 */
-	announcement: { kind: Announcement; level: number; of: number; tempoBpm: number } | null;
+	announcement: {
+		kind: Announcement;
+		level: number;
+		of: number;
+		tempoBpm: number;
+	} | null;
+	/**
+	 * The exercise that changed air and leaves the session (« On change d’air »), by its name, and
+	 * its scope: from the boundary after the round that blocked until the next round opens, beside
+	 * a level announcement; at the end, the one that ended the session, for a session that could
+	 * leave an exercise out. Null otherwise.
+	 */
+	leaving: { title: PlayWords; scope?: string } | null;
 }
 
 export interface PlayTimeline {
@@ -121,9 +147,32 @@ export interface PlayTimeline {
 	nowBeat(): number;
 }
 
+/** Words in each language of the play screen. */
+export interface PlayWords {
+	readonly fr: string;
+	readonly en: string;
+}
+
+/** What a session plays, as the play screen names it (D10); it never chooses the view's world. */
+export interface PlayOrigin {
+	/**
+	 * The routine's title, or the exercise's own when played alone (else its skill's name, else
+	 * its id).
+	 */
+	readonly title: PlayWords;
+	/** Told on the start screen when the first exercise tells none: the routine's; null alone. */
+	readonly howTo: PlayWords | null;
+	/** Played freely, out of the learning procedure. */
+	readonly free: boolean;
+	/** One exercise played alone, not a routine. */
+	readonly alone: boolean;
+}
+
 /** Runs one session. Implemented by the session orchestration, displayed by the play screen. */
 export interface PlaySessionController {
 	readonly sessionId: string;
+	/** What it plays; absent from the screens' demonstrations, which name nothing. */
+	readonly origin?: PlayOrigin;
 	/** Deeply reactive ($state). Read-only for the UI. */
 	readonly view: PlayView;
 	readonly timeline: PlayTimeline;

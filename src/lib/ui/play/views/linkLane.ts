@@ -1,4 +1,4 @@
-import type { LinkLaneModel, LinkTile } from '$lib/application/mechanics/chordGrid';
+import type { PassageRound, PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { LaneEntry } from '$lib/application/session/contract';
 import type { ResponseVerdict } from '$lib/domain/types';
 
@@ -7,15 +7,24 @@ export const LANE_BEATS_BEFORE = 4;
 /** Beats on show ahead of it: two bars. */
 export const LANE_BEATS_AFTER = 8;
 
-/** Far below a beat: absorbs floating-point error when matching a verdict to its change. */
+/** Far below a beat: absorbs floating-point error when matching a round or a verdict to its beat. */
 const BEAT_TOLERANCE = 1e-6;
+
+/** The arrow of a round that lies higher or lower than the one before. */
+const ARROWS: Partial<Record<NonNullable<PassageRound['way']>, string>> = { up: '↗', down: '↘' };
+
+/** What a round's tile shows: the arrow of its way, else its words (the first round's chord). */
+const markOf = ({ way, label }: PassageRound): string => (way && ARROWS[way]) ?? label;
 
 export interface LinkLaneTile {
 	beatIndex: number;
 	/** Beats from now: past (left of the hit line) at 0 and below, ahead above. */
 	offset: number;
-	/** The way to the shape, on the first beat of its bar; null on the other beats. */
-	symbol: LinkTile | null;
+	/**
+	 * On the first beat of its round, the way to the shape (↗, ↘), else the round's words; null on
+	 * the other beats.
+	 */
+	symbol: string | null;
 	/** The change asked: the session listens for it. */
 	due: boolean;
 	/** Beat in the bar, 1 to 4, on the beats ahead, once the lane runs in time. */
@@ -27,29 +36,31 @@ export interface LinkLaneTile {
 
 /**
  * The link's lane (spec 2026-10-10, second redesign, after trying it): the notes' lane, a tile per
- * beat, the way only on the first beat of each bar, the change asked due. After the last bar, the
- * next tour as if the tour went on (it stops there once a tour succeeds). The model's `anchorBeat`
+ * beat, the way only on the first beat of each round (the first round's words), the round asked
+ * due; nothing after the last round. The model's `anchorBeat`
  * is the beat of the change on show once its round is open; before, `countedBeat` is where the
  * counted bar ends. Without either, that change waits on the next beat and nothing counts.
  */
 export function linkLaneLayout(
-	model: LinkLaneModel,
+	model: Pick<PassageStageModel, 'rounds' | 'index' | 'beatsPerBar' | 'anchorBeat' | 'history'>,
 	time: { nowBeat: number; countedBeat?: number | null }
 ): LinkLaneTile[] {
-	const { changes, index, beatsPerBar, history } = model;
+	const { rounds, index, beatsPerBar, history } = model;
 	const anchorBeat = model.anchorBeat ?? time.countedBeat ?? null;
 	const anchored = anchorBeat !== null;
 	const anchor = anchorBeat ?? Math.floor(time.nowBeat) + 1;
-	const start = anchor - changes[index].at;
-	const lastAt = changes[changes.length - 1].at;
+	// An empty line has no round to anchor: its beats alone.
+	const start = anchor - (rounds[index]?.at ?? 0);
 
-	const symbols = new Map<number, { symbol: LinkTile; change: number }>();
-	changes.forEach((change, i) => {
-		const symbol = model.tiles[i];
-		if (symbol) symbols.set(start + change.at, { symbol, change: i });
-	});
-	model.following.forEach((symbol, j) => {
-		symbols.set(start + lastAt + beatsPerBar * (j + 1), { symbol, change: changes.length + j });
+	// Each round on the tile of its beat, a float's error absorbed; a round that starts between
+	// two beats has no tile.
+	const symbols = new Map<number, { symbol: string; change: number }>();
+	rounds.forEach((round, i) => {
+		const at = start + round.at;
+		const beat = Math.round(at);
+		if (Math.abs(at - beat) < BEAT_TOLERANCE) {
+			symbols.set(beat, { symbol: markOf(round), change: i });
+		}
 	});
 
 	const played = anchored

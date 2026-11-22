@@ -56,29 +56,37 @@ const summary = {
 	nextReviewAt: null,
 	grade: null,
 	tempoBpm: 80,
-	kind: 'exercise',
-	exercise: {
-		exerciseId: 'rhythm-offbeats',
-		levelReached: { shown: 1, of: 4, aid: false },
-		cycles: 1,
-		successes: 0,
-		aided: 0,
-		lastCycle: {
-			verdict: { passed: false, reasons: ['missed'] },
-			thresholds: { precision: 60, regularity: 40, holdOffset: 60, holdDrift: 25 },
-			played: { figure, cycleBars: 1, tempoBpm: 80 },
-			report: {
-				expectations: [
-					{ index: 0, verdict: 'on-time', offsetMs: 3 },
-					{ index: 1, verdict: 'early', offsetMs: -70 },
-					{ index: 2, verdict: 'late', offsetMs: 95 },
-					{ index: 3, verdict: 'missed', offsetMs: null }
-				],
-				dropped: [],
-				extra: 0,
-				measures: {},
-				latency: { ms: 42, provenance: 'system' }
-			}
+	chords: false,
+	memory: false,
+	exercises: [
+		{
+			exerciseId: 'rhythm-offbeats',
+			rounds: 1,
+			passed: 0,
+			aided: 0,
+			level: { shown: 1, of: 4, aid: false },
+			tempo: { first: 80, last: 80 },
+			inPassages: false,
+			passages: null,
+			changedAir: false
+		}
+	],
+	misses: [],
+	lastCycle: {
+		verdict: { passed: false, reasons: ['missed'] },
+		thresholds: { precision: 60, regularity: 40, holdOffset: 60, holdDrift: 25 },
+		played: { figure, cycleBars: 1, tempoBpm: 80 },
+		report: {
+			expectations: [
+				{ index: 0, verdict: 'on-time', offsetMs: 3 },
+				{ index: 1, verdict: 'early', offsetMs: -70 },
+				{ index: 2, verdict: 'late', offsetMs: 95 },
+				{ index: 3, verdict: 'missed', offsetMs: null }
+			],
+			dropped: [],
+			extra: 0,
+			measures: {},
+			latency: { ms: 42, provenance: 'system' }
 		}
 	}
 } as unknown as SessionSummary;

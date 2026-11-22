@@ -1,34 +1,53 @@
+import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/testing/catalogIds';
 /**
- * Exercises drawn at random from the registered pieces, and a bench that plays any response
- * exercise on a fixed list of items: the promise « every valid exercise plays » put to the test.
+ * Exercises drawn at random from the registered pieces, a bench that plays any response
+ * exercise on a fixed list of items, and one that plays passages exercises and routines through
+ * the application's services: the promise « every valid exercise plays » put to the test.
  */
-import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import {
+	presenterOf,
+	SET_PRESENTERS,
+	VIEW_PRESENTERS,
+	type SetPresenter
+} from '$lib/application/sets';
+import type { BackupPort, CalibrationOutcome, CalibrationPort } from '$lib/application/ports';
+import { definitionChecks } from '$lib/application/definitions/checks';
+import { createAppServices } from '$lib/application/services/createAppServices';
+import type { PassagesTemplate } from '$lib/domain/exercise/passage/types';
+import type { FilterTemplate } from '$lib/domain/exercise/selection/types';
+import {
+	routineFromJson,
+	routineProblem,
+	type Opening,
+	type RoutineDefinition
+} from '$lib/domain/routine';
+import { exerciseItemSet } from '$lib/domain/sets';
+import type { Expectation } from '$lib/domain/time/plan';
+import type { BackupFile, CardState } from '$lib/domain/types';
+import { triadCards } from './shapes';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
-import { lowestShape, shapeAt } from '$lib/application/presentation/triadWords';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import type { PromptStageModel } from '$lib/application/presentation/promptStage';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
 import { START_DELAY_S } from '$lib/application/session/transport';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
+import { CONTENT_DERIVATIONS, ITEM_VALUES } from '$lib/domain/derivations';
 import {
 	exerciseById,
 	tempoOf,
-	TRIADS_ANCHOR,
 	type ExerciseDefinition,
 	type Ladder,
-	type MechanicId,
 	type PromptPresentation,
 	type Slot
 } from '$lib/domain/exercise';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
-import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { directRecallOf } from '$lib/domain/learning';
+import { hasSkill, registerSkill, skillById } from '$lib/domain/skill/registry';
+import { withoutRecall } from '$lib/testing/testSkills';
 import { compileRound } from '$lib/domain/exercise/round';
 import type {
 	ExpectationTemplate,
@@ -38,21 +57,22 @@ import type {
 	RoundTemplate
 } from '$lib/domain/exercise/round';
 import {
-	CHORD_VOICING_CONTENT,
+	admittedMembers,
+	MEMBER_CONTENT,
 	NAME_CONTENT,
-	NOTE_CONTENT,
-	PITCH_CONTENT
+	PITCH_CONTENT,
+	type MemberContent
 } from '$lib/domain/judges';
-import type { ChordVoicingContent } from '$lib/domain/judges';
+import { INDEX_DERIVATIONS } from '$lib/domain/families';
+import type { ChordShape } from '$lib/domain/families/guitar/chordShapes';
+import type { NotePlace } from '$lib/domain/families/guitar/notePlaces';
+import type { SelectionTemplate } from '$lib/domain/exercise/selection/types';
+import { locateItems } from './neck';
 import {
-	acceptableMidis,
-	locateItems,
 	parseVoicingKey,
 	pitchOnString,
-	voicingKey,
 	voicingOccurrences,
-	type IdentifyItem,
-	type LocateItem
+	type IdentifyItem
 } from '$lib/domain/music';
 import {
 	CHROMATIC_NOTES,
@@ -61,6 +81,7 @@ import {
 	type StringNumber
 } from '$lib/domain/music/types';
 import { createListSource } from '$lib/domain/progress';
+import { noteOnStringSet, placedNoteSet, voicingOnStringsSet } from '$lib/domain/sets';
 import {
 	BEAT_RESOLUTION,
 	alignmentCapture,
@@ -81,11 +102,14 @@ import {
 	type TempoMap
 } from '$lib/domain/time';
 import type { ExpectedContent } from '$lib/domain/time/plan';
-import { occurrenceId, occurrencePosition, triadParams, triadVoicings } from '$lib/domain/triads';
+import { occurrencePosition } from '$lib/domain/triads';
 import type { Attempt, PlannedItem } from '$lib/domain/types';
 import {
+	FakeAttackDetector,
 	FakeChordVerifier,
 	FakeClock,
+	FakeDefinitionsService,
+	FakeDiagnostics,
 	FakeNoteDetector,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
@@ -95,6 +119,7 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from './fakes';
+import { TRIAD_ORDER } from '$lib/testing/catalog';
 
 /** A seeded draw in [0, 1) (mulberry32): the same seed draws the same exercise. */
 export function mulberry32(seed: number): () => number {
@@ -125,25 +150,134 @@ function drawMode(
 	return others.length > 0 && chance(random, p) ? pick(random, others) : usual;
 }
 
-/** The mechanics drawn: those a response exercise is written for today. */
-export const RANDOM_MECHANICS: readonly MechanicId[] = [
-	'locate',
-	'identify',
-	'triad-anchor',
-	'triad-zone'
+/** The skills drawn, each on its set: those a response exercise is written for today. */
+export const RANDOM_SKILLS: readonly string[] = [
+	'locate-note-string',
+	'identify-note',
+	'chord-anchor',
+	'chord-zone'
 ];
+
+/**
+ * The skill without memory practised in place of each of `RANDOM_SKILLS`, on the same set, when
+ * the draw asks for it (a round judged by cycle may practise only such a skill). Empty until
+ * `registerRandomSkills` registers them.
+ */
+const WITHOUT_MEMORY = new Map<string, string>();
+
+/**
+ * The skills without memory a drawn passages exercise practises, by the set of its members: two
+ * each, so that a routine may play two exercises on one set (a routine refuses one skill twice).
+ */
+export const BENCH_PASSAGE_SKILLS: Readonly<Record<string, readonly string[]>> = {
+	change: ['bench-changes-a', 'bench-changes-b'],
+	'placed-voicing': ['bench-shapes-a', 'bench-shapes-b']
+};
+
+/**
+ * Registers a skill without memory beside each of `RANDOM_SKILLS`, and the skills of
+ * `BENCH_PASSAGE_SKILLS`; call it before drawing.
+ */
+export function registerRandomSkills(): void {
+	for (const skill of RANDOM_SKILLS) WITHOUT_MEMORY.set(skill, withoutRecall(skill));
+	for (const [items, ids] of Object.entries(BENCH_PASSAGE_SKILLS)) {
+		for (const id of ids) {
+			registerSkill({ id, name: { fr: id, en: id }, items, memory: false }, 'bench');
+		}
+	}
+}
+
+/** The skill of `RANDOM_SKILLS` that `skill` is, or stands in for. */
+function drawnSkill(skill: string): string {
+	for (const [base, twin] of WITHOUT_MEMORY) if (twin === skill) return base;
+	return skill;
+}
 
 export const METER_2_4: Meter = { count: 2, unit: Fraction.of(1, 4), grouping: [1, 1] };
 export const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 export const METER_6_8: Meter = { count: 6, unit: Fraction.of(1, 8), grouping: [3, 3] };
 const METERS: readonly Meter[] = [METER_2_4, METER_3_4, METER_4_4, METER_6_8];
 
-/** The sensor that hears each kind of content. */
+/** The sensor that hears each kind of content a derivation gives. */
 export const SENSOR_OF_KIND: Readonly<Record<string, string>> = {
-	[NOTE_CONTENT]: 'note',
-	[CHORD_VOICING_CONTENT]: 'chord',
 	[NAME_CONTENT]: 'tap'
 };
+
+/** The sensor that hears the members of each family. */
+export const SENSOR_OF_FAMILY: Readonly<Record<string, string>> = {
+	'note-places': 'note',
+	'chord-shapes': 'chord'
+};
+
+/** A content a point expectation may write: a derivation's, or a selection of a family's members. */
+interface DrawnContent {
+	content: { from: string } | SelectionTemplate;
+	/** The sets whose items it reads. */
+	reads: readonly string[];
+	sensor: string;
+}
+
+/**
+ * Every content a point expectation may draw: the derivations heard by a sensor, and for each
+ * index derivation its family's members, all of them or (for a voicing's shapes) the one at the
+ * fret the item names.
+ */
+function drawnContents(): DrawnContent[] {
+	const derived = Object.keys(CONTENT_DERIVATIONS)
+		.filter((name) => CONTENT_DERIVATIONS[name].kind in SENSOR_OF_KIND)
+		.map((from) => ({
+			content: { from },
+			reads: CONTENT_DERIVATIONS[from].reads,
+			sensor: SENSOR_OF_KIND[CONTENT_DERIVATIONS[from].kind]
+		}));
+	const selected = Object.entries(INDEX_DERIVATIONS).flatMap(([of, derivation]) => {
+		const base = {
+			reads: derivation.reads,
+			sensor: SENSOR_OF_FAMILY[derivation.family]
+		};
+		const all = { ...base, content: { family: derivation.family, of } };
+		return derivation.family === 'chord-shapes'
+			? [all, { ...base, content: { ...all.content, where: [{ at: { item: 'fret' } }] } }]
+			: [all];
+	});
+	return [...derived, ...selected];
+}
+
+/** The param a drawn zone may read its first fret in: 1 at the exercise, above its last fret at the ladder's last level. */
+export const ZONE_FROM_PARAM = 'zoneFrom';
+const ZONE_FROM = 1;
+const ZONE_FROM_REVERSED = 13;
+/** The last fret of a drawn zone: below some frets an item names, so that a zone comes out reversed. */
+const ZONE_TO = 7;
+
+/** A number an item of `reads` carries (`ITEM_VALUES`), or none. */
+function itemNumberOf(reads: readonly string[]): string | undefined {
+	return Object.keys(ITEM_VALUES).find(
+		(name) =>
+			ITEM_VALUES[name].kind === 'number' &&
+			reads.some((set) => ITEM_VALUES[name].reads.includes(set))
+	);
+}
+
+/**
+ * Now and then a zone of frets added to a selection: its first fret written, read in the params
+ * (reversed at the ladder's last level) or read on the item (reversed past `ZONE_TO`); a zone that
+ * comes out reversed admits nothing.
+ */
+function withZone(random: () => number, drawn: DrawnContent): DrawnContent {
+	if (!('family' in drawn.content) || !chance(random, 0.3)) return drawn;
+	const item = itemNumberOf(drawn.reads);
+	const from = pick(random, [
+		ZONE_FROM,
+		{ param: ZONE_FROM_PARAM },
+		...(item !== undefined ? [{ item }] : [])
+	]);
+	const zone = { in: { frets: [from, ZONE_TO] as const } };
+	return {
+		...drawn,
+		content: { ...drawn.content, where: [...(drawn.content.where ?? []), zone] }
+	};
+}
 
 /** The sensors a session of the bench has. */
 export const BENCH_SENSORS: readonly string[] = ['note', 'chord', 'tap'];
@@ -162,13 +296,10 @@ function slotOf(random: () => number, names: readonly string[]): Slot {
 		: { fr: `joue ${field}`, en: `play ${field}` };
 }
 
-/** A presentation made of the mechanic's fields; now and then a field or a picture it lacks. */
-function randomPresentation(
-	random: () => number,
-	mechanic: MechanicId
-): PromptPresentation | undefined {
+/** A presentation made of the set's fields; now and then a field or a picture it lacks. */
+function randomPresentation(random: () => number, set: string): PromptPresentation | undefined {
 	if (chance(random, 0.1)) return undefined;
-	const own = ITEM_FIELDS[mechanic]?.names ?? [];
+	const own = ITEM_FIELDS[set]?.names ?? [];
 	const every = [...new Set(Object.values(ITEM_FIELDS).flatMap((fields) => fields.names))];
 	const names = chance(random, 0.1) ? every : own;
 	const optional = (p: number) => (chance(random, p) ? slotOf(random, names) : undefined);
@@ -216,22 +347,21 @@ function randomPosition(random: () => number, beats: number): Position {
 }
 
 /**
- * One or two expectations, each derived from the item by a derivation that reads the mechanic
- * (now and then one that does not) and heard by the sensor of its kind, or asking for no content
+ * One or two expectations, each derived from the item by a derivation, or a selection of a
+ * family's members indexed by the item, that reads the set (now and then one that does not) and
+ * heard by the sensor of its kind or family, or asking for no content
  * (a bare attack, heard by any sensor: mostly so under an alignment, which judges none); now and
  * then a judged rest; in free time, or placed on the beat (now and then the two mixed).
  */
 function randomExpectations(
 	random: () => number,
-	mechanic: MechanicId,
+	set: string,
 	aligned: boolean
 ): ExpectationTemplate[] {
-	const all = Object.keys(CONTENT_DERIVATIONS).filter(
-		(name) => CONTENT_DERIVATIONS[name].kind in SENSOR_OF_KIND
-	);
-	const reading = all.filter((name) => CONTENT_DERIVATIONS[name].reads.includes(mechanic));
+	const all = drawnContents();
+	const reading = all.filter((drawn) => drawn.reads.includes(set));
 	const count = between(random, 1, 2);
-	const free = chance(random, aligned ? 0.05 : mechanic === 'identify' ? 0.6 : 0.15);
+	const free = chance(random, aligned ? 0.05 : set === 'placed-note' ? 0.6 : 0.15);
 	// A bare attack's sensor: one for the whole round, now and then not.
 	const bareSensor = pick(random, BENCH_SENSORS);
 	const mixed = count === 2 && chance(random, 0.05);
@@ -239,7 +369,10 @@ function randomExpectations(
 	const places = Array.from({ length: count }, () => pick(random, POSITIONS));
 	if (chance(random, 0.85)) places.sort((a, b) => a - b);
 	return places.map((beats, i) => {
-		const from = chance(random, 0.05) ? pick(random, all) : pick(random, reading);
+		const drawn = withZone(
+			random,
+			chance(random, 0.05) ? pick(random, all) : pick(random, reading)
+		);
 		const inFreeTime = mixed ? i === 0 : free;
 		const window = chance(random, 0.3)
 			? { ms: { param: 'windows.perfectMs' } }
@@ -251,8 +384,8 @@ function randomExpectations(
 				? chance(random, 0.9)
 					? bareSensor
 					: pick(random, BENCH_SENSORS)
-				: SENSOR_OF_KIND[CONTENT_DERIVATIONS[from].kind],
-			content: bare ? null : { from },
+				: drawn.sensor,
+			content: bare ? null : drawn.content,
 			window
 		};
 		if (chance(random, 0.05)) template.role = 'judged-rest';
@@ -343,27 +476,52 @@ function randomFigureEntry(random: () => number, sensor: string): FigureExpectat
 }
 
 /**
+ * The items a memory exercise of the draw lists, by set: a few distinct ones, written once and
+ * drawing nothing, so the draws of the other fields stay as they were.
+ */
+function listedItems(skill: string): string[] | undefined {
+	switch (skillById(skill).items) {
+		case 'note-on-string':
+			return locateItems()
+				.slice(0, 6)
+				.map((item) => noteOnStringSet.itemKey(item));
+		case 'placed-note':
+			return ([1, 2, 3, 4, 5, 6] as StringNumber[]).map((string) =>
+				placedNoteSet.itemKey({ string, fret: 3 })
+			);
+		case 'voicing-on-strings':
+			return TRIAD_VOICINGS.slice(0, 6).map((key) =>
+				voicingOnStringsSet.itemKey({ voicingKey: key } as never)
+			);
+		default:
+			return undefined;
+	}
+}
+
+/**
  * A definition drawn from the registered pieces only; it may be one `validateExercise` refuses.
  *
- * - its shape: a mechanic among `RANDOM_MECHANICS`, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
+ * - its shape: a skill among `RANDOM_SKILLS` or the one without memory beside it
+ *   (`registerRandomSkills`), on its set, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
  *   tempo from 50 to 160;
- * - its expectations: one or two, each with a derivation that reads the mechanic and the sensor
- *   of its kind; places, stretches and windows in fractions of a beat; now and then one of them
+ * - its expectations: one or two, each with a derivation or a selection that reads the set and
+ *   the sensor of its kind or family; places, stretches and windows in fractions of a beat; now and then one of them
  *   a figure entry, over two one-bar figures the exercise writes;
  * - the rest: a length and a breath, a ladder of one to three levels, a place of the target and
- *   an end of the count, a presentation made of the mechanic's fields.
+ *   an end of the count, a presentation made of the set's fields.
  *
  * Its round opens on a first answer: the window opens soon enough after the prompt that an answer
  * on the beat can be heard (a round no one can answer right proves nothing about the engine).
  */
 export function randomExercise(random: () => number, id = 'random'): ExerciseDefinition {
-	const mechanic = pick(random, RANDOM_MECHANICS);
+	const skill = pick(random, RANDOM_SKILLS);
+	const set = skillById(skill).items;
 	const meter = pick(random, METERS);
 	const tempo = between(random, 50, 160);
 	const ladder = randomLadder(random);
 	const pairingMode = drawMode(random, Object.keys(ROUND_MODES.pairings), 'first-answer', 0.25);
 	const aligned = pairingMode !== 'first-answer';
-	const expectations: ExpectationTemplate[] = randomExpectations(random, mechanic, aligned);
+	const expectations: ExpectationTemplate[] = randomExpectations(random, set, aligned);
 	const figured = chance(random, aligned ? 0.4 : 0.15);
 	if (figured) {
 		const replaced = between(random, 0, expectations.length - 1);
@@ -425,20 +583,46 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	}
 	if (chance(random, 0.5)) round.countEndsOn = pick(random, ['prompt', 'target'] as const);
 
-	const presentation = randomPresentation(random, mechanic);
+	const presentation = randomPresentation(random, set);
 	// Its view: the one that draws it, or none (the lane for a presentation); now and then one
 	// that reads another model, or none the screen has.
 	const view = chance(random, 0.05)
 		? pick(random, ['grid-scroll', 'link-lane', 'figure', 'score'])
 		: chance(random, 0.2)
 			? undefined
-			: mechanic === 'identify' && free
+			: set === 'placed-note' && free
 				? 'answer-keys'
 				: 'lane';
+	// What a zone may read: its first fret, above its last at the ladder's last level.
+	ladder[ladder.length - 1].params = {
+		...ladder[ladder.length - 1].params,
+		[ZONE_FROM_PARAM]: ZONE_FROM_REVERSED
+	} as Ladder[number]['params'];
+	const params: Record<string, unknown> = {
+		ladder,
+		[ZONE_FROM_PARAM]: ZONE_FROM,
+		...(figured && {
+			figure: pick(random, FIGURE_IDS),
+			window: { ms: pick(random, WINDOWS_MS) }
+		}),
+		...(chance(random, 0.6) && { pacing: { respirationBars: between(random, 1, 2) } }),
+		...(chance(random, 0.3) && {
+			windows: { perfectMs: pick(random, WINDOWS_MS), lateMs: pick(random, [100, 200, 400]) }
+		})
+	};
+	// A run of cycles breathes after so many: drawn last, so the other draws stay as they were.
+	if (round.policy.unit === 'cycle') {
+		params.pacing = { ...(params.pacing as object), roundsPerBreath: between(random, 1, 3) };
+	}
+	// Its skill without memory now and then, a round judged by cycle always when there is one:
+	// drawn last, so the other draws stay as they were.
+	const memoryless =
+		WITHOUT_MEMORY.has(skill) && (round.policy.unit === 'cycle' || chance(random, 0.3));
+	const practices = memoryless ? WITHOUT_MEMORY.get(skill)! : skill;
+	const items = memoryless ? undefined : listedItems(skill);
 	return {
 		id,
-		version: 1,
-		mechanic,
+		practices,
 		...(view !== undefined && { view }),
 		meter,
 		tempo,
@@ -446,47 +630,38 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		...(presentation && { presentation }),
 		...(figured && { figures }),
 		round,
-		params: {
-			ladder,
-			...(figured && {
-				figure: pick(random, FIGURE_IDS),
-				window: { ms: pick(random, WINDOWS_MS) }
-			}),
-			...(chance(random, 0.6) && { pacing: { respirationBars: between(random, 1, 2) } }),
-			...(chance(random, 0.3) && {
-				windows: { perfectMs: pick(random, WINDOWS_MS), lateMs: pick(random, [100, 200, 400]) }
-			}),
-			...(chance(random, 0.5) && { recallThresholdMs: between(random, 800, 3000) })
-		}
+		params,
+		...(items !== undefined && { items })
 	};
 }
 
 /** The voicings of the triads' catalog, by key. */
-const TRIAD_VOICINGS = triadVoicings(triadParams(TRIADS_ANCHOR)).map(voicingKey);
+const TRIAD_VOICINGS = TRIAD_ORDER;
 
-/** An item of `mechanic` drawn at random. */
-function randomItem(random: () => number, mechanic: MechanicId): unknown {
-	switch (mechanic) {
-		case 'locate':
+/** An item of `skill`'s set drawn at random. */
+function randomItem(random: () => number, skill: string): unknown {
+	const set = skillById(skill).items;
+	switch (set) {
+		case 'note-on-string':
 			return pick(random, locateItems());
-		case 'identify':
+		case 'placed-note':
 			return {
 				string: pick(random, [1, 2, 3, 4, 5, 6]),
 				fret: between(random, 1, 11)
 			} satisfies IdentifyItem;
-		case 'triad-anchor':
-			return { voicingKey: pick(random, TRIAD_VOICINGS) };
-		case 'triad-zone': {
+		// The anchor's items carry no position; the zone's, the shape asked this time.
+		case 'voicing-on-strings': {
 			const key = pick(random, TRIAD_VOICINGS);
+			if (drawnSkill(skill) === CHORD_ANCHOR_SKILL_ID) return { voicingKey: key };
 			const shape = pick(random, voicingOccurrences(parseVoicingKey(key)));
 			return { voicingKey: key, position: occurrencePosition(shape) };
 		}
 		default:
-			throw new Error(`No items drawn for mechanic ${mechanic}`);
+			throw new Error(`No items drawn for set ${set}`);
 	}
 }
 
-/** `count` items of `definition`'s mechanic, free-played at its first level's lead and aid. */
+/** `count` items of `definition`'s set, free-played at its first level's lead and aid. */
 export function listItems(
 	definition: ExerciseDefinition,
 	random: () => number,
@@ -495,9 +670,9 @@ export function listItems(
 	const [first] = definition.params.ladder as Ladder;
 	return Array.from({ length: count }, () => ({
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
-		item: randomItem(random, definition.mechanic),
+		item: randomItem(random, definition.practices),
 		phase: 'free',
 		temperature: 'hot',
 		aid: first.params.aided ? 'show-position' : 'none',
@@ -508,19 +683,13 @@ export function listItems(
 /** The payload a fake sensor sends for a right answer to `content`, by content kind. */
 export function rightPayload(content: ExpectedContent): unknown {
 	switch (content.kind) {
-		case NOTE_CONTENT:
-			return { midi: acceptableMidis(content.value as LocateItem)[0] };
+		case MEMBER_CONTENT:
+			return rightMember(content.value as MemberContent);
 		case PITCH_CONTENT:
 			return { midi: (content.value as { midi: number }).midi };
 		case NAME_CONTENT: {
 			const item = content.value as IdentifyItem;
 			return pitchOnString(item.string, item.fret);
-		}
-		case CHORD_VOICING_CONTENT: {
-			const { voicingKey: key, position } = content.value as ChordVoicingContent;
-			const voicing = parseVoicingKey(key);
-			const shape = position === null ? lowestShape(voicing) : shapeAt(voicing, position);
-			return { windowMs: 300, decided: occurrenceId(shape), final: true, variants: [] };
 		}
 		default:
 			throw new Error(`No right payload for content kind ${content.kind}`);
@@ -530,26 +699,59 @@ export function rightPayload(content: ExpectedContent): unknown {
 /** The payload a fake sensor sends for a wrong answer to `content`, by content kind. */
 export function wrongPayload(content: ExpectedContent): unknown {
 	switch (content.kind) {
-		case NOTE_CONTENT:
-			return { midi: acceptableMidis(content.value as LocateItem)[0] + 1 };
+		case MEMBER_CONTENT:
+			return wrongMember(content.value as MemberContent);
 		case PITCH_CONTENT:
 			return { midi: (content.value as { midi: number }).midi + 1 };
 		case NAME_CONTENT: {
 			const right = rightPayload(content) as PitchName;
 			return CHROMATIC_NOTES[(CHROMATIC_NOTES.indexOf(right) + 1) % CHROMATIC_NOTES.length];
 		}
-		case CHORD_VOICING_CONTENT:
-			return { windowMs: 300, decided: null, final: true, variants: [] };
 		default:
 			throw new Error(`No wrong payload for content kind ${content.kind}`);
 	}
 }
 
-/** The presenters of every response mechanic the bench plays. */
-export const BENCH_PRESENTERS: Record<string, MechanicPresenter> = {
-	...NECK_PRESENTERS,
-	...TRIAD_PRESENTERS
-};
+/** A chord sensor's final reading of `decided`. */
+const chordReading = (decided: string | null) => ({
+	windowMs: 300,
+	decided,
+	final: true,
+	variants: []
+});
+
+/** What a sensor sends for the first member a content admits: its lowest fretted shape, its note. */
+function rightMember(content: MemberContent): unknown {
+	const members = admittedMembers(content);
+	// Nothing admitted (a zone that came out reversed): nothing is right.
+	if (members.length === 0) return wrongMember(content);
+	switch (content.family) {
+		case 'note-places':
+			return { midi: (members[0] as NotePlace).midi };
+		case 'chord-shapes': {
+			const shapes = members as ChordShape[];
+			const shape = shapes.find((s) => occurrencePosition(s.occurrence) !== 'open') ?? shapes[0];
+			return chordReading(shape.id);
+		}
+		default:
+			throw new Error(`No right payload for family ${content.family}`);
+	}
+}
+
+/** What a sensor sends that no member of the content is: a note a semitone off, no chord. */
+function wrongMember(content: MemberContent): unknown {
+	switch (content.family) {
+		case 'note-places': {
+			// The places of one note lie octaves apart: a semitone above the first is none of them.
+			const [first] = admittedMembers(content) as NotePlace[];
+			return { midi: (first?.midi ?? 60) + 1 };
+		}
+		case 'chord-shapes':
+			return chordReading(null);
+		default:
+			throw new Error(`No wrong payload for family ${content.family}`);
+	}
+}
 
 /** How each round is answered: every expectation right, or wrong, or nothing played. */
 export type BenchAnswer = 'right' | 'wrong' | 'none';
@@ -565,7 +767,8 @@ export interface BenchRound {
 	/**
 	 * Every expectation has a moment its zone holds in time, as the engine's pairing computes
 	 * it: false when one opens only once the round has stopped listening (a window that opens a
-	 * few ms before a place past the end of listening), which no answer can then pass.
+	 * few ms before a place past the end of listening), which no answer can then pass; false too
+	 * when a selection admits nothing (a zone that came out reversed).
 	 */
 	answerable: boolean;
 }
@@ -577,7 +780,7 @@ const FREE_REACTION_S = 0.3;
 
 /**
  * A session controller on fakes playing `definition` over a fixed list of `items`
- * (`createListSource`), on the real presenters of the response mechanics and a note, a chord and
+ * (`createListSource`), on the real presenters of the response sets and a note, a chord and
  * a tap sensor.
  */
 export function exerciseSeries(definition: ExerciseDefinition, items: readonly PlannedItem[]) {
@@ -594,7 +797,9 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 		sounds,
 		detector,
 		sensors: { note: noteSensor(detector), chord: chordSensor(verifier), tap: tapSensor() },
-		mechanics: BENCH_PRESENTERS,
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
+		plays: [definition.id],
 		repositories: {
 			attempts,
 			sessions: new InMemorySessionRepository(),
@@ -609,9 +814,10 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
 				sessionId,
-				rules: (mechanic) => BENCH_PRESENTERS[mechanic].rules,
-				// Direct recall as the exercise writes it, as the notes' free play reads it.
-				recall: () => directRecallOf(recallThresholdOf(definition)),
+				// Direct recall as the exercise's skill writes it, as the notes' free play reads it.
+				recall: () =>
+					(hasSkill(definition.practices) && directRecallOf(skillById(definition.practices))) ||
+					(() => false),
 				levels: new InMemoryLevelStateRepository()
 			});
 			recorders.push(recorder);
@@ -626,7 +832,7 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 		memory: new SessionMemory()
 	};
 	const controller = new SessionController(
-		{ id: 'series-1', kind: 'free' },
+		{ id: 'series-1', origin: { exercise: definition.id, free: true } },
 		async () => ({ source }),
 		deps
 	);
@@ -678,7 +884,7 @@ function emit(bench: ExerciseBench, sensor: string, payload: unknown, time: numb
  * exercise's or its presenter's.
  */
 function planOf(definition: ExerciseDefinition, item: PlannedItem): RoundPlan {
-	const presenter = BENCH_PRESENTERS[item.mechanic];
+	const presenter = presenterOf(definition);
 	return compileRound(definition, item, definition.meter ?? METER_4_4, {
 		previewBeats: previewBeatsOf(definition, presenter.previewBeats) ?? 0,
 		fromRunStart: null
@@ -752,7 +958,13 @@ export async function playExercise(
 		const times = plan.expectations.map((_, index) =>
 			free || anchorBeat === null ? null : answerTime(zones?.[index])
 		);
-		round.answerable = free || times.every((time) => time !== null);
+		// A selection that admits nothing has no right answer.
+		const admitsNone = plan.expectations.some(
+			(e) =>
+				e.content?.kind === MEMBER_CONTENT &&
+				admittedMembers(e.content.value as MemberContent).length === 0
+		);
+		round.answerable = !admitsNone && (free || times.every((time) => time !== null));
 		plan.expectations.forEach((expectation, index) => {
 			if (answer === 'none' && !free) return;
 			const content = expectation.content;
@@ -858,4 +1070,663 @@ function answerTime(zone: ResponseZone | undefined): number | null {
 	if (hi <= lo) return null;
 	if (zone.atS >= lo && zone.atS < hi - BEFORE_ZONE_END_S) return zone.atS;
 	return Math.max(lo, hi - Math.min(BEFORE_ZONE_END_S, (hi - lo) / 2));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Passages exercises and routines, played through the application's services.
+// ---------------------------------------------------------------------------------------------
+
+/** The grids a drawn passages exercise reads its changes from (the catalog's, public charts). */
+export const BENCH_GRIDS = ['iohefy-a', 'blues-f'];
+/** The chords a drawn passage of shapes may name, as a chart writes them. */
+const BENCH_CHORDS = ['C', 'Dm', 'E', 'F#m', 'G', 'Bb', 'Ebm', 'A'];
+/** Zones of three neighbouring strings. */
+const BENCH_STRING_ZONES: StringNumber[][] = [
+	[3, 2, 1],
+	[4, 3, 2],
+	[5, 4, 3]
+];
+/** Zones of five frets a passage param may take. */
+const BENCH_FRET_ZONES = [
+	[1, 5],
+	[3, 7],
+	[5, 9],
+	[8, 12],
+	[10, 14]
+];
+/** Sets whose items a member of each passage family is. */
+export const SET_OF_PASSAGE_FAMILY: Readonly<Record<string, string>> = {
+	'grid-changes': 'change',
+	'chord-shapes': 'placed-voicing'
+};
+/** The fields a member content gives a prompt (`memberFieldNames('chord-shapes')`). */
+const MEMBER_FIELDS = ['strings', 'frets', 'toward'];
+
+/** A few of `values`, in order, never none. */
+function someOf<T>(random: () => number, values: readonly T[]): T[] {
+	const kept = values.filter(() => chance(random, 0.5));
+	return kept.length > 0 ? kept : [pick(random, values)];
+}
+
+/** A presentation of a passage: the set's fields and the member's; its aid the shapes admitted. */
+function passagePresentation(random: () => number, set: string): PromptPresentation | undefined {
+	if (chance(random, 0.05)) return undefined;
+	const names = [...(ITEM_FIELDS[set]?.names ?? []), ...MEMBER_FIELDS];
+	const optional = (p: number) => (chance(random, p) ? slotOf(random, names) : undefined);
+	const presentation: PromptPresentation = { primary: slotOf(random, names) };
+	const slots = { secondary: optional(0.7), detail: optional(0.5), target: optional(0.5) };
+	for (const [key, slot] of Object.entries(slots)) {
+		if (slot !== undefined) (presentation as unknown as Record<string, Slot>)[key] = slot;
+	}
+	if (chance(random, 0.6)) {
+		presentation.aided = chance(random, 0.8)
+			? { picture: 'admitted' }
+			: { line: slotOf(random, names) };
+	}
+	return presentation;
+}
+
+/**
+ * A passages exercise drawn from the registered pieces only; it may be one the validators refuse.
+ *
+ * - its passages: a family that gives members from a passage's index (a grid's changes, or a
+ *   chord's shapes on a zone of strings), an `of` among the catalog's grids or a few chords and
+ *   zones of strings (now and then the strings in the params instead, now and then nowhere),
+ *   `each` params read by the content's filters (a direction, a zone of frets; now and then one no
+ *   piece reads, or one the round reads as a number), an opening or none, `again`, `restBars`,
+ *   `passes`, a scope;
+ * - its skill one of `BENCH_PASSAGE_SKILLS` on the members' set (now and then on the other set);
+ * - its round: a change judged on the chord sensor, a selection of the shapes of the change with
+ *   its filters (now and then a bare attack, a second change, free time), handed over at its end;
+ * - its levels (an aid level under two tempos) and anti-blocking, now and then;
+ * - its view one that draws a passage, now and then the lane or a view that cannot draw it, and a
+ *   presentation of the set's and the member's fields.
+ */
+export function randomPassagesExercise(random: () => number, id = 'passages'): ExerciseDefinition {
+	const family = chance(random, 0.6) ? 'grid-changes' : 'chord-shapes';
+	const set = SET_OF_PASSAGE_FAMILY[family];
+	const other = set === 'change' ? 'placed-voicing' : 'change';
+	const practices = pick(random, BENCH_PASSAGE_SKILLS[chance(random, 0.05) ? other : set]);
+	const meter = chance(random, 0.8) ? METER_4_4 : pick(random, METERS);
+	const tempo = between(random, 60, 140);
+	const strings = chance(random, 0.6) ? 'of' : chance(random, 0.85) ? 'params' : 'none';
+	const of: Record<string, unknown[]> =
+		family === 'grid-changes'
+			? { grid: someOf(random, BENCH_GRIDS) }
+			: { chord: someOf(random, BENCH_CHORDS) };
+	if (strings === 'of') of.strings = someOf(random, BENCH_STRING_ZONES);
+
+	const each: Record<string, unknown[]> = {};
+	const where: FilterTemplate[] = [];
+	if (chance(random, 0.4)) {
+		each.direction = chance(random, 0.8) ? ['up', 'down'] : ['down'];
+		where.push({
+			position: { beyond: 'previous', toward: { param: 'direction' }, turns: chance(random, 0.7) }
+		});
+	} else if (chance(random, 0.1)) {
+		where.push({
+			position: {
+				beyond: 'previous',
+				toward: pick(random, ['up', 'down'] as const),
+				turns: chance(random, 0.5)
+			}
+		});
+	}
+	if (chance(random, 0.3)) {
+		each.zone = someOf(random, BENCH_FRET_ZONES);
+		where.push({ in: { frets: { param: 'zone' } } });
+	}
+	if (chance(random, 0.15)) where.push({ other: 'previous' });
+	// A passage param no piece reads passes; one the round reads as a number is refused.
+	if (chance(random, 0.05)) each.unread = [1, 2];
+	const readsEachAsNumber = chance(random, 0.04);
+	if (readsEachAsNumber) each.windowMs = [40, 80];
+
+	const content: SelectionTemplate | null = chance(random, 0.1)
+		? null
+		: { family: 'chord-shapes', ...(where.length > 0 && { where }) };
+	const free = chance(random, 0.04);
+	const window = readsEachAsNumber
+		? { ms: { param: 'windowMs' } }
+		: chance(random, 0.6)
+			? { ms: { param: 'windows.perfectMs' } }
+			: { ms: pick(random, WINDOWS_MS) };
+	const expectations: ExpectationTemplate[] = [
+		{ at: free ? null : { beats: 0 }, sensor: 'chord', content, window }
+	];
+	if (!free && chance(random, 0.08)) {
+		expectations.push({ at: { beats: 2 }, sensor: 'chord', content, window });
+	}
+	const length: RoundTemplate['length'] =
+		set === 'change' && chance(random, 0.8)
+			? { beats: { item: 'change-beats' } }
+			: chance(random, 0.7)
+				? { bars: between(random, 1, 2) }
+				: { beats: pick(random, [2, 3, 4]) };
+	const aligned = chance(random, 0.1);
+	const round: RoundTemplate = {
+		prompt: { lead: chance(random, 0.05) ? { param: 'leadBeats' } : pick(random, [0.5, 1, 2]) },
+		expectations,
+		length,
+		...(chance(random, 0.85) && { handover: 'end' as const }),
+		...(chance(random, 0.7)
+			? { countEndsOn: 'target' as const }
+			: chance(random, 0.5) && { countEndsOn: 'prompt' as const }),
+		policy: {
+			unit: 'response',
+			verdict: 'response',
+			correction: chance(random, 0.2),
+			pairing: aligned
+				? { mode: 'alignment' }
+				: {
+						mode: 'first-answer',
+						opens: chance(random, 0.7)
+							? {
+									beforeMs: { param: 'windows.gridEarlyMs' },
+									maxBeats: { param: 'windows.gridEarlyMaxBeats' }
+								}
+							: { afterPromptMs: pick(random, [0, 100]) },
+						lateMs: chance(random, 0.7) ? { param: 'windows.lateMs' } : pick(random, [100, 300]),
+						lateCapture: pick(random, ['to-end', null, { ms: 300 }] as const)
+					}
+		}
+	};
+
+	const members: PassagesTemplate['members'] = { family };
+	if (family === 'chord-shapes') {
+		if (chance(random, 0.6)) members.order = ['position'];
+		if (chance(random, 0.5)) members.take = between(random, 1, 4);
+		if (chance(random, 0.4)) members.andBack = true;
+	} else if (chance(random, 0.2)) {
+		members.take = between(random, 2, 4);
+	}
+	const passages: PassagesTemplate = { of, members };
+	if (Object.keys(each).length > 0) passages.each = each;
+	if (chance(random, 0.5)) {
+		passages.opens = {
+			acquired: {
+				skill: pick(random, [CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID]),
+				item: 'voicing',
+				...(chance(random, 0.5) && { need: pick(random, ['every-group', 'one-group'] as const) })
+			}
+		};
+	}
+	if (chance(random, 0.3)) passages.again = 'until-passed';
+	if (chance(random, 0.4)) passages.restBars = between(random, 0, 2);
+	if (chance(random, 0.4)) passages.passes = pick(random, [0.5, 0.9, 1]);
+	if (chance(random, 0.3)) {
+		passages.scope = chance(random, 0.9) ? Object.keys(of)[0] : 'nowhere';
+	}
+
+	const levels = chance(random, 0.4)
+		? [
+				{ aid: true as const, params: { tempo } },
+				{
+					params: { tempo },
+					pass: { successes: between(random, 2, 4) },
+					drop: { failures: between(random, 1, 3) }
+				},
+				{
+					params: { tempo: tempo + 10 },
+					pass: { successes: between(random, 2, 4) },
+					drop: { failures: between(random, 1, 3) }
+				}
+			]
+		: undefined;
+	const params: Record<string, unknown> = {
+		...(strings === 'params' && {
+			strings: pick(random, [
+				[4, 3, 2, 1],
+				[3, 2, 1]
+			])
+		}),
+		...(chance(random, 0.3) && {
+			windows: { perfectMs: pick(random, [40, 80, 120]), lateMs: pick(random, [100, 200, 400]) }
+		})
+	};
+	const view = chance(random, 0.05)
+		? pick(random, ['lane', 'figure', 'answer-keys'])
+		: family === 'grid-changes'
+			? chance(random, 0.8)
+				? 'grid-scroll'
+				: 'link-lane'
+			: chance(random, 0.8)
+				? 'link-lane'
+				: 'grid-scroll';
+	const presentation = passagePresentation(random, set);
+	return {
+		id,
+		practices,
+		view,
+		meter,
+		tempo,
+		...(presentation && { presentation }),
+		round,
+		params,
+		passages,
+		...(levels && { levels }),
+		...(chance(random, 0.5) && { flow: { antiBlocking: true } })
+	};
+}
+
+/**
+ * A routine over some of `pool` (2 or 3, drawn in turn), each practising its own skill, and two on
+ * one set in one meter (the service bench places an answer by the meter of its set); now and then
+ * an opening on what they acquire or reach. Null when the pool gives no two such exercises.
+ */
+export function randomRoutine(
+	random: () => number,
+	id: string,
+	pool: readonly ExerciseDefinition[]
+): RoutineDefinition | null {
+	const left = [...pool];
+	const chosen: ExerciseDefinition[] = [];
+	const wanted = between(random, 2, 3);
+	while (chosen.length < wanted && left.length > 0) {
+		const [candidate] = left.splice(Math.floor(random() * left.length), 1);
+		const fits = chosen.every(
+			(exercise) =>
+				exercise.practices !== candidate.practices &&
+				(exerciseItemSet(exercise).id !== exerciseItemSet(candidate).id ||
+					JSON.stringify(exercise.meter ?? METER_4_4) ===
+						JSON.stringify(candidate.meter ?? METER_4_4))
+		);
+		if (fits) chosen.push(candidate);
+	}
+	if (chosen.length < 2) return null;
+	const openings: Opening[] = [
+		{ acquired: { skill: chosen[0].practices, atLeast: between(random, 1, 3) } },
+		{ level: { exercise: chosen[0].id, atLeast: 2 } }
+	];
+	const opens = chance(random, 0.5)
+		? chance(random, 0.7)
+			? pick(random, openings)
+			: { any: openings }
+		: undefined;
+	return {
+		id,
+		title: { fr: `Routine ${id}`, en: `Routine ${id}` },
+		exercises: chosen.map((exercise) => exercise.id),
+		...(chance(random, 0.5) && { howTo: { fr: 'Joue.', en: 'Play.' } }),
+		...(opens && { opens })
+	};
+}
+
+/** Why the application would refuse `definition` as a file's exercise (`definitionChecks`). */
+export function benchRefusal(definition: ExerciseDefinition): string | null {
+	return definitionChecks().exercise(definition);
+}
+
+/** Why the application would refuse `routine` as a file's routine, its exercises registered. */
+export function benchRoutineRefusal(routine: RoutineDefinition): string | null {
+	try {
+		routineFromJson(JSON.parse(JSON.stringify(routine)));
+	} catch (error) {
+		return (error as Error).message;
+	}
+	return routineProblem(routine);
+}
+
+class BenchBackup implements BackupPort {
+	async exportAll(): Promise<BackupFile> {
+		throw new Error('not used on the bench');
+	}
+	async importAll(): Promise<void> {}
+}
+
+class BenchCalibration implements CalibrationPort {
+	async run(): Promise<CalibrationOutcome> {
+		return { ok: false, reason: 'cancelled' };
+	}
+	async runOnClick(): Promise<CalibrationOutcome> {
+		return { ok: false, reason: 'cancelled' };
+	}
+	cancel(): void {}
+}
+
+/** A round as the service bench met it: what its presenter was told when it opened. */
+export interface ServiceRound {
+	/** The set of the presenter that opened it. */
+	set: string;
+	opensAt: number;
+	expectations: readonly Pick<Expectation, 'sensor' | 'content' | 'at' | 'span'>[];
+	/** Every answer the bench meant to play in it was played. */
+	answered?: boolean;
+}
+
+/**
+ * The application's services (`createAppServices`) on the test stores and the fakes, the real
+ * presenters each wrapped to tell the bench the round it opens (its compiled expectations);
+ * `acquired`: with the cards of every major and minor triad acquired in anchor and in zone on four
+ * zones of strings, so that a passage's opening is met (a memory session starts with no card).
+ */
+export async function serviceBench(options: { acquired?: boolean } = {}) {
+	const clock = new FakeClock();
+	const detector = new FakeNoteDetector();
+	const verifier = new FakeChordVerifier();
+	const sounds = new FakeSoundScheduler(clock);
+	const opened: ServiceRound[] = [];
+	const told = (presenter: SetPresenter): SetPresenter => {
+		// Spread as the look-up spreads it (`lookUpPresenter`): a presenter is a plain object.
+		return {
+			...presenter,
+			expectation: (item, round) => {
+				opened.push({
+					set: presenter.set.id,
+					opensAt: round.opensAt,
+					expectations: round.expectations as ServiceRound['expectations']
+				});
+				return presenter.expectation?.call(presenter, item, round) ?? {};
+			}
+		};
+	};
+	const wrapAll = (registry: Readonly<Record<string, SetPresenter>>) =>
+		Object.fromEntries(Object.entries(registry).map(([key, p]) => [key, told(p)]));
+	let ids = 0;
+	const deps = {
+		clock,
+		detector,
+		attempts: new InMemoryAttemptRepository(),
+		cards: new InMemoryCardStateRepository(),
+		sessions: new InMemorySessionRepository(),
+		settings: new InMemorySettingsRepository(),
+		now: () => clock.toEpochMs(clock.now()),
+		random: mulberry32(1),
+		newId: () => `bench-${++ids}`,
+		presenters: wrapAll(SET_PRESENTERS),
+		views: wrapAll(VIEW_PRESENTERS),
+		sensors: {
+			note: noteSensor(detector),
+			tap: tapSensor(),
+			chord: chordSensor(verifier),
+			attack: attackSensor(new FakeAttackDetector())
+		},
+		sounds,
+		takes: new FakeTakeBuffer(),
+		memory: new SessionMemory(),
+		levels: new InMemoryLevelStateRepository()
+	};
+	if (options.acquired) await deps.cards.putMany(acquiredTriads());
+	const services = createAppServices({
+		...deps,
+		backup: new BenchBackup(),
+		definitions: new FakeDefinitionsService(),
+		calibration: new BenchCalibration(),
+		diagnostics: new FakeDiagnostics(),
+		development: false
+	});
+	return { services, deps, verifier, opened };
+}
+
+export type ServiceBench = Awaited<ReturnType<typeof serviceBench>>;
+
+/** Every major and minor triad acquired in anchor and in zone on four zones of strings. */
+export function acquiredTriads(): CardState[] {
+	return [CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID].flatMap((skill) =>
+		CHROMATIC_NOTES.flatMap((root) =>
+			['maj', 'min'].flatMap((quality) =>
+				[...BENCH_STRING_ZONES, [6, 5, 4] as StringNumber[]].flatMap((strings) =>
+					triadCards(skill, root, quality, strings)
+				)
+			)
+		)
+	);
+}
+
+/** What the service bench saw of one session. */
+export interface ServicePlay {
+	rounds: ServiceRound[];
+	attempts: Attempt[];
+	/** The status when the bench stopped, before it quit. */
+	status: string;
+	/** Audio seconds when the bench stopped. */
+	stoppedAt: number;
+	/** The longest stretch of audio seconds with no round opening while the session played. */
+	longestGapS: number;
+	/** Rounds opened long enough before the stop to have settled, that stored no attempt. */
+	unsettled: ServiceRound[];
+	/** Attempts stored without their plan. */
+	planless: number;
+	/**
+	 * Rounds answered right whose every content admits a member, that were stored as a miss (with
+	 * `'none'`, rounds stored as a success though nothing was played and they asked for content).
+	 */
+	wrongVerdicts: ServiceRound[];
+	/** Rounds whose verdict the bench checked against what it played. */
+	checked: number;
+	/** Rounds it did not check, by why. */
+	excused: Record<VerdictExcuse, number>;
+	/** The announcements the session made, by kind, and the exercises it told leaving. */
+	announced: Set<string>;
+	leaving: number;
+	/** How the session's series ended, as its trace keeps it; null while it played on. */
+	end: string | null;
+	/** The exercises and scopes that left the series, as its trace keeps them. */
+	left: { exerciseId: string; scope?: string }[];
+}
+
+/**
+ * Why a round's verdict is not checked: no attempt (opened in the last seconds before the stop);
+ * its attempt stored only by the quit, which cut it short; not every answer the bench meant to
+ * play was played (no target on stage to place it); a content that admits no member, so no
+ * answer is right.
+ */
+export type VerdictExcuse = 'no-attempt' | 'cut-by-stop' | 'not-answered' | 'admits-none';
+export const VERDICT_EXCUSES: readonly VerdictExcuse[] = [
+	'no-attempt',
+	'cut-by-stop',
+	'not-answered',
+	'admits-none'
+];
+
+/** How far off its place the service bench answers an expectation (`playService`). */
+const OFF_PLACE_S = 0.002;
+
+/** How long before the stop a round must have opened to be expected settled. */
+const SETTLED_BY_S = 30;
+
+/**
+ * Plays the session `start` gives to its end or to `maxS` audio seconds, then quits it: each
+ * round, as its presenter is told it, answered on the beat as `answer` says (every expectation
+ * right, or nothing played; a round in free time, which would wait for its answer, answered
+ * wrong under `'none'`), a how-to's pause resumed. Each expectation is placed from the target
+ * on stage and the meter of its set among `exercises` (the session's).
+ */
+export async function playService(
+	bench: ServiceBench,
+	start: () => Promise<PlaySessionController>,
+	exercises: readonly ExerciseDefinition[],
+	answer: 'right' | 'none',
+	options: { maxS?: number } = {}
+): Promise<ServicePlay> {
+	const { deps, verifier, opened } = bench;
+	const { clock, sounds, detector } = deps;
+	const maxS = options.maxS ?? 90;
+	const unitOf = new Map<string, Fraction>();
+	for (const exercise of exercises) {
+		const set = exerciseItemSet(exercise).id;
+		const unit = (exercise.meter ?? METER_4_4).unit;
+		const known = unitOf.get(set);
+		if (known && !known.equals(unit)) {
+			throw new Error(`The bench cannot place two meters on set ${set}`);
+		}
+		unitOf.set(set, unit);
+	}
+	const firstRound = opened.length;
+	const controller = await start();
+	await controller.ready?.();
+	await controller.start();
+	let sends: { time: number; send: () => void }[] = [];
+	let handled = firstRound;
+	let lastOpenS = clock.now();
+	let longestGapS = 0;
+	const announced = new Set<string>();
+	let leaving = 0;
+	let wasLeaving = false;
+
+	const emitTo = (sensor: string, payload: unknown, time: number) => {
+		switch (sensor) {
+			case 'note':
+				detector.emitNote({
+					time,
+					...(payload as { midi: number }),
+					frequencyHz: 0,
+					clarity: 0.9
+				});
+				return;
+			case 'chord':
+				verifier.emit({
+					time,
+					...(payload as Omit<Parameters<FakeChordVerifier['emit']>[0], 'time'>)
+				});
+				return;
+			case 'tap':
+				controller.answer(payload as string);
+				return;
+			default:
+				throw new Error(`The bench has no fake for sensor ${sensor}`);
+		}
+	};
+
+	/** Schedules the answers of the rounds opened since the last look. */
+	const answerOpened = () => {
+		while (handled < opened.length) {
+			const round = opened[handled++];
+			lastOpenS = clock.now();
+			const free = round.expectations.every((e) => e.at === null);
+			if (answer === 'none' && !free) continue;
+			const model = controller.view.stage?.model as { anchorBeat?: number | null } | undefined;
+			const anchorBeat = model?.anchorBeat ?? null;
+			const unit = unitOf.get(round.set);
+			const beatS = 60 / controller.view.tempoBpm;
+			const anchorS =
+				anchorBeat === null
+					? null
+					: clock.now() + (anchorBeat - controller.timeline.nowBeat()) * beatS;
+			const first = round.expectations[0]?.at ?? null;
+			let left = round.expectations.length;
+			round.answered = false;
+			round.expectations.forEach((expectation) => {
+				let time: number;
+				if (free || expectation.at === null) {
+					time = round.opensAt + FREE_REACTION_S * 2;
+				} else {
+					if (anchorS === null || unit === undefined || first === null) return;
+					// A hair off its place, the beat read on the clock being rounded: before a point
+					// (whose window may close on it), after a stretch's start (it hears nothing before).
+					const off = expectation.span === 'point' ? -OFF_PLACE_S : OFF_PLACE_S;
+					time = anchorS + expectation.at.sub(first).div(unit).toNumber() * beatS + off;
+				}
+				const content = expectation.content;
+				const payload =
+					content === null
+						? BARE_PAYLOAD[expectation.sensor]
+						: answer === 'right'
+							? rightPayload(content)
+							: wrongPayload(content);
+				sends.push({
+					time,
+					send: () => {
+						emitTo(expectation.sensor, payload, time);
+						round.answered = --left === 0;
+					}
+				});
+			});
+		}
+	};
+	const sendDue = () => {
+		const due = sends.filter((s) => s.time <= clock.now() + 1e-9);
+		sends = sends.filter((s) => s.time > clock.now() + 1e-9);
+		for (const s of due) s.send();
+	};
+
+	const startedAt = clock.now();
+	while (clock.now() - startedAt < maxS && controller.view.status !== 'finished') {
+		if (controller.view.status === 'paused' && controller.view.briefing) controller.resume();
+		const next = Math.min(clock.now() + STEP_S, ...sends.map((s) => s.time));
+		clock.time = Math.max(next, clock.now());
+		sendDue();
+		sounds.flush();
+		await Promise.resolve();
+		answerOpened();
+		sendDue();
+		const announcement = controller.view.announcement;
+		if (announcement) announced.add(announcement.kind);
+		const isLeaving = controller.view.leaving !== null;
+		if (isLeaving && !wasLeaving) leaving++;
+		wasLeaving = isLeaving;
+		// The status moves under the awaits: read it as the view gives it now.
+		if ((controller.view.status as string) !== 'finished') {
+			longestGapS = Math.max(longestGapS, clock.now() - lastOpenS);
+		}
+	}
+	const status = controller.view.status;
+	const stoppedAt = clock.now();
+	// What was stored before the quit settled on its own; the quit cuts the rest short.
+	for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+	const beforeQuit = new Set((await deps.attempts.all()).map((attempt) => attempt.promptedAt));
+	if (status !== 'finished') controller.quit();
+	for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+	const rounds = opened.slice(firstRound);
+	const attempts = await deps.attempts.all();
+	const prompted = new Set(attempts.map((attempt) => attempt.promptedAt));
+	const unsettled = rounds.filter(
+		(round) =>
+			round.opensAt < stoppedAt - SETTLED_BY_S && !prompted.has(clock.toEpochMs(round.opensAt))
+	);
+	const byPrompt = new Map(attempts.map((attempt) => [attempt.promptedAt, attempt]));
+	const excused: Record<VerdictExcuse, number> = {
+		'no-attempt': 0,
+		'cut-by-stop': 0,
+		'not-answered': 0,
+		'admits-none': 0
+	};
+	let checked = 0;
+	const wrongVerdicts = rounds.filter((round) => {
+		const attempt = byPrompt.get(clock.toEpochMs(round.opensAt));
+		const contents = round.expectations.map((e) => e.content);
+		const free = round.expectations.every((e) => e.at === null);
+		const excuse: VerdictExcuse | null = !attempt
+			? 'no-attempt'
+			: // A round the stop cut short is judged on what it heard by then.
+				!beforeQuit.has(attempt.promptedAt)
+				? 'cut-by-stop'
+				: answer === 'right' && round.answered !== true
+					? 'not-answered'
+					: answer === 'right' &&
+						  contents.some(
+								(c) =>
+									c !== null &&
+									c.kind === MEMBER_CONTENT &&
+									admittedMembers(c.value as MemberContent).length === 0
+						  )
+						? 'admits-none'
+						: null;
+		if (excuse !== null) {
+			excused[excuse]++;
+			return false;
+		}
+		checked++;
+		if (answer === 'none') return !free && contents.some((c) => c !== null) && attempt!.success;
+		return !attempt!.success;
+	});
+	const series = deps.memory
+		.get(controller.sessionId)
+		?.trace.children.find((segment) => segment.role === 'series');
+	return {
+		rounds,
+		attempts,
+		status,
+		stoppedAt,
+		longestGapS,
+		unsettled,
+		planless: attempts.filter((attempt) => !attempt.plan).length,
+		wrongVerdicts,
+		checked,
+		excused,
+		announced,
+		leaving,
+		end: series?.reason ?? null,
+		left: [...(series?.left ?? [])]
+	};
 }

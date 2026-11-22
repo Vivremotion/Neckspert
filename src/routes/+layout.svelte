@@ -8,12 +8,14 @@
 	import { createApp } from '$lib/composition/createApp';
 	import { defineMessages, i18n } from '$lib/i18n/index.svelte';
 	import NavRail from '$lib/ui/primitives/NavRail.svelte';
-	import { activeDestination, showsRail } from '$lib/ui/shell/navigation';
+	import { activeDestination, DESTINATION_PATHS, showsRail } from '$lib/ui/shell/navigation';
 
 	let { children }: { children: Snippet } = $props();
 
 	const services = createApp();
 	provideAppServices(services);
+	// Read once: the screens read the registries, which the imported files complete.
+	const definitionsReady = services.definitions.ready();
 
 	const navMessages = defineMessages({
 		fr: {
@@ -37,10 +39,10 @@
 	const path = $derived(page.url.pathname);
 	const rail = $derived(showsRail(path));
 	const items = $derived([
-		{ key: 'practice', href: resolve('/'), label: nav.practice },
-		{ key: 'library', href: resolve('/session?kind=free'), label: nav.library },
-		{ key: 'progress', href: resolve('/map'), label: nav.progress },
-		{ key: 'settings', href: resolve('/settings'), label: nav.settings }
+		{ key: 'practice', href: resolve(DESTINATION_PATHS.practice), label: nav.practice },
+		{ key: 'library', href: resolve(DESTINATION_PATHS.library), label: nav.library },
+		{ key: 'progress', href: resolve(DESTINATION_PATHS.progress), label: nav.progress },
+		{ key: 'settings', href: resolve(DESTINATION_PATHS.settings), label: nav.settings }
 	]);
 
 	$effect(() => {
@@ -59,14 +61,17 @@
 </svelte:head>
 
 <div class="app">
-	{#if rail}
-		<div class="shell">
-			<NavRail label={nav.label} brand={nav.brand} {items} current={activeDestination(path)} />
-			<main>{@render children()}</main>
-		</div>
-	{:else}
-		{@render children()}
-	{/if}
+	<!-- Nothing is drawn until the imported definition files are in the registries. -->
+	{#await definitionsReady then}
+		{#if rail}
+			<div class="shell">
+				<NavRail label={nav.label} brand={nav.brand} {items} current={activeDestination(path)} />
+				<main>{@render children()}</main>
+			</div>
+		{:else}
+			{@render children()}
+		{/if}
+	{/await}
 </div>
 
 <style>

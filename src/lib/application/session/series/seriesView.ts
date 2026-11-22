@@ -11,6 +11,7 @@ export function idlePlayView(): PlayView {
 		audioError: null,
 		stage: null,
 		briefing: null,
-		announcement: null
+		announcement: null,
+		leaving: null
 	};
 }

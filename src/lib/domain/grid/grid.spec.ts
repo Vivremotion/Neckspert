@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gridById, GRIDS } from './catalog';
+import { gridById, allGrids } from './registry';
 import { gridChanges, type ChordGrid } from './grid';
 
 function grid(chords: ChordGrid['chords'], bars = 2): ChordGrid {
@@ -24,6 +24,20 @@ describe('gridChanges', () => {
 		expect(changes[5]).toEqual({ at: 22, length: 2, symbol: 'F7' });
 		expect(changes[8]).toEqual({ at: 30, length: 2, symbol: 'Ab7' });
 		expect(changes.reduce((sum, c) => sum + c.length, 0)).toBe(32);
+	});
+
+	it('reads a grid once, and gives each caller changes of its own', () => {
+		const long = grid(
+			Array.from({ length: 256 }, (_, i) => ({ bar: i + 1, beat: 1, symbol: i % 2 ? 'F' : 'C' })),
+			256
+		);
+		const first = gridChanges(long);
+		first[0].length = 99;
+		expect(gridChanges(long)[0]).toEqual({ at: 0, length: 1 * 4, symbol: 'C' });
+		const start = performance.now();
+		for (let i = 0; i < 1000; i++) gridChanges(long);
+		// Measured about 3.5 ms here (Apple M3 Pro); parsing its 256 symbols each time took 137 ms.
+		expect(performance.now() - start).toBeLessThan(40);
 	});
 
 	it('reads blues-f, the bars held twice merged', () => {
@@ -85,9 +99,9 @@ describe('gridChanges', () => {
 
 describe('the grid catalog', () => {
 	it('holds the two starting grids, valid, as data', () => {
-		expect(GRIDS.map((g) => g.id)).toEqual(['iohefy-a', 'blues-f']);
-		for (const g of GRIDS) expect(() => gridChanges(g)).not.toThrow();
-		expect(JSON.parse(JSON.stringify(GRIDS))).toEqual(GRIDS);
+		expect(allGrids().map((g) => g.id)).toEqual(['iohefy-a', 'blues-f']);
+		for (const g of allGrids()) expect(() => gridChanges(g)).not.toThrow();
+		expect(JSON.parse(JSON.stringify(allGrids()))).toEqual(allGrids());
 	});
 
 	it('throws on an unknown grid', () => {

@@ -6,33 +6,33 @@ import type {
 	Scene
 } from '$lib/domain/exercise/types';
 import { cardKey, type CardKey, type Locale, type PlannedItem } from '$lib/domain/types';
-import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import { requirePresenter, type PresenterRegistries } from '$lib/application/sets/lookUp';
+import type { SetPresenter } from '$lib/application/sets/types';
 
 /** What a series reads of its items' data: their presenter, card key and exercise. */
 export class SeriesItems {
 	constructor(
-		private readonly mechanics: Record<string, MechanicPresenter>,
+		private readonly registries: PresenterRegistries,
 		private readonly exercise: (id: ExerciseId) => ExerciseDefinition
 	) {}
 
-	presenterOf(item: PlannedItem): MechanicPresenter {
-		const presenter = this.mechanics[item.mechanic];
-		if (!presenter) throw new Error(`No presenter for mechanic: ${item.mechanic}`);
-		return presenter;
+	/** The presenter of the item's exercise (`presenterOf`). */
+	presenterOf(item: PlannedItem): SetPresenter {
+		return requirePresenter(this.definitionOf(item), this.registries);
 	}
 
 	cardKeyOf(item: PlannedItem): CardKey {
-		const { rules } = this.presenterOf(item);
-		return cardKey(rules.id, rules.itemKey(item.item));
+		const { set } = this.presenterOf(item);
+		return cardKey(item.skill, set.itemKey(item.item));
 	}
 
-	/** The definition of an item's exercise; an exercise the catalog does not know throws. */
-	definitionOf(item: PlannedItem): ExerciseDefinition {
+	/** The definition of an item's exercise; an exercise the registry does not hold throws. */
+	definitionOf(item: Pick<PlannedItem, 'exerciseId'>): ExerciseDefinition {
 		return this.exercise(item.exerciseId);
 	}
 
 	/**
-	 * The item's scene, preview, contest and briefing: its exercise's, else its mechanic's
+	 * The item's scene, preview, contest and briefing: its exercise's, else its set's
 	 * presenter's, else the default (an instruction told in each series).
 	 */
 	flowOf(item: PlannedItem): {

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import type { Segment } from '$lib/domain/session';
-import { LOCATE_NECK, validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
+import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
 import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
-import { neckCardKey, type NeckCard } from '$lib/domain/music';
+import { neckCardKey, type NeckCard } from '$lib/testing/neck';
 import { Fraction } from '$lib/domain/time/fraction';
 import type { Attempt } from '$lib/domain/types';
 import {
@@ -20,6 +20,7 @@ import {
 	startNotes,
 	type NotesApp
 } from '$lib/testing/notesSeries';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 /**
  * The acceptance test of plan L: an exercise that exists only here, as data, plays end to end on
@@ -30,17 +31,17 @@ const WALTZ = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 
 const WALTZ_LOCATE: ExerciseDefinition = {
 	id: LOCATE_NECK.id,
-	version: 1,
-	mechanic: 'locate',
+	practices: 'locate-note-string',
 	view: 'lane',
 	meter: WALTZ,
 	tempo: 90,
 	flow: { previewBeats: 2 },
 	presentation: LOCATE_NECK.presentation,
+	// The notes it introduces, the list locate writes: a card its list does not name is not its own.
+	items: LOCATE_NECK.items,
 	// Its round is locate's, the target on beat 2 of the bar.
 	round: { ...LOCATE_NECK.round!, barOffset: '1/4' },
 	params: {
-		recallThresholdMs: 1500,
 		pacing: { respirationBars: 2 },
 		windows: { perfectMs: 120 },
 		ladder: [
@@ -58,7 +59,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 const BAR_BEATS = 3;
 const BEAT_S = 60 / 90;
 
-/** Two notes on other strings, neither the other's mirror, learned and due, at level 0. */
+/** Two notes on different strings, learned and due, at level 0. */
 const FIRST = locate(5, 'C');
 const SECOND = locate(2, 'G');
 
@@ -190,9 +191,9 @@ describe('an exercise written only in data', () => {
 			expect(accents[i] - accents[i - 1]).toBeCloseTo(BAR_BEATS * BEAT_S, 6);
 		}
 		expect(accents.some((time) => Math.abs(note.dueAt - BEAT_S - time) < 0.005)).toBe(true);
-		expect(attempts.map((a) => [a.mechanic, a.success])).toEqual([
-			['identify', true],
-			['locate', true]
+		expect(attempts.map((a) => [a.skill, a.success])).toEqual([
+			['identify-note', true],
+			['locate-note-string', true]
 		]);
 	});
 

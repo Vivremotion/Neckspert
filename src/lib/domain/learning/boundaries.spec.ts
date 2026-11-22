@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES } from '../exercise/catalog';
-import { MECHANIC_RULES } from '../mechanics';
+import { allExercises } from '../exercise/registry';
+import { ITEM_SET_NAMES } from '../sets/names';
 
 // The learning module as raw text, keyed by its path from the project root.
 const sources = import.meta.glob('/src/lib/domain/learning/**/*.ts', {
@@ -12,7 +12,7 @@ const sources = import.meta.glob('/src/lib/domain/learning/**/*.ts', {
 const DOMAIN = '/src/lib/domain/';
 const MODULE = `${DOMAIN}learning/`;
 
-/** The ids of mechanics and exercises the procedure never names: every one of the registry and the catalog. */
+/** The ids of sets and exercises the procedure never names, and the old ids of the sets: every one of the registry and the catalog. */
 const NAMES = [
 	...new Set([
 		'locate',
@@ -20,23 +20,18 @@ const NAMES = [
 		'triad-anchor',
 		'triad-zone',
 		'chord-grid',
-		...MECHANIC_RULES.map((rules) => rules.id),
-		...EXERCISES.map((exercise) => exercise.id)
+		...ITEM_SET_NAMES,
+		...allExercises().map((exercise) => exercise.id)
 	])
 ];
 
 /** What the procedure never imports, from `src/lib/`. */
-const FORBIDDEN = [
-	'domain/music',
-	'domain/triads',
-	'domain/gesture',
-	'domain/mechanics',
-	'application'
-];
+const FORBIDDEN = ['domain/music', 'domain/triads', 'domain/gesture', 'domain/sets', 'application'];
 
 /** What it may import outside itself, from `src/lib/domain/` (a trailing `/` allows a folder). */
 const ALLOWED = [
 	'exercise/types',
+	'exercise/selection/types',
 	'exercise/tempo',
 	'progress/selector',
 	'progress/constants',
@@ -44,8 +39,27 @@ const ALLOWED = [
 	'progress/success',
 	'progress/cards',
 	'progress/scheduling',
+	'skill/types',
 	'types',
 	'time/'
+];
+
+/**
+ * What the subject read from the exercises' data may import besides: it alone turns an exercise's
+ * items, entry condition and member asked into what the procedure asks, through the registries
+ * of sets, families and skills (it names no set, skill nor exercise itself).
+ */
+const SUBJECT = `${MODULE}exerciseSubject.ts`;
+const SUBJECT_ALLOWED = [
+	'exercise/itemEntries',
+	'exercise/ladder',
+	'exercise/levels',
+	'exercise/recall',
+	'exercise/selection/compile',
+	'families',
+	'sets',
+	'sets/correspondences',
+	'skill/registry'
 ];
 
 /** A package (`ts-fsrs`), or a module of `src/lib/` resolved from there (`domain/time/levels`). */
@@ -67,10 +81,11 @@ function importsOf(path: string, text: string): Import[] {
 	});
 }
 
-/** Inside the module, or one of the allowed modules of the domain. */
-function allowed(module: string): boolean {
+/** Inside the module, or one of the allowed modules of the domain (of the subject's, for its file). */
+function allowed(module: string, path: string): boolean {
 	if (!module.startsWith('domain/')) return false;
 	const inDomain = module.slice('domain/'.length);
+	if (path === SUBJECT && SUBJECT_ALLOWED.includes(inDomain)) return true;
 	if (inDomain.startsWith('learning/')) return true;
 	return ALLOWED.some((entry) =>
 		entry.endsWith('/') ? inDomain.startsWith(entry) : inDomain === entry
@@ -89,17 +104,17 @@ function offendersIn(files: Record<string, string>): string[] {
 		for (const imported of importsOf(path, text)) {
 			if ('package' in imported) continue;
 			const module = imported.lib;
-			const forbidden = FORBIDDEN.some(
-				(entry) => module === entry || module.startsWith(`${entry}/`)
-			);
-			if (forbidden || !allowed(module)) offenders.push(`${path}: ${module}`);
+			const forbidden =
+				!(path === SUBJECT && allowed(module, path)) &&
+				FORBIDDEN.some((entry) => module === entry || module.startsWith(`${entry}/`));
+			if (forbidden || !allowed(module, path)) offenders.push(`${path}: ${module}`);
 		}
 	}
 	return offenders;
 }
 
 describe('the learning procedure', () => {
-	it('names no mechanic nor exercise and imports no music', () => {
+	it('names no set nor exercise and imports no music', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
@@ -143,7 +158,126 @@ describe('the learning procedure', () => {
 			expect(offendersIn({ [file]: `const m = \`${name}\`;` })).toEqual([`${file}: ${name}`]);
 		}
 		// The catalog's exercise ids are names too.
-		expect(NAMES).toEqual(expect.arrayContaining(['locate-neck', 'triads-anchor']));
+		expect(NAMES).toEqual(expect.arrayContaining(['locate-note-string', 'chord-anchor']));
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
+		// The subject alone reads the registries of sets and skills; the procedure does not.
+		expect(paths).toContain(SUBJECT);
+		const registries = `import { a } from '../families';\nimport { b } from '../skill/registry';`;
+		expect(offendersIn({ [SUBJECT]: registries })).toEqual([]);
+		expect(offendersIn({ [`${MODULE}procedure.ts`]: registries })).toEqual([
+			`${MODULE}procedure.ts: domain/families`,
+			`${MODULE}procedure.ts: domain/skill/registry`
+		]);
+		expect(offendersIn({ [SUBJECT]: `import { x } from '../music';` })).toEqual([
+			`${SUBJECT}: domain/music`
+		]);
+		expect(offendersIn({ [SUBJECT]: `const m = 'chord-anchor';` })).toEqual([
+			`${SUBJECT}: chord-anchor`
+		]);
+	});
+});
+
+// The domain and the application as raw text: the old subjects and their generators are gone.
+const everywhere = import.meta.glob(
+	['/src/lib/domain/**/*.{ts,svelte}', '/src/lib/application/**/*.{ts,svelte}'],
+	{ query: '?raw', import: 'default', eager: true }
+) as Record<string, string>;
+
+/** The hand-written subjects and the code generators of the introduction order, deleted. */
+const GONE = [
+	'neckSubject',
+	'triadSubject',
+	'isMirrorPair',
+	'mirrorItems',
+	'triadNotesToLearn',
+	'introductionOrder',
+	'triadIntroductionOrder',
+	'MARKER_FRETS'
+];
+
+const THIS_FILE = `${MODULE}boundaries.spec.ts`;
+
+function namingGone(files: Record<string, string>): string[] {
+	return Object.entries(files).flatMap(([path, text]) =>
+		path === THIS_FILE
+			? []
+			: GONE.filter((name) => new RegExp(`\\b${name}\\b`).test(text)).map(
+					(name) => `${path}: ${name}`
+				)
+	);
+}
+
+describe('the old subjects', () => {
+	it('are named nowhere in the domain or the application', () => {
+		expect(Object.keys(everywhere)).toEqual(
+			expect.arrayContaining([`${MODULE}procedure.ts`, '/src/lib/application/app.ts'])
+		);
+		expect(namingGone({ '/src/lib/domain/x.ts': 'neckSubject({})' })).toEqual([
+			'/src/lib/domain/x.ts: neckSubject'
+		]);
+		expect(namingGone(everywhere)).toEqual([]);
+	});
+});
+
+// Every module of `src/lib/` as raw text: the named draw a selection replaced is gone.
+const library = import.meta.glob('/src/lib/**/*.{ts,svelte}', {
+	query: '?raw',
+	import: 'default',
+	eager: true
+}) as Record<string, string>;
+
+/** The named draw and its registry, replaced by `params.learning.asks`. */
+const DRAW_NAMES = ['drawNamed', 'another-place'];
+
+function namingDraws(files: Record<string, string>): string[] {
+	return Object.entries(files).flatMap(([path, text]) =>
+		path === THIS_FILE || path.includes('/storage/migrations/')
+			? []
+			: DRAW_NAMES.filter((name) => text.includes(name)).map((name) => `${path}: ${name}`)
+	);
+}
+
+describe('the named draw', () => {
+	it('is named nowhere in the library, migrations aside', () => {
+		expect(Object.keys(library)).toContain(`${MODULE}exerciseSubject.ts`);
+		expect(namingDraws({ '/src/lib/x.ts': `drawNamed('another-place', set)` })).toEqual([
+			'/src/lib/x.ts: drawNamed',
+			'/src/lib/x.ts: another-place'
+		]);
+		expect(namingDraws(library)).toEqual([]);
+	});
+});
+
+/** The rule the changes were played by, replaced by the passages their exercises write (plan 4b). */
+const CHANGES_RULE_NAMES = [
+	'GestureRule',
+	'gestureSelector',
+	'createGestureSelector',
+	'classifyGridChord',
+	'readGestureParams',
+	'ChordGridItem'
+];
+
+function namingChangesRule(files: Record<string, string>): string[] {
+	return Object.entries(files).flatMap(([path, text]) =>
+		path === THIS_FILE || path.includes('/storage/migrations/')
+			? []
+			: CHANGES_RULE_NAMES.filter((name) => new RegExp(`\\b${name}\\b`).test(text)).map(
+					(name) => `${path}: ${name}`
+				)
+	);
+}
+
+describe('the changes’ rule', () => {
+	it('is named nowhere in the library, migrations aside', () => {
+		expect(
+			namingChangesRule({
+				'/src/lib/x.ts': 'const s = createGestureSelector(); let i: ChordGridItem;'
+			})
+		).toEqual(['/src/lib/x.ts: createGestureSelector', '/src/lib/x.ts: ChordGridItem']);
+		expect(
+			namingChangesRule({ '/src/lib/infrastructure/storage/migrations/v99.ts': 'GestureRule' })
+		).toEqual([]);
+		expect(namingChangesRule(library)).toEqual([]);
 	});
 });

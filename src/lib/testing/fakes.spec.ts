@@ -4,6 +4,7 @@ import type { Attempt, CardState } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
 	FakeClock,
+	FakeDefinitionsService,
 	FakeDiagnosticSink,
 	FakeNoteDetector,
 	InMemoryAttemptRepository,
@@ -14,9 +15,9 @@ import {
 function attempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
-		exerciseId: 'locate-neck',
-		mechanic: 'locate',
-		cardKey: 'locate:2:F',
+		exerciseId: 'locate-note-string',
+		skill: 'locate-note-string',
+		cardKey: 'locate-note-string:2:F',
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
@@ -130,9 +131,9 @@ describe('in-memory repositories', () => {
 
 	it('stores card states by key', async () => {
 		const repo = new InMemoryCardStateRepository();
-		const state = { key: 'locate:2:F' } as CardState;
+		const state = { key: 'locate-note-string:2:F' } as CardState;
 		await repo.put(state);
-		expect(await repo.get('locate:2:F')).toEqual(state);
+		expect(await repo.get('locate-note-string:2:F')).toEqual(state);
 	});
 
 	it('merges settings over defaults', async () => {
@@ -140,5 +141,17 @@ describe('in-memory repositories', () => {
 		expect((await repo.get()).locale).toBe('fr');
 		expect((await repo.update({ clickBleed: true })).clickBleed).toBe(true);
 		expect((await repo.get()).locale).toBe('fr');
+	});
+});
+
+describe('FakeDefinitionsService', () => {
+	it('keeps the last of two files of one name in one import', async () => {
+		const service = new FakeDefinitionsService();
+		const { stored } = await service.import([
+			{ name: 'a.json', text: '1' },
+			{ name: 'a.json', text: '2' }
+		]);
+		expect(stored.map((file) => file.name)).toEqual(['a.json']);
+		expect((await service.files()).map((file) => file.name)).toEqual(['a.json']);
 	});
 });

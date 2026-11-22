@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Announcement } from '$lib/application/session/contract';
+import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
+import { playOriginOf } from '$lib/application/session/playOrigin';
+import type { SessionOrigin } from '$lib/domain/types';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
 import { presented, stageModel } from './views/testing/promptStage';
 import { PLAY_VIEWS, VIEW_WORLDS } from './views';
@@ -15,12 +16,124 @@ import { FigureStageController } from './views/testing/FigureStageController.sve
 import { StageController } from './views/testing/StageController.svelte';
 import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
 import { DEMO_IDENTIFY_SCRIPT, DemoIdentifySession } from './answer/DemoIdentifySession.svelte';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 afterEach(() => cleanup());
 
+const NOTES: SessionOrigin = { routine: 'notes' };
+const FREE: SessionOrigin = { routine: 'notes', free: true };
+const CHORDS: SessionOrigin = { routine: 'chords' };
+const ZONE: SessionOrigin = { routine: 'chords-zone' };
+const CHANGES: SessionOrigin = { routine: 'changes' };
+const ALONE: SessionOrigin = { exercise: 'rhythm-offbeats' };
+
+/** The controller, told what it plays as the session controller tells it. */
+function playingAs<C extends PlaySessionController>(controller: C, origin: SessionOrigin): C {
+	return Object.assign(controller, { origin: playOriginOf(origin) });
+}
+
+/** The start-screen texts the play screen held by kind of session before plan 5a, word for word. */
+const HOW_TO = {
+	notes: [
+		'La note défile dans la piste. Joue-la, sur la corde indiquée, quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.',
+		'The note travels along the lane. Play it, on the string shown, when its tile reaches the line. The click comes from the computer speakers.'
+	],
+	chords: [
+		'« C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. Le clic sort des enceintes de l’ordinateur.',
+		'“C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. The click comes from the computer speakers.'
+	],
+	zone: [
+		'« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.',
+		'“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers.'
+	],
+	changes: [
+		'Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.',
+		'Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers.'
+	],
+	alone: [
+		'Joue ce que l’exercice demande, en suivant le clic. Sa consigne s’affiche avant la première série.',
+		'Play what the exercise asks, following the click. Its instructions show before the first run.'
+	]
+} as const;
+
+describe('PlayFrame, what the session plays (D10)', () => {
+	afterEach(() => {
+		i18n.locale = 'fr';
+	});
+
+	/** The header and the start text of a quiet view, in each language. */
+	function shown(origin: SessionOrigin): { header: string; how: string }[] {
+		return (['fr', 'en'] as const).map((locale) => {
+			i18n.locale = locale;
+			const controller = new StageController(origin);
+			controller.view.tempoBpm = 80;
+			controller.view.stage = { view: 'lane', model: null };
+			const { container } = render(PlayFrame, {
+				props: { controller, views: { ...PLAY_VIEWS, lane: FakeView } }
+			});
+			const result = {
+				header: container.querySelector('.info-parts')?.textContent?.trim() ?? '',
+				how: container.querySelector('.how')?.textContent?.trim() ?? ''
+			};
+			cleanup();
+			return result;
+		});
+	}
+
+	it.each([
+		[NOTES, 'Apprentissage', 'Learn', HOW_TO.notes],
+		[FREE, 'Jeu libre', 'Free play', HOW_TO.notes],
+		[CHORDS, 'Triades', 'Triads', HOW_TO.chords],
+		// D10: the routine's title, « Triades · zone » / "Triads · zone" before plan 5a.
+		[ZONE, 'Triades vers une case', 'Triads around a fret', HOW_TO.zone],
+		[CHANGES, 'Changements', 'Changes', HOW_TO.changes]
+	] as const)('names %o and tells its start text, word for word', (origin, fr, en, how) => {
+		const [french, english] = shown(origin);
+		expect(french.header).toMatch(new RegExp(`^${fr}\\s*·?\\s*♩ = 80$`));
+		expect(english.header).toMatch(new RegExp(`^${en}\\s*·?\\s*♩ = 80$`));
+		expect(french.how).toBe(how[0]);
+		expect(english.how).toBe(how[1]);
+	});
+
+	it('puts « Jeu libre » in front of a memory exercise played alone, freely', () => {
+		const [french, english] = shown({ exercise: 'locate-note-string', free: true });
+		expect(french.header).toMatch(
+			/^Jeu libre\s*·?\s*Trouver une note sur une corde\s*·?\s*♩ = 80$/
+		);
+		expect(english.header).toMatch(/^Free play\s*·?\s*Find a note on a string\s*·?\s*♩ = 80$/);
+		expect(french.how).toBe(HOW_TO.alone[0]);
+	});
+
+	it('names an exercise played alone by its title, with the general start text', () => {
+		const [french, english] = shown(ALONE);
+		expect(french.header).toContain('Contretemps');
+		expect(french.how).toBe(HOW_TO.alone[0]);
+		expect(english.how).toBe(HOW_TO.alone[1]);
+	});
+
+	it('tells the first exercise’s instruction before the routine’s', () => {
+		const controller = new StageController(NOTES);
+		controller.view.briefing = { text: 'Joue la gamme.' };
+		render(PlayFrame, { props: { controller } });
+		expect(screen.getByText('Joue la gamme.')).toBeTruthy();
+		expect(screen.queryByText(HOW_TO.notes[0])).toBeNull();
+	});
+
+	it('names nothing for a demonstration that plays nothing named', () => {
+		const controller = new StageController();
+		controller.view.tempoBpm = 80;
+		controller.view.stage = { view: 'lane', model: null };
+		const { container } = render(PlayFrame, {
+			props: { controller, views: { ...PLAY_VIEWS, lane: FakeView } }
+		});
+		expect(container.querySelector('.info-parts')?.textContent?.trim()).toBe('♩ = 80');
+		expect(container.querySelector('.how')?.textContent?.trim()).toBe(HOW_TO.alone[0]);
+	});
+});
+
 describe('PlayFrame', () => {
 	it('explains the gesture track and starts it', async () => {
-		const controller = new StageController();
+		const controller = new StageController(CHANGES);
 		render(PlayFrame, { props: { controller } });
 		expect(screen.getByText(/attaque chaque accord/i)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: /commencer/i }));
@@ -29,30 +142,33 @@ describe('PlayFrame', () => {
 
 	it('explains the notes before a learn or a free session', () => {
 		const controller = new StageController();
-		render(PlayFrame, { props: { controller, kind: 'learn' } });
+		render(PlayFrame, { props: { controller: playingAs(controller, NOTES) } });
 		expect(screen.getByText(/la note défile/i)).toBeTruthy();
 		cleanup();
-		render(PlayFrame, { props: { controller, kind: 'free' } });
+		render(PlayFrame, { props: { controller: playingAs(controller, FREE) } });
 		expect(screen.getByText(/la note défile/i)).toBeTruthy();
 	});
 
 	it('explains the triads before they start: the root alone, then the chord; the zone, the whole chord around a fret', () => {
 		const controller = new StageController();
-		render(PlayFrame, { props: { controller, kind: 'triads' } });
+		render(PlayFrame, { props: { controller: playingAs(controller, CHORDS) } });
 		expect(screen.getByText(/fondamentale seule/i)).toBeTruthy();
 		cleanup();
-		render(PlayFrame, { props: { controller, kind: 'triads-zone' } });
+		render(PlayFrame, { props: { controller: playingAs(controller, ZONE) } });
 		expect(screen.getByText(/vers la case 5/i)).toBeTruthy();
 		expect(screen.queryByText(/joue la fondamentale seule/i)).toBeNull();
 	});
 
-	it('takes its world from the view on stage, from the start screen, whatever the kind', () => {
-		for (const kind of ['learn', 'gesture', 'exercise', 'triads'] as const) {
+	it('takes its world from the view on stage, from the start screen, whatever it plays', () => {
+		for (const origin of [NOTES, CHANGES, ALONE, CHORDS]) {
 			for (const [name, world] of Object.entries(VIEW_WORLDS)) {
 				const controller = new StageController();
 				controller.view.stage = { view: name, model: null };
 				const { container } = render(PlayFrame, {
-					props: { controller, kind, views: { ...PLAY_VIEWS, [name]: FakeView } }
+					props: {
+						controller: playingAs(controller, origin),
+						views: { ...PLAY_VIEWS, [name]: FakeView }
+					}
 				});
 				expect(controller.view.status).toBe('idle');
 				expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
@@ -61,10 +177,28 @@ describe('PlayFrame', () => {
 		}
 	});
 
-	it('is neutral, in the pixel world, only before any view has ever been shown, whatever the kind', () => {
-		for (const kind of ['learn', 'gesture', 'exercise'] as const) {
+	it('names the gesture track « Changements » in its header, « Changes » in English', () => {
+		const controller = new StageController();
+		controller.view.stage = { view: 'lane', model: null };
+		const views = { ...PLAY_VIEWS, lane: FakeView };
+		render(PlayFrame, { props: { controller: playingAs(controller, CHANGES), views } });
+		expect(screen.getByText('Changements')).toBeTruthy();
+		expect(screen.queryByText(/geste/i)).toBeNull();
+		cleanup();
+		i18n.locale = 'en';
+		try {
+			render(PlayFrame, { props: { controller: playingAs(controller, CHANGES), views } });
+			expect(screen.getByText('Changes')).toBeTruthy();
+			expect(screen.queryByText(/gesture/i)).toBeNull();
+		} finally {
+			i18n.locale = 'fr';
+		}
+	});
+
+	it('is neutral, in the pixel world, only before any view has ever been shown, whatever it plays', () => {
+		for (const origin of [NOTES, CHANGES, ALONE]) {
 			const { container } = render(PlayFrame, {
-				props: { controller: new StageController(), kind }
+				props: { controller: playingAs(new StageController(), origin) }
 			});
 			expect(container.querySelector('[data-world="pixel"]')).toBeTruthy();
 			cleanup();
@@ -76,7 +210,10 @@ describe('PlayFrame', () => {
 			const controller = new StageController();
 			controller.view.stage = { view: name, model: null };
 			const { container } = render(PlayFrame, {
-				props: { controller, kind: 'learn', views: { ...PLAY_VIEWS, [name]: FakeView } }
+				props: {
+					controller: playingAs(controller, NOTES),
+					views: { ...PLAY_VIEWS, [name]: FakeView }
+				}
 			});
 			expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
 			controller.view.stage = null;
@@ -91,7 +228,7 @@ describe('PlayFrame', () => {
 		for (const quitToSummary of [true, false]) {
 			const controller = new StageController();
 			controller.view.status = 'awaiting';
-			render(PlayFrame, { props: { controller, kind: 'learn', quitToSummary } });
+			render(PlayFrame, { props: { controller: playingAs(controller, NOTES), quitToSummary } });
 			const event = new MouseEvent('click', { bubbles: true, cancelable: true });
 			screen.getByRole('link', { name: 'Quitter' }).dispatchEvent(event);
 			expect(controller.calls).toEqual(['quit']);
@@ -163,17 +300,17 @@ describe('PlayFrame', () => {
 
 	it('shows the announcement with level and tempo', () => {
 		// The pixel world (the gesture) and the quiet one (the notes), in French and in English.
-		for (const kind of ['gesture', 'learn'] as const) {
+		for (const origin of [CHANGES, NOTES]) {
 			const controller = new StageController();
 			controller.view.status = 'count-in';
 			controller.view.countdown = 4;
 			controller.view.announcement = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
-			render(PlayFrame, { props: { controller, kind } });
+			render(PlayFrame, { props: { controller: playingAs(controller, origin) } });
 			expect(screen.getByText('Niveau 2 sur 9 · ♩ = 85')).toBeTruthy();
 			cleanup();
 			i18n.locale = 'en';
 			try {
-				render(PlayFrame, { props: { controller, kind } });
+				render(PlayFrame, { props: { controller: playingAs(controller, origin) } });
 				expect(screen.getByText('Level 2 of 9 · ♩ = 85')).toBeTruthy();
 			} finally {
 				i18n.locale = 'fr';
@@ -198,7 +335,10 @@ describe('PlayFrame', () => {
 			controller.view.status = status;
 			controller.view.announcement = { kind, level: 1, of: 4, tempoBpm: 90 };
 			const { container } = render(PlayFrame, {
-				props: { controller, kind: 'exercise', views: { ...PLAY_VIEWS, [name]: FakeView } }
+				props: {
+					controller: playingAs(controller, ALONE),
+					views: { ...PLAY_VIEWS, [name]: FakeView }
+				}
 			});
 			const field = container.querySelector('.told');
 			const line = container.querySelector('.announcement');
@@ -221,7 +361,7 @@ describe('PlayFrame', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';
 		controller.view.announcement = { kind: 'level-up', level: 2, of: 4, tempoBpm: 90 };
-		render(PlayFrame, { props: { controller, kind: 'exercise' } });
+		render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 		expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 3 sur 4 · ♩ = 90');
 	});
 
@@ -236,7 +376,10 @@ describe('PlayFrame', () => {
 				? { kind: 'level-up', level: 1, of: 4, tempoBpm: 90 }
 				: null;
 			const { container } = render(PlayFrame, {
-				props: { controller, kind: 'exercise', views: { ...PLAY_VIEWS, [name]: FakeView } }
+				props: {
+					controller: playingAs(controller, ALONE),
+					views: { ...PLAY_VIEWS, [name]: FakeView }
+				}
 			});
 			const overlay = container.querySelector('.told');
 			expect(overlay !== null).toBe(told);
@@ -267,7 +410,7 @@ describe('PlayFrame', () => {
 			const controller = new StageController();
 			controller.view.status = 'awaiting';
 			controller.view.announcement = { kind, level, of: 4, tempoBpm: 70 };
-			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 			const text = screen.getByRole('status').textContent;
 			cleanup();
 			return text;
@@ -284,6 +427,51 @@ describe('PlayFrame', () => {
 			expect(told('aid-level', -2)).toBe('Aid level · ♩ = 70');
 		} finally {
 			i18n.locale = 'fr';
+		}
+	});
+
+	it('names the exercise that changes air and its grid in the status line', () => {
+		const told = (scope?: string) => {
+			const controller = new StageController();
+			controller.view.status = 'count-in';
+			controller.view.leaving = {
+				title: { fr: 'Relier les formes', en: 'Link the shapes' },
+				...(scope !== undefined && { scope })
+			};
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
+			const text = document.querySelector('.announcement')?.textContent;
+			cleanup();
+			return text;
+		};
+		expect(told()).toBe('On change d’air : Relier les formes');
+		expect(told('iohefy-a')).toBe('On change d’air : Relier les formes · I Only Have Eyes for You');
+		i18n.locale = 'en';
+		try {
+			expect(told()).toBe('Time for a change of air: Link the shapes');
+		} finally {
+			i18n.locale = 'fr';
+		}
+	});
+
+	it('tells the exercise leaving beside the level the next one reached, each in its place', () => {
+		for (const world of ['quiet', 'pixel'] as const) {
+			const controller = new StageController();
+			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
+			controller.view.stage = { view: name, model: null };
+			controller.view.status = 'count-in';
+			controller.view.announcement = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
+			controller.view.leaving = { title: { fr: 'Relier les formes', en: 'Link the shapes' } };
+			render(PlayFrame, {
+				props: {
+					controller: playingAs(controller, ALONE),
+					views: { ...PLAY_VIEWS, [name]: FakeView }
+				}
+			});
+			expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 2 sur 9 · ♩ = 85');
+			expect(document.querySelector('.announcement')?.textContent).toBe(
+				'On change d’air : Relier les formes'
+			);
+			cleanup();
 		}
 	});
 
@@ -340,7 +528,9 @@ describe('PlayFrame', () => {
 			const controller = new StageController();
 			controller.view.tempoBpm = 0;
 			controller.view.stage = { view: 'lane', model: waiting };
-			const { container } = render(PlayFrame, { props: { controller, kind: 'learn' } });
+			const { container } = render(PlayFrame, {
+				props: { controller: playingAs(controller, NOTES) }
+			});
 			const info = container.querySelector('.info-line');
 			expect(info?.textContent).toContain('Apprentissage');
 			expect(info?.textContent).not.toContain('♩');
@@ -350,7 +540,9 @@ describe('PlayFrame', () => {
 			const controller = new StageController();
 			controller.view.tempoBpm = 100;
 			controller.view.stage = { view: 'lane', model: waiting };
-			const { container } = render(PlayFrame, { props: { controller, kind: 'learn' } });
+			const { container } = render(PlayFrame, {
+				props: { controller: playingAs(controller, NOTES) }
+			});
 			expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
 			expect(container.querySelector('.frame')).toBeNull();
 			expect(container.querySelector('.btn')).toBeNull();
@@ -378,7 +570,9 @@ describe('PlayFrame', () => {
 			const controller = new StageController();
 			controller.view.status = 'awaiting';
 			controller.view.stage = { view: 'lane', model: waiting };
-			const { container } = render(PlayFrame, { props: { controller, kind: 'free' } });
+			const { container } = render(PlayFrame, {
+				props: { controller: playingAs(controller, FREE) }
+			});
 			await fireEvent.keyDown(window, { code: 'Space', key: ' ' });
 			expect(controller.view.status).toBe('paused');
 			expect(container.querySelector('[data-world="quiet"].light')).toBeTruthy();
@@ -390,7 +584,9 @@ describe('PlayFrame', () => {
 			const controller = new StageController();
 			controller.view.stage = { view: 'lane', model: waiting };
 			controller.view.audioError = 'input';
-			const { container } = render(PlayFrame, { props: { controller, kind: 'learn' } });
+			const { container } = render(PlayFrame, {
+				props: { controller: playingAs(controller, NOTES) }
+			});
 			expect(screen.getByRole('alert').textContent).toMatch(/aucune entrée audio/i);
 			controller.view.audioError = null;
 			controller.view.status = 'finished';
@@ -414,7 +610,10 @@ describe('PlayFrame', () => {
 			controller.view.countdown = 3;
 			controller.view.stage = { view: 'link-lane', model: null };
 			const { container } = render(PlayFrame, {
-				props: { controller, kind: 'learn', views: { ...PLAY_VIEWS, 'link-lane': FakeView } }
+				props: {
+					controller: playingAs(controller, NOTES),
+					views: { ...PLAY_VIEWS, 'link-lane': FakeView }
+				}
 			});
 			expect(container.querySelector('.frame[data-world="pixel"]')).toBeTruthy();
 			expect(container.querySelector('.info-line')).toBeNull();
@@ -432,7 +631,7 @@ describe('PlayFrame', () => {
 
 		it('listens to the figure on E in French, L in English', async () => {
 			const controller = playing();
-			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 			await fireEvent.keyDown(window, { key: 'e', code: 'KeyE' });
 			expect(controller.calls).toEqual(['listen']);
 			i18n.locale = 'en';
@@ -447,7 +646,7 @@ describe('PlayFrame', () => {
 
 		it('replays on R, once until the replay comes back', async () => {
 			const controller = playing();
-			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 			await fireEvent.keyDown(window, { key: 'r', code: 'KeyR' });
 			controller.view.status = 'paused';
 			await fireEvent.keyDown(window, { key: 'r', code: 'KeyR' });
@@ -462,7 +661,9 @@ describe('PlayFrame', () => {
 
 		it('pauses on Space, resumes on Escape, and quits the exercise from the pause', async () => {
 			const controller = playing();
-			render(PlayFrame, { props: { controller, kind: 'exercise', quitToSummary: true } });
+			render(PlayFrame, {
+				props: { controller: playingAs(controller, ALONE), quitToSummary: true }
+			});
 			await fireEvent.keyDown(window, { code: 'Space', key: ' ' });
 			expect(controller.view.status).toBe('paused');
 			await fireEvent.keyDown(window, { code: 'Escape', key: 'Escape' });
@@ -516,7 +717,7 @@ describe('PlayFrame', () => {
 					chordDiagram: 'strings'
 				};
 				controller.view.stage = { view: 'figure', model };
-				render(PlayFrame, { props: { controller, kind: 'exercise' } });
+				render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 				const listen = screen.getByRole('button', { name: /écouter la figure/i });
 				await fireEvent.click(listen);
 				listen.focus();
@@ -537,7 +738,7 @@ describe('PlayFrame', () => {
 		it('asks for headphones when the microphone hears the click', () => {
 			const controller = new FigureStageController();
 			controller.view.audioError = 'bleed';
-			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 			expect(screen.getByRole('alert').textContent).toBe(
 				'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.'
 			);
@@ -547,7 +748,7 @@ describe('PlayFrame', () => {
 			const controller = new FigureStageController();
 			controller.view.audioError = 'bleed';
 			controller.view.briefing = { text: 'Joue sur les contretemps.' };
-			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
 			expect(screen.getByRole('alert').textContent).toMatch(/entend le clic/);
 			expect(screen.getByText('Joue sur les contretemps.')).toBeTruthy();
 		});
@@ -573,7 +774,7 @@ describe('PlayFrame, the notes demonstrated', () => {
 		await demo.start();
 		clock.setBeat(4);
 		demo.tick();
-		const { container } = render(PlayFrame, { props: { controller: demo, kind: 'learn' } });
+		const { container } = render(PlayFrame, { props: { controller: playingAs(demo, NOTES) } });
 		expect(container.querySelector('[data-world="quiet"] .lane-view')).not.toBeNull();
 		expect(screen.getAllByText('F').length).toBeGreaterThan(0);
 		expect(screen.getByText(/corde de B/i)).toBeTruthy();
@@ -582,7 +783,7 @@ describe('PlayFrame, the notes demonstrated', () => {
 	it('draws the mode 2 demo on the answer keys, which answer it', async () => {
 		const demo = new DemoIdentifySession(DEMO_IDENTIFY_SCRIPT, 60_000);
 		await demo.start();
-		const { container } = render(PlayFrame, { props: { controller: demo, kind: 'learn' } });
+		const { container } = render(PlayFrame, { props: { controller: playingAs(demo, NOTES) } });
 		expect(container.querySelector('[data-world="quiet"] .answer-keys')).not.toBeNull();
 		expect(screen.getByText('case 8')).toBeTruthy();
 		const keys = within(screen.getByRole('group', { name: 'Nom de la note' }));

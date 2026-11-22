@@ -12,7 +12,7 @@ const CORE = '/src/lib/domain/time/';
 /** What the time core never imports: the music, the judges, the application. */
 const FORBIDDEN = [
 	'$lib/domain/music',
-	'$lib/domain/mechanics',
+	'$lib/domain/sets',
 	'$lib/domain/judges',
 	'$lib/domain/triads',
 	'$lib/domain/gesture',

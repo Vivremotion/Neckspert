@@ -1,147 +1,108 @@
 <script lang="ts">
-	import type { TriadsHome } from '$lib/application/app';
-	import type { ExerciseDefinition } from '$lib/domain/exercise';
+	import { resolve } from '$app/paths';
+	import type { RoutineEntry } from '$lib/application/app';
+	import type { Refusal } from '$lib/domain/definitions';
 	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import type { HomeStats } from '$lib/domain/types';
+	import { refusalText } from '$lib/ui/definitions/refusalMessages';
 	import BlockList from '$lib/ui/primitives/BlockList.svelte';
 	import type { Block } from '$lib/ui/primitives/BlockList.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import Page from '$lib/ui/primitives/Page.svelte';
 	import { formatMinutes } from './duration';
 	import { formatRelativeDelay } from './relativeTime';
-	import { formatTrend } from './trend';
 	import { homeMessages } from './messages';
 
 	let {
-		stats,
 		now,
 		onstart,
-		triads = { anchorDue: 0, zoneDue: null },
-		ontriads,
-		gesture = { open: false },
-		ongesture,
-		exercises,
-		resting = [],
-		refused = []
+		routines = [],
+		onroutine,
+		refused = [],
+		importedProblems = 0,
+		catalogRefused = false
 	}: {
-		stats: HomeStats;
 		now: number;
+		/** « Commencer » (and Space, on the page): the first open routine. */
 		onstart: () => void;
-		/** The triads exercises: reviews due, and whether the zone is open. */
-		triads?: TriadsHome;
-		/** Starts a session of one triads exercise; without it, no triads block. */
-		ontriads?: (kind: 'triads' | 'triads-zone') => void;
-		/** The gesture track: offered once one of its exercises is open. */
-		gesture?: { open: boolean };
-		/** Starts a gesture session; without it, no gesture block. */
-		ongesture?: () => void;
-		/** The exercises played on their own, each a link to its session; without them, no such block. */
-		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
-		/** Exercises resting after « On change d’air »: marked, still to be played. */
-		resting?: readonly string[];
-		/** Local exercise files refused, with the validator's reason; development builds pass them. */
-		refused?: readonly { file: string; reason: string }[];
+		/** Every routine, in the order registered; the open ones are shown. */
+		routines?: readonly RoutineEntry[];
+		/** Starts a session of the routine; without it, no routine block can be started. */
+		onroutine?: (id: string) => void;
+		/** What the definition files refused, with the reason; development builds pass them. */
+		refused?: readonly Refusal[];
+		/** How many imported files have a refusal; shown in every build. */
+		importedProblems?: number;
+		/** Whether the load refused a file or an object of the catalog; told in every build. */
+		catalogRefused?: boolean;
 	} = $props();
 
 	const t = $derived(homeMessages());
 
 	const words = $derived({ short: t.minutes, spoken: t.minutesSpoken });
 
+	const offered = $derived(routines.filter((routine) => routine.open));
+
 	/** Due reviews, or when the next ones come; nothing without a learned card. */
-	const reviews = $derived.by((): string | null => {
-		if (stats.dueCount > 0) return t.due(stats.dueCount);
-		if (stats.nextReviewAt == null) return null;
-		const delay = formatRelativeDelay(stats.nextReviewAt, now, {
+	function reviewsOf(routine: RoutineEntry): string | null {
+		if (routine.due !== null && routine.due > 0) return t.due(routine.due);
+		if (routine.nextReviewAt === null) return null;
+		const delay = formatRelativeDelay(routine.nextReviewAt, now, {
 			soon: t.soon,
 			inMinutes: t.inMinutes,
 			inHours: t.inHours,
 			inDays: t.inDays
 		});
 		return `${t.nextReviews} · ${delay}`;
-	});
+	}
 
-	const reaction = $derived(
-		stats.medianColdOffsetMs == null
-			? t.emptyReaction
-			: `${Math.round(stats.medianColdOffsetMs)} ms`
+	/** Its reviews, and « au repos » as an exercise's entry marks it. */
+	function whyOf(routine: RoutineEntry): string | undefined {
+		const lines = [reviewsOf(routine), routine.resting ? t.resting : null].filter(
+			(line) => line !== null
+		);
+		return lines.length > 0 ? lines.join(' · ') : undefined;
+	}
+
+	const blocks = $derived(
+		offered.map((routine): Block => ({
+			key: `routine-${routine.id}`,
+			title: routine.title[i18n.locale],
+			why: whyOf(routine),
+			// Every session plays on the session controller: one session length.
+			duration: formatMinutes(SESSION_MS, words),
+			...(onroutine && { onselect: () => onroutine(routine.id) })
+		}))
 	);
-
-	const trend = $derived(
-		formatTrend(stats.trend, {
-			improving: t.improving,
-			stable: t.stable,
-			worsening: t.worsening
-		})
-	);
-
-	const blocks = $derived.by((): Block[] => {
-		const list: Block[] = [
-			{
-				key: 'learn',
-				title: t.session,
-				why: reviews ?? undefined,
-				// The notes play on the session controller: one session length, as every exercise.
-				duration: formatMinutes(SESSION_MS, words),
-				onselect: onstart
-			}
-		];
-		if (ontriads) {
-			list.push({
-				key: 'triads',
-				title: t.triads,
-				why: triads.anchorDue > 0 ? t.triadsDue(triads.anchorDue) : undefined,
-				duration: formatMinutes(SESSION_MS, words),
-				onselect: () => ontriads('triads')
-			});
-			if (triads.zoneDue !== null) {
-				list.push({
-					key: 'triads-zone',
-					title: t.triadsZone,
-					why: triads.zoneDue > 0 ? t.due(triads.zoneDue) : undefined,
-					duration: formatMinutes(SESSION_MS, words),
-					onselect: () => ontriads('triads-zone')
-				});
-			}
-		}
-		if (ongesture && gesture.open) {
-			list.push({
-				key: 'gesture',
-				title: t.gesture,
-				duration: formatMinutes(SESSION_MS, words),
-				onselect: ongesture
-			});
-		}
-		for (const exercise of exercises ?? []) {
-			list.push({
-				key: `exercise-${exercise.id}`,
-				title: t.exercises,
-				subtitle: exercise.title?.[i18n.locale] ?? exercise.id,
-				why: resting.includes(exercise.id) ? t.resting : undefined,
-				duration: formatMinutes(SESSION_MS, words),
-				href: `/session?kind=exercise&exercise=${exercise.id}`
-			});
-		}
-		return list;
-	});
 </script>
 
 <Page title={t.title}>
-	<BlockList label={t.blocks} {blocks} current="learn" />
-	<footer>
-		<p class="gap">
-			<span class="label">{t.reactionLabel}</span>
-			<span class="value">{reaction}</span>
-			{#if trend}<span class="trend">{trend}</span>{/if}
+	{#if offered.length > 0}
+		<BlockList label={t.blocks} {blocks} current={`routine-${offered[0].id}`} />
+		<footer>
+			<Button onclick={onstart}>{t.start}</Button>
+		</footer>
+	{:else}
+		<p class="nothing">
+			{t.nothingToPlay}
+			<a href={resolve('/library')}>{t.library}</a>
 		</p>
-		<Button onclick={onstart}>{t.start}</Button>
-	</footer>
+	{/if}
+	{#if catalogRefused}
+		<p class="state">{t.catalogRefused}</p>
+	{/if}
+	{#if importedProblems > 0}
+		<p class="state">
+			{t.importedProblems(importedProblems)}
+			<a href={`${resolve('/settings')}#imported-files`}>{t.importedProblemsLink}</a>
+		</p>
+	{/if}
 	{#if refused.length > 0}
 		<section class="refused" aria-label={t.refusedTitle}>
 			<h2>{t.refusedTitle}</h2>
 			<ul>
-				{#each refused as { file, reason } (file)}
-					<li>{t.refusedWhy(file.split('/').pop() ?? file, reason)}</li>
+				{#each refused as refusal, index (index)}
+					<li>{refusalText(refusal, i18n.locale)}</li>
 				{/each}
 			</ul>
 		</section>
@@ -152,9 +113,37 @@
 	footer {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: var(--np-step-2);
 		margin-top: var(--np-step-6);
+	}
+
+	.nothing {
+		margin: 0;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--np-step-1) var(--np-step-2);
+	}
+
+	.state {
+		margin: var(--np-step-6) 0 0;
+		color: var(--np-earth-text);
+		font-size: var(--np-size-meta);
+	}
+
+	.state + .state {
+		margin-top: var(--np-step-1);
+	}
+
+	a {
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+
+	a:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 4px;
 	}
 
 	.refused {
@@ -173,29 +162,5 @@
 		margin: 0;
 		padding-left: var(--np-step-3);
 		overflow-wrap: anywhere;
-	}
-
-	.gap {
-		margin: 0;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--np-step-1) var(--np-step-2);
-	}
-
-	.label {
-		font-size: var(--np-size-meta);
-		color: var(--np-muted-text);
-	}
-
-	.value {
-		font-size: var(--np-size-title);
-		font-weight: 300;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.trend {
-		font-size: var(--np-size-meta);
-		color: var(--np-earth-text);
 	}
 </style>

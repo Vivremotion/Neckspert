@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { midiOnString, parseVoicingKey, voicingOccurrences } from '$lib/domain/music';
@@ -7,10 +6,12 @@ import { METER_4_4, type ResponseValue } from '$lib/domain/time';
 import type { ExpectationResult } from '$lib/domain/time/modes/responseVerdict';
 import { occurrenceId } from '$lib/domain/triads';
 import type { PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import { identifyPresenter } from '$lib/application/mechanics/identify';
+import { placedNotePresenter } from '$lib/application/sets/placedNote';
 import { TRIAD_MESSAGES } from './triadMessages';
 import { presentPrompt } from './presentPrompt';
 import { promptStage } from './promptStage';
+import { GESTURE_CLIMB, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { anchorWithZone, servedPassageRound } from '$lib/testing/changesPassages';
 
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 const D_ON_G = 'D|maj|3:1,2:3,1:5';
@@ -18,7 +19,7 @@ const D_ON_G = 'D|maj|3:1,2:3,1:5';
 function planned(definition: ExerciseDefinition, item: unknown): PlannedItem {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'review',
@@ -199,8 +200,8 @@ describe('promptStage', () => {
 		).toBeNull();
 	});
 
-	it('gives the answer keys of a screen mechanic', () => {
-		const choices = identifyPresenter.answerChoices!();
+	it('gives the answer keys of items answered on the screen', () => {
+		const choices = placedNotePresenter.answerChoices!();
 		const item = { string: 3, fret: 3 };
 		const tapped = value('wrong', [
 			result(0, { answer: { pitch: 'A' }, correct: false, confusion: null })
@@ -214,6 +215,40 @@ describe('promptStage', () => {
 			offsetMs: null,
 			answerLabel: 'A',
 			misses: [{ correction: 'A# / Bb', heard: null, expected: null, gap: null }]
+		});
+	});
+
+	it("gives the prompt the fields of its round's member content", () => {
+		const definition: ExerciseDefinition = {
+			...GESTURE_CLIMB,
+			presentation: { primary: '{symbol}', detail: '{strings} · {toward}' }
+		};
+		const { planned: item, plan } = servedPassageRound(
+			definition,
+			'grid=iohefy-a;strings=3,2,1',
+			1,
+			{ direction: 'down' }
+		);
+		const model = promptStage({
+			definition,
+			item,
+			plan,
+			settled: null,
+			place: PLACE,
+			beatsPerBar: 4,
+			chordDiagram: 'grid',
+			choices: [],
+			locale: 'fr',
+			random: () => 0
+		});
+		expect(model.prompt).toMatchObject({ primary: 'G7', detail: 'sol‑si‑mi · ↓ en descendant' });
+	});
+
+	it('reads a field of the first member content that offers it, after a note that offers none', () => {
+		const definition = anchorWithZone({ primary: '{chord}', detail: '{strings} · {frets}' });
+		expect(stage(definition, ANCHOR, null).prompt).toMatchObject({
+			primary: 'D',
+			detail: 'sol‑si‑mi · 1 à 12'
 		});
 	});
 });

@@ -9,9 +9,11 @@ import type {
 	LaneEntry,
 	PlaySessionController,
 	PlayTimeline,
-	PlayView
+	PlayView,
+	PlayOrigin
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM, LOCATE_NECK } from '$lib/domain/exercise';
+import { DEFAULT_TEMPO_BPM, type ExerciseDefinition } from '$lib/domain/exercise';
+import { exercisesOnSet, LOCATED_NOTES } from '$lib/domain/progress/neck';
 import { acceptableMidis, midiOnString, type LocateItem } from '$lib/domain/music';
 import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
@@ -53,6 +55,11 @@ const LEAD = 8;
 /** The breathing bar after a target: its verdict stays, then the next note comes. */
 const BREATH_BEATS = DEFAULT_RESPIRATION_BARS * BAR_BEATS;
 
+/** The exercise the demo plays: the first registered one that locates notes; none without. */
+export function locateDemoExercise(): ExerciseDefinition | undefined {
+	return exercisesOnSet(LOCATED_NOTES)[0];
+}
+
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
 
@@ -62,6 +69,8 @@ const noRandom = () => 0;
  */
 export class DemoPlaySession implements PlaySessionController {
 	readonly sessionId = 'demo-play';
+	/** What the demonstration is named as, given by its page; nothing by default. */
+	origin?: PlayOrigin;
 	readonly view: PlayView;
 	readonly timeline: PlayTimeline;
 
@@ -84,7 +93,8 @@ export class DemoPlaySession implements PlaySessionController {
 			audioError: null,
 			stage: null,
 			briefing: null,
-			announcement: null
+			announcement: null,
+			leaving: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()
@@ -163,9 +173,11 @@ export class DemoPlaySession implements PlaySessionController {
 
 	#show(place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'verdict'>): void {
 		const { item } = SCRIPT[this.#step];
+		const exercise = locateDemoExercise();
+		if (!exercise) throw new Error('No exercise locates notes: nothing to demonstrate');
 		const planned = {
-			exerciseId: LOCATE_NECK.id,
-			mechanic: LOCATE_NECK.mechanic,
+			exerciseId: exercise.id,
+			skill: exercise.practices,
 			exerciseLevel: 0,
 			item,
 			phase: 'review',
@@ -176,7 +188,7 @@ export class DemoPlaySession implements PlaySessionController {
 		this.view.stage = {
 			view: 'lane',
 			model: {
-				prompt: presentPrompt(LOCATE_NECK, planned, i18n.locale, noRandom),
+				prompt: presentPrompt(exercise, planned, i18n.locale, noRandom),
 				history: this.#history,
 				bands: [],
 				beatsPerBar: BAR_BEATS,
@@ -206,12 +218,20 @@ export class DemoPlaySession implements PlaySessionController {
 		const missed = verdict === 'wrong';
 		// The wrong note is the string's open note, played; a right one, the target.
 		const answer = { midi: missed ? midiOnString(item.string, 0) : acceptableMidis(item)[0] };
-		const note = CONTENT_VIEWS.note;
+		// Judged as locate asks it: any place of the note on its string.
+		const content = {
+			family: 'note-places',
+			index: { pitch: item.pitch, string: item.string },
+			selection: { family: 'note-places' }
+		};
+		const member = CONTENT_VIEWS.member;
 		const told: StageVerdict = {
 			verdict,
 			offsetMs,
-			answerLabel: note.answerLabel(item, answer, i18n.locale, noRandom),
-			misses: missed ? [note.miss(item, { answer, confusion: null }, i18n.locale, noRandom)] : []
+			answerLabel: member.answerLabel(content, answer, i18n.locale, noRandom),
+			misses: missed
+				? [member.miss(content, { answer, confusion: null }, i18n.locale, noRandom)]
+				: []
 		};
 		this.#show({ anchorBeat: target, promptBeat: this.#promptBeat, verdict: told });
 		this.view.status = 'verdict';

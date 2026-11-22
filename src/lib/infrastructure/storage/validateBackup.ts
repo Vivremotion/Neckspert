@@ -1,4 +1,3 @@
-import { MECHANIC_RULES, type MechanicIdentity } from '$lib/domain/mechanics';
 import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
@@ -13,7 +12,6 @@ import {
 	type BackupFile,
 	type ItemPhase,
 	type Locale,
-	type SessionKind,
 	type Temperature
 } from '$lib/domain/types';
 import { V1_EXERCISE_IDS, convertV1, type V1Backup } from './legacy/v1';
@@ -21,14 +19,18 @@ import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
 import { backupV5ToV6 } from './migrations/v10';
+import { EXERCISE_IDS_V13, MECHANICS_V12, backupV8ToV9, type MechanicV12 } from './migrations/v13';
 import { backupV6ToV7, type BackupV6, type BackupV7 } from './migrations/v11';
 import {
 	FIGURE_MECHANIC_V12,
 	RHYTHM_FIGURE_MECHANIC_V11,
 	RHYTHM_FIGURE_RULES_V11,
 	backupV7ToV8,
-	isCyclePlanV11
+	isCyclePlanV11,
+	type BackupV8
 } from './migrations/v12';
+import { hasCards, hasSkill, skillById } from '$lib/domain/skill/registry';
+import { ITEM_SETS, type ItemSet } from '$lib/domain/sets';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -37,7 +39,8 @@ const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
-const SESSION_KINDS: readonly SessionKind[] = [
+/** The kinds of session files 1 to 8 recorded (frozen: version 9 records what a session played). */
+const SESSION_KINDS: readonly string[] = [
 	'learn',
 	'free',
 	'triads',
@@ -81,9 +84,9 @@ const OBSERVATION_FATES: readonly string[] = [
  * The mechanics a file of version 1 to 7 may name: today's, the rhythm's under its name until
  * version 8 (`RHYTHM_FIGURE_RULES_V11`, frozen) instead of `figure`.
  */
-const MECHANICS_BEFORE_V8: readonly MechanicIdentity[] = [
-	...MECHANIC_RULES.filter((rules) => rules.id !== FIGURE_MECHANIC_V12),
-	RHYTHM_FIGURE_RULES_V11
+const MECHANICS_BEFORE_V8: readonly MechanicV12[] = [
+	...MECHANICS_V12.filter((rules) => rules.id !== FIGURE_MECHANIC_V12),
+	{ ...RHYTHM_FIGURE_RULES_V11, cards: false }
 ];
 const VERDICT_PROBLEM = 'must be perfect, early, late, offbeat, corrected or wrong';
 
@@ -132,8 +135,8 @@ function sameValue(a: unknown, b: unknown): boolean {
 
 function rulesOf(
 	mechanic: unknown,
-	mechanics: readonly MechanicIdentity[] = MECHANIC_RULES
-): MechanicIdentity | null {
+	mechanics: readonly MechanicV12[] = MECHANICS_V12
+): MechanicV12 | null {
 	return mechanics.find((rules) => rules.id === mechanic) ?? null;
 }
 
@@ -317,9 +320,9 @@ function checkAttemptHeader(attempt: Fields): string | null {
 	return null;
 }
 
-function checkSessionFields(session: Fields): string | null {
+function checkSessionFields(session: Fields, kind = true): string | null {
 	if (typeof session.id !== 'string' || session.id === '') return 'id must be a non-empty string';
-	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn, free or triads';
+	if (kind && !isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn, free or triads';
 	if (!isFiniteNumber(session.startedAt)) return 'startedAt must be a number';
 	if (!isNullableNumber(session.endedAt)) return 'endedAt must be a number or null';
 	if (typeof session.fatigueDetected !== 'boolean') return 'fatigueDetected must be a boolean';
@@ -351,7 +354,7 @@ function checkHeader(file: unknown, version: number): Fields {
 function parseV1Key(key: unknown): Fields | null {
 	if (typeof key !== 'string') return null;
 	try {
-		const { mechanic, itemKey } = parseCardKey(key);
+		const { skill: mechanic, itemKey } = parseCardKey(key);
 		if (!Object.hasOwn(V1_EXERCISE_IDS, mechanic)) return null;
 		const rules = rulesOf(mechanic);
 		return rules && { direction: mechanic, ...(rules.parseItem(itemKey) as Fields) };
@@ -415,7 +418,7 @@ export function validateBackupV1(file: unknown): V1Backup {
 
 // Version 2: mechanic cards and attempts, executions, progressions.
 
-function mechanicProblem(mechanics: readonly MechanicIdentity[] = MECHANIC_RULES): string {
+function mechanicProblem(mechanics: readonly MechanicV12[] = MECHANICS_V12): string {
 	return `mechanic must be one of ${mechanics.map((rules) => rules.id).join(', ')}`;
 }
 
@@ -427,25 +430,58 @@ function checkItem(
 	keyField: string,
 	itemField: string,
 	prompted = false,
-	mechanics: readonly MechanicIdentity[] = MECHANIC_RULES
+	mechanics: readonly MechanicV12[] = MECHANICS_V12
 ): string | null {
 	const rules = rulesOf(mechanic, mechanics);
 	if (!rules) return mechanicProblem(mechanics);
+	return checkKeyedItem(rules, rules.id, 'mechanic', key, item, keyField, itemField, prompted);
+}
+
+/**
+ * The key must be `cardKey(prefix, itemKey(item))` as `rules` write its item, and the item the
+ * one the key names (or, `prompted`, a prompted item its card keeps part of).
+ */
+function checkKeyedItem(
+	rules: Pick<MechanicV12, 'itemKey' | 'parseItem' | 'cardItem'>,
+	prefix: string,
+	prefixName: string,
+	key: unknown,
+	item: unknown,
+	keyField: string,
+	itemField: string,
+	prompted: boolean
+): string | null {
 	if (typeof key !== 'string') return `${keyField} is not a valid card key`;
 	let parsed: unknown;
 	try {
 		const split = parseCardKey(key);
-		if (split.mechanic !== rules.id) return `${keyField} does not match mechanic`;
+		if (split.skill !== prefix) return `${keyField} does not match ${prefixName}`;
 		parsed = rules.parseItem(split.itemKey);
 	} catch {
 		return `${keyField} is not a valid card key`;
 	}
-	if (cardKey(rules.id, rules.itemKey(parsed)) !== key)
-		return `${keyField} is not a valid card key`;
+	if (cardKey(prefix, rules.itemKey(parsed)) !== key) return `${keyField} is not a valid card key`;
 	// A prompted item may add to its card's (a position drawn for one prompt).
 	const kept = prompted && rules.cardItem ? rules.cardItem(item) : item;
 	if (!sameValue(kept, parsed)) return `${itemField} does not match ${keyField}`;
 	return null;
+}
+
+/** The key must be `cardKey(skill, itemKey(item))` for an item `set` reads back from it. */
+function checkKey(
+	set: Pick<ItemSet, 'itemKey' | 'parseItem'>,
+	skill: string,
+	key: string,
+	keyField: string
+): string | null {
+	try {
+		const parsed = set.parseItem(key.slice(skill.length + 1));
+		return cardKey(skill, set.itemKey(parsed)) === key
+			? null
+			: `${keyField} is not a valid card key`;
+	} catch {
+		return `${keyField} is not a valid card key`;
+	}
 }
 
 function checkCard(card: Fields): string | null {
@@ -461,14 +497,78 @@ function checkCardV6(card: Fields): string | null {
 	);
 }
 
+/** What names the items of a card or an attempt: its mechanic (files 1 to 8) or its skill (9). */
+interface Identity {
+	/** Why the entry names no identity the file may hold; null when it does. */
+	named(entry: Fields): string | null;
+	/** Why its key does not name its item; null when it does. */
+	item(
+		entry: Fields,
+		key: unknown,
+		item: unknown,
+		keyField: string,
+		itemField: string,
+		prompted: boolean
+	): string | null;
+}
+
+/** Entries named by one of `mechanics`, keyed by its id. */
+function byMechanic(mechanics: readonly MechanicV12[]): Identity {
+	return {
+		named: (entry) => (rulesOf(entry.mechanic, mechanics) ? null : mechanicProblem(mechanics)),
+		item: (entry, key, item, keyField, itemField, prompted) =>
+			checkItem(entry.mechanic, key, item, keyField, itemField, prompted, mechanics)
+	};
+}
+
+/**
+ * Version 9: entries named by their skill, keyed by it. A card of a skill the registry holds is
+ * live state a session serves: its key is read by the set of its items, as the set writes them
+ * today (version 13 took the length of a turn and the rank of a shape out of them), and a card of
+ * a skill with cards whose key the set reads keeps the item its key names (one it cannot read is
+ * kept as written and ignored, no list names it). An attempt is history, its key only groups it
+ * by card: it is never refused for a key its set cannot read; a readable key of a skill with
+ * cards still names the item the attempt keeps (a skill without keeps what it played: the link, a
+ * change, keyed by its placed voicing). The key of a skill no loaded file defines is kept as it is
+ * (its progress is not lost).
+ */
+const BY_SKILL: Identity = {
+	named(entry) {
+		if (Object.hasOwn(entry, 'mechanic')) return 'mechanic is gone: an entry names its skill';
+		return isNonEmptyString(entry.skill) ? null : 'skill must be a non-empty string';
+	},
+	item(entry, key, item, keyField, itemField, prompted) {
+		const skill = entry.skill as string;
+		if (typeof key !== 'string' || !key.startsWith(`${skill}:`) || key === `${skill}:`) {
+			return `${keyField} does not match skill`;
+		}
+		if (!hasSkill(skill)) return null;
+		const set = ITEM_SETS.find(({ id }) => id === skillById(skill).items);
+		if (!set) return null;
+		if (prompted) {
+			// An attempt.
+			if (!hasCards(skill) || checkKey(set, skill, key, keyField)) return null;
+			return checkKeyedItem(set, skill, 'skill', key, item, keyField, itemField, prompted);
+		}
+		if (hasCards(skill)) {
+			// A card no list names is kept and ignored: a key its set cannot read is not refused,
+			// and there is no item to compare it with.
+			if (checkKey(set, skill, key, keyField)) return null;
+			return checkKeyedItem(set, skill, 'skill', key, item, keyField, itemField, prompted);
+		}
+		return checkKey(set, skill, key, keyField);
+	}
+};
+
 function checkAttempt(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	const header = checkAttemptHeader(attempt);
 	if (header) return header;
 	if (!isNonEmptyString(attempt.exerciseId)) return 'exerciseId must be a non-empty string';
-	if (!rulesOf(attempt.mechanic, mechanics)) return mechanicProblem(mechanics);
+	const named = identity.named(attempt);
+	if (named) return named;
 	const data = attempt.data;
 	if (!isFields(data) || !Object.hasOwn(data, 'item')) {
 		return 'data must be an object with an item';
@@ -477,15 +577,7 @@ function checkAttempt(
 		return 'tempoBpm must be a positive number or null';
 	}
 	return (
-		checkItem(
-			attempt.mechanic,
-			attempt.cardKey,
-			data.item,
-			'cardKey',
-			'data.item',
-			true,
-			mechanics
-		) ??
+		identity.item(attempt, attempt.cardKey, data.item, 'cardKey', 'data.item', true) ??
 		checkAttemptFields(attempt) ??
 		checkConfusion(data.confusion, 'data.confusion')
 	);
@@ -508,8 +600,8 @@ function checkExecution(execution: unknown, index: number): string | null {
 	return null;
 }
 
-function checkSession(session: Fields): string | null {
-	const problem = checkSessionFields(session);
+function checkSession(session: Fields, kind = true): string | null {
+	const problem = checkSessionFields(session, kind);
 	if (problem) return problem;
 	if (!Array.isArray(session.executions)) return 'executions must be an array';
 	for (const [index, execution] of session.executions.entries()) {
@@ -597,15 +689,21 @@ function checkContestReason(value: unknown): string | null {
 
 function checkAttemptV3(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	return (
-		checkAttempt(attempt, mechanics) ??
+		checkAttempt(attempt, identity) ??
 		checkObservations(attempt.observations) ??
 		checkContested(attempt.contested) ??
 		checkContestReason(attempt.contestReason) ??
 		(isScope(attempt.tempoScope) ? null : 'tempoScope must be a non-empty string')
 	);
+}
+
+function checkLevelReached(session: Fields): string | null {
+	return session.levelReached === undefined || Number.isInteger(session.levelReached)
+		? null
+		: 'levelReached must be a whole number';
 }
 
 function checkSessionV3(session: Fields): string | null {
@@ -618,9 +716,7 @@ function checkSessionV3(session: Fields): string | null {
 		checkSession(session) ??
 		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null') ??
 		(exerciseOk ? null : 'exerciseId must be a non-empty string') ??
-		(session.levelReached === undefined || Number.isInteger(session.levelReached)
-			? null
-			: 'levelReached must be a whole number')
+		checkLevelReached(session)
 	);
 }
 
@@ -644,10 +740,10 @@ export function validateBackupV3(file: unknown): Fields {
 
 function checkAttemptV4(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	if (isBeforeTarget(attempt)) return 'verdict must be { relation, version, value }';
-	return checkAttemptV3(attempt, mechanics);
+	return checkAttemptV3(attempt, identity);
 }
 
 function isNaturalNumber(value: unknown): boolean {
@@ -665,14 +761,20 @@ function checkLevelState(state: Fields): string | null {
 	return null;
 }
 
-/** The tables of versions 4 to 7; cards lose their lead at 6. */
-function checkBackupTables(backup: Fields, cardCheck: Check, attemptCheck: Check): void {
+/** The tables of versions 4 to 9; cards lose their lead at 6, sessions their kind at 9. */
+function checkBackupTables(
+	backup: Fields,
+	cardCheck: Check,
+	attemptCheck: Check,
+	sessionCheck: Check = checkSessionV3,
+	levelStateCheck: Check = checkLevelState
+): void {
 	const settingsProblem = checkSettingsV4(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
 	checkEntries(backup.cards, 'cards', cardCheck);
 	checkEntries(backup.attempts, 'attempts', attemptCheck);
-	checkEntries(backup.sessions, 'sessions', checkSessionV3);
-	checkEntries(backup.levelStates, 'levelStates', checkLevelState);
+	checkEntries(backup.sessions, 'sessions', sessionCheck);
+	checkEntries(backup.levelStates, 'levelStates', levelStateCheck);
 }
 
 /** The checks of versions 4 to 6, which hold the same tables, progressions included. */
@@ -684,11 +786,11 @@ function checkBackupBody(backup: Fields, cardCheck: Check = checkCard): void {
 /** Version 7: the scope of an attempt is its exercise level's, no longer its tempo's. */
 function checkAttemptV7(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	if (Object.hasOwn(attempt, 'tempoScope')) return 'tempoScope is renamed scope';
 	return (
-		checkAttemptV4(attempt, mechanics) ??
+		checkAttemptV4(attempt, identity) ??
 		(isScope(attempt.scope) ? null : 'scope must be a non-empty string')
 	);
 }
@@ -701,7 +803,89 @@ function checkAttemptV8(attempt: Fields): string | null {
 	if (isCyclePlanV11(attempt.plan)) {
 		return 'plan holds a cycle plan (cycleBars), kept as a round plan from version 8';
 	}
-	return checkAttemptV7(attempt, MECHANIC_RULES);
+	return checkAttemptV7(attempt, byMechanic(MECHANICS_V12));
+}
+
+/** Version 9: eight exercises are named after their skill; their old ids are refused. */
+function renamedExercise(id: unknown, field: string): string | null {
+	return typeof id === 'string' && Object.hasOwn(EXERCISE_IDS_V13, id)
+		? `${field} ${id} is renamed ${EXERCISE_IDS_V13[id]}`
+		: null;
+}
+
+/** Version 9: an attempt names its skill, its card key prefixed by it. */
+function checkAttemptV9(attempt: Fields): string | null {
+	if (isCyclePlanV11(attempt.plan)) {
+		return 'plan holds a cycle plan (cycleBars), kept as a round plan from version 8';
+	}
+	return renamedExercise(attempt.exerciseId, 'exerciseId') ?? checkAttemptV7(attempt, BY_SKILL);
+}
+
+/**
+ * Version 9: a level state may keep an old exercise id, an exercise without a definition (the
+ * migration keeps a state under it when its new key was already held).
+ */
+const checkLevelStateV9 = checkLevelState;
+
+/** Version 9: a session says the routine or the exercise it played, no longer its kind. */
+function checkSessionV9(session: Fields): string | null {
+	if (Object.hasOwn(session, 'kind')) return 'kind is gone: a session says its routine or exercise';
+	if (Object.hasOwn(session, 'exerciseId')) return 'exerciseId is renamed exercise';
+	if (session.routine !== undefined && !isNonEmptyString(session.routine)) {
+		return 'routine must be a non-empty string';
+	}
+	if (session.exercise !== undefined && !isNonEmptyString(session.exercise)) {
+		return 'exercise must be a non-empty string';
+	}
+	if (session.free !== undefined && session.free !== true) return 'free must be true';
+	const executions = Array.isArray(session.executions) ? session.executions : [];
+	return (
+		renamedExercise(session.exercise, 'exercise') ??
+		executions.reduce<string | null>(
+			(problem, execution: unknown, index) =>
+				problem ??
+				(isFields(execution)
+					? renamedExercise(execution.exerciseId, `executions[${index}].exerciseId`)
+					: null),
+			null
+		) ??
+		checkSession(session, false) ??
+		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null') ??
+		checkLevelReached(session)
+	);
+}
+
+/** Version 9: an imported definition file, its text as it was read. */
+function checkDefinitionFile(file: Fields): string | null {
+	if (!isNonEmptyString(file.name)) return 'name must be a non-empty string';
+	if (typeof file.text !== 'string') return 'text must be a string';
+	if (!isFiniteNumber(file.importedAt)) return 'importedAt must be a number';
+	return null;
+}
+
+/** Version 9: the imported definition files, each checked, no two of the same name. */
+function checkDefinitionFiles(value: unknown): void {
+	checkEntries(value, 'definitionFiles', checkDefinitionFile);
+	const seen = new Map<string, number>();
+	(value as Fields[]).forEach((file, index) => {
+		const name = file.name as string;
+		const first = seen.get(name);
+		if (first !== undefined) {
+			throw new Error(
+				`Invalid definitionFiles entry at index ${index}: name ${name} is already taken at index ${first}`
+			);
+		}
+		seen.set(name, index);
+	});
+}
+
+/** Version 9: a card names its skill, its key prefixed by it; no lead. */
+function checkCardV9(card: Fields): string | null {
+	return (
+		BY_SKILL.named(card) ??
+		BY_SKILL.item(card, card.key, card.item, 'key', 'item', false) ??
+		checkSchedulingAndDates(card, checkNoLead)
+	);
 }
 
 /** Checks a version 4 file and returns it unchanged: its level states are those of the exercises. */
@@ -748,21 +932,35 @@ export function validateBackupV7(file: unknown): BackupV7 {
  * Checks a version 8 file and returns it unchanged: as version 7, the rhythm's attempts of the
  * mechanic `figure`, every plan a round plan.
  */
-export function validateBackupV8(file: unknown): BackupFile {
+export function validateBackupV8(file: unknown): BackupV8 {
 	const backup = checkHeader(file, 8);
 	checkNoProgressions(backup);
 	checkBackupTables(backup, checkCardV6, checkAttemptV8);
+	return backup as unknown as BackupV8;
+}
+
+/**
+ * Checks a version 9 file and returns it unchanged: cards and attempts name their skill, their
+ * keys prefixed by it; sessions their routine or exercise; no old id of the eight exercises named
+ * after their skill (`EXERCISE_IDS_V13`); the imported definition files, one per name.
+ */
+export function validateBackupV9(file: unknown): BackupFile {
+	const backup = checkHeader(file, 9);
+	checkNoProgressions(backup);
+	checkBackupTables(backup, checkCardV9, checkAttemptV9, checkSessionV9, checkLevelStateV9);
+	checkDefinitionFiles(backup.definitionFiles);
 	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 8, and versions 1 to 7 brought to it by the migration chain, the one the
+ * Accepts version 9, and versions 1 to 8 brought to it by the migration chain, the one the
  * database upgrade runs. Throws a readable error on anything else.
  */
 export function validateBackup(file: unknown): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	const toV8 = (v7: Fields) => validateBackupV8(backupV7ToV8(validateBackupV7(v7)));
+	const toV9 = (v8: Fields) => validateBackupV9(backupV8ToV9(validateBackupV8(v8)));
+	const toV8 = (v7: Fields) => toV9(backupV7ToV8(validateBackupV7(v7)));
 	const toV7 = (v6: Fields) => toV8(backupV6ToV7(validateBackupV6(v6)));
 	const toV6 = (v5: Fields) => toV7(backupV5ToV6(validateBackupV5(v5)));
 	const toV5 = (v4: Fields) => toV6(backupV4ToV5(validateBackupV4(v4)));
@@ -776,6 +974,7 @@ export function validateBackup(file: unknown): BackupFile {
 	if (file.version === 5) return toV6(file);
 	if (file.version === 6) return toV7(file);
 	if (file.version === 7) return toV8(file);
-	if (file.version === 8) return validateBackupV8(file);
+	if (file.version === 8) return toV9(file);
+	if (file.version === 9) return validateBackupV9(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

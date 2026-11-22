@@ -6,9 +6,9 @@ import { cardSuccessRate, successRate } from './success';
 function attempt(overrides: AttemptOverrides = {}): Attempt {
 	return responseAttempt({
 		sessionId: 's',
-		exerciseId: 'locate-neck',
-		mechanic: 'locate',
-		cardKey: 'locate:6:G',
+		exerciseId: 'locate-note-string',
+		skill: 'locate-note-string',
+		cardKey: 'locate-note-string:6:G',
 		phase: 'learning',
 		temperature: 'hot',
 		aid: 'none',
@@ -37,11 +37,11 @@ describe('successRate', () => {
 
 describe('cardSuccessRate', () => {
 	it('looks at the card’s last five attempts of the session, probe left out', () => {
-		const other = attempt({ cardKey: 'locate:5:C' });
+		const other = attempt({ cardKey: 'locate-note-string:5:C' });
 		const own = [miss, attempt(), attempt(), attempt(), attempt(), miss];
-		expect(cardSuccessRate([attempt({ phase: 'probe' }), ...own, other], 'locate:6:G', 5)).toBe(
-			0.8
-		);
-		expect(cardSuccessRate([other], 'locate:6:G', 5)).toBeNull();
+		expect(
+			cardSuccessRate([attempt({ phase: 'probe' }), ...own, other], 'locate-note-string:6:G', 5)
+		).toBe(0.8);
+		expect(cardSuccessRate([other], 'locate-note-string:6:G', 5)).toBeNull();
 	});
 });

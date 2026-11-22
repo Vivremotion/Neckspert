@@ -1,25 +1,27 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
 	CONTENT_DERIVATIONS,
 	ITEM_NUMBERS,
 	type ContentDerivation,
 	type ItemNumber
 } from '$lib/domain/derivations';
-import { exerciseById, LOCATE_NECK } from '$lib/domain/exercise';
+import { exerciseById } from '$lib/domain/exercise';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
-import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
+import { NAME_CONTENT } from '$lib/domain/judges';
+import { INDEX_DERIVATIONS, type IndexDerivation } from '$lib/domain/families';
 import { acceptableMidis } from '$lib/domain/music';
-import { GESTURE_EXERCISES } from '$lib/domain/gesture';
-import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
-import { createGestureSelector } from '$lib/domain/progress';
+import type { ChangeData, ChangeItem } from '$lib/domain/sets';
+import { createPassageSource } from '$lib/domain/session/passageSource';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { Fraction, type LevelState, type Meter } from '$lib/domain/time';
-import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
 import { earlier } from '$lib/testing/rhythmSeries';
 import { triadCards } from '$lib/testing/shapes';
-import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
-import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
+import { changePresenter } from '$lib/application/sets/chordGrid';
+import { SET_PRESENTERS } from '$lib/application/sets';
+import { registerSkill } from '$lib/domain/skill/registry';
+import { GESTURE_EXERCISE_IDS, IDENTIFY_NECK_ID } from '$lib/testing/catalogIds';
+import type { SetPresenter, StagePlace } from '$lib/application/sets/types';
 import type { Observation, SensorFactory } from './sensors';
 import {
 	G_B_E,
@@ -35,6 +37,7 @@ import {
 	rightShape,
 	roles
 } from '$lib/testing/gestureSeries';
+import { LOCATE_NECK, GESTURE_EXERCISES } from '$lib/testing/catalog';
 
 /** The gesture's exercises as the catalog writes them, their round edited. */
 const withRound = (edit: (round: RoundTemplate) => RoundTemplate) => (id: string) => {
@@ -49,11 +52,26 @@ const withoutHandover = withRound((round) => {
 });
 
 describe('SessionController', () => {
+	describe('origin', () => {
+		it('names an exercise played alone through the lookup it is given, not the registry', () => {
+			const injected = {
+				...exerciseById('inversion-run'),
+				id: 'injected-run',
+				title: { fr: 'Enchaînement injecté', en: 'Injected run' }
+			};
+			const ctx = setup(passage(), {
+				origin: { exercise: injected.id },
+				exercise: (id) => (id === injected.id ? injected : exerciseById(id))
+			});
+			expect(ctx.controller.origin.title).toEqual(injected.title);
+		});
+	});
+
 	describe('start', () => {
 		it('tells an exercise’s instruction in every series, played before or not', async () => {
 			const ctx = setup(passage());
-			await ctx.repositories.attempts.add({ ...earlier('gesture-jam'), mechanic: 'chord-grid' });
-			expect(exerciseById('gesture-jam').flow?.briefing).toBeUndefined();
+			await ctx.repositories.attempts.add({ ...earlier('grid-reading'), skill: 'grid-reading' });
+			expect(exerciseById('grid-reading').flow?.briefing).toBeUndefined();
 			await ctx.controller.ready();
 			expect(ctx.controller.view.briefing?.text).toMatch(/grille/);
 		});
@@ -262,7 +280,7 @@ describe('SessionController', () => {
 			ctx.runTo(9.1);
 			expect(ctx.controller.view.status).toBe('awaiting');
 			ctx.runTo(10.13);
-			ctx.play(10.12, rightShape(change(0)));
+			ctx.play(10.12, rightShape(change(0, { scope: 'blues-f' })));
 			// Two bars at ♩ = 60 (8 s), then the ballad again at ♩ = 120 after a counted bar.
 			ctx.runTo(18.1 - 0.19);
 			expect(ctx.controller.view.tempoBpm).toBe(120);
@@ -282,7 +300,7 @@ describe('SessionController', () => {
 
 	describe('instruction', () => {
 		it('stops before the first passage of another exercise: nothing plays until resume, which counts a bar at its tempo', async () => {
-			const ctx = setup([...passage(), ...passage({ passage: 's:1', exerciseId: 'gesture-zone' })]);
+			const ctx = setup([...passage(), ...passage({ passage: 's:1', exerciseId: 'grid-in-zone' })]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) - 0.2);
 			expect(ctx.controller.view.status).toBe('paused');
@@ -301,7 +319,7 @@ describe('SessionController', () => {
 			expect(clicksBetween(ctx, 30, 34.1)).toEqual([30.1, 31.1, 32.1, 33.1]);
 			ctx.runTo(33.11);
 			expect(ctx.controller.view.status).toBe('awaiting');
-			expect((model(ctx) as unknown as { cue: { kind: string } }).cue.kind).toBe('jam');
+			expect(model(ctx).prompt.detail).toBe('cases 1 à 5');
 		});
 	});
 
@@ -334,7 +352,7 @@ describe('SessionController', () => {
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(1) + 0.5);
 			// Another chord than the one asked.
-			ctx.play(ctx.bar(1) + 0.02, occurrenceId(triadShapes(change(1).item as ChordGridItem)[0]));
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(1)));
 			ctx.controller.pause();
 			await drain();
 			const [attempt] = await ctx.stored();
@@ -371,7 +389,7 @@ describe('SessionController', () => {
 			expect(session.endedAt).not.toBeNull();
 			// One execution per exercise and scope met, at the tempo of its first round.
 			expect(session.executions).toEqual([
-				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 }
+				{ exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 120 }
 			]);
 		});
 
@@ -435,8 +453,8 @@ describe('SessionController', () => {
 
 		it('spells an item alike from its preview to its settlement', async () => {
 			const seen: number[] = [];
-			const presenter: MechanicPresenter = {
-				...GESTURE_PRESENTERS['chord-grid'],
+			const presenter: SetPresenter = {
+				...changePresenter,
 				stageOf: (_item, _settled, _locale, _aids, _place, _drawing, random) => {
 					seen.push(random());
 					return { model: {} };
@@ -444,7 +462,9 @@ describe('SessionController', () => {
 			};
 			let drawn = 0;
 			const ctx = setup(passage(), {
-				mechanics: { 'chord-grid': presenter },
+				presenters: { ...SET_PRESENTERS, change: presenter },
+				// Drawn by the presenter's own screen: the exercise writes no presentation.
+				exercise: (id) => ({ ...exerciseById(id), presentation: undefined }),
 				random: () => ++drawn / 100
 			});
 			await ctx.controller.start();
@@ -500,7 +520,7 @@ describe('SessionController', () => {
 			expect(ctx.source.recorded[0]).toMatchObject({
 				success: true,
 				correct: true,
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				scope: 'iohefy-a'
 			});
 			await drain();
@@ -600,7 +620,7 @@ describe('SessionController', () => {
 			const ctx = setup([
 				...passage(),
 				...passage({ passage: 's:1', restBars: 1 }),
-				...passage({ passage: 's:2', exerciseId: 'gesture-zone' })
+				...passage({ passage: 's:2', exerciseId: 'grid-in-zone' })
 			]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(5.5));
@@ -655,7 +675,7 @@ describe('SessionController', () => {
 			]);
 			// A passage is a run: from its first change's prompt to the next counted bar.
 			const first = childOf(series, 'run');
-			expect(first).toMatchObject({ level: 0, exerciseId: 'gesture-jam', ended: 'done' });
+			expect(first).toMatchObject({ level: 0, exerciseId: 'grid-reading', ended: 'done' });
 			expect(first?.startS).toBeCloseTo(ctx.bar(0.75), 6);
 			expect(first?.endS).toBeCloseTo(ctx.bar(3), 6);
 			expect(first?.children.map((child) => [child.role, child.ended])).toEqual([
@@ -895,7 +915,8 @@ describe('SessionController', () => {
 	describe('the exercise catalog', () => {
 		it('reads an exercise through the lookup it is given, and lets an unknown one throw', async () => {
 			const exercise = (id: string) => ({ ...exerciseById(id), view: 'own-view' });
-			const ctx = setup(passage(), { exercise });
+			// Its view's presenter, as the changes' views have theirs.
+			const ctx = setup(passage(), { exercise, views: { 'own-view': changePresenter } });
 			await ctx.controller.ready();
 			expect(ctx.controller.view.stage?.view).toBe('own-view');
 			const unknown = setup([change(0, { exerciseId: 'nowhere' })]);
@@ -903,48 +924,46 @@ describe('SessionController', () => {
 		});
 	});
 
-	describe('the gesture selector', () => {
-		it('ends a link tour replayed past SESSION_MS at the end of its passage, with no new passage', async () => {
-			const cards = triadCards('triad-anchor', 'D', 'maj', G_B_E);
-			const selector = createGestureSelector({
-				definitions: GESTURE_EXERCISES,
+	describe('the passage source', () => {
+		it('ends a link tour played again past SESSION_MS at the end of its passage, with no new passage', async () => {
+			const cards = triadCards('chord-anchor', 'D', 'maj', G_B_E);
+			const source = createPassageSource({
+				exercises: GESTURE_EXERCISES,
 				cards,
 				attempts: [],
-				sessionId: 'series-1'
+				sessionId: 'series-1',
+				durationMs: SESSION_MS
 			});
-			const ctx = setup([], { sources: [selector] });
+			const ctx = setup([], { sources: [source] });
 			await ctx.controller.start();
-			// Nothing is played: the first tour fails and is replayed at once, chained.
-			const indexes: number[] = [];
+			// Nothing is played: the first tour fails and comes back whole, after a counted bar.
 			const watch = (until: number) => {
 				while (ctx.clock.now() < until && ctx.controller.view.status !== 'finished') {
 					ctx.runTo(ctx.clock.now() + 0.05);
-					const index = model(ctx)?.index;
-					if (index !== undefined && index !== indexes.at(-1)) indexes.push(index);
 				}
 			};
-			const tour = (model(ctx) as unknown as { changes: unknown[] }).changes.length;
-			watch(ctx.bar(1 + tour) - 0.1);
-			// The replay has begun; the series' time runs out in its middle.
-			watch(ctx.bar(1 + tour + 1));
+			const tour = model(ctx).rounds.length;
+			// The tour again has begun after its counted bar; the series' time runs out in its middle.
+			watch(ctx.bar(1 + tour + 1 + 1));
 			ctx.clock.epochAtZero += SESSION_MS;
 			watch(ctx.bar(1 + 3 * tour));
 			await drain();
 			expect(ctx.controller.view.status).toBe('finished');
 			const attempts = await ctx.stored();
-			const passages = new Set(
-				attempts.map((a) => (a.data as { item: ChordGridItem }).item.passageId)
-			);
-			expect(passages.size).toBe(2);
-			const replay = attempts.filter(
-				(a) => (a.data as { item: ChordGridItem }).item.continued === true
-			);
-			expect(replay.length).toBeGreaterThan(0);
-			expect(indexes.length).toBeGreaterThan(tour);
+			const passages = attempts.map((a) => (a.data as ChangeData).passage!.id);
+			expect(new Set(passages).size).toBe(2);
+			// Played to its end: its seven shapes, from the lowest.
+			const again = attempts.filter((a) => (a.data as ChangeData).passage!.id === passages.at(-1));
+			expect(again.map((a) => (a.data as ChangeData).passage!.rank)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+			expect(tour).toBe(7);
 		});
 	});
 	describe('rounds without a handover', () => {
-		/** What the fake mechanic was asked to show, last first. */
+		// Skills on sets the code does not know, each presented by its own fake presenter.
+		for (const id of ['beat', 'beat-unannounced', 'tap']) {
+			registerSkill({ id, name: { fr: id, en: id }, items: id, memory: false }, 'test');
+		}
+		/** What the fake presenter was asked to show, last first. */
 		interface Shown {
 			index: number;
 			settled: string | null;
@@ -953,19 +972,18 @@ describe('SessionController', () => {
 		}
 		const NOTE_C = { string: 3 as const, pitch: 'C' as const };
 		const C = acceptableMidis(NOTE_C)[0];
-		/** A mechanic played on the guitar on the beat, its string shown a beat before its prompt. */
-		const presenter = (overrides: Partial<MechanicPresenter> = {}): MechanicPresenter => ({
-			...GESTURE_PRESENTERS['chord-grid'],
+		/** A set played on the guitar on the beat, its string shown a beat before its prompt. */
+		const presenter = (overrides: Partial<SetPresenter> = {}): SetPresenter => ({
+			...changePresenter,
 			scene: 'guitar',
 			sensors: ['note'],
 			expectation: undefined,
-			feedback: undefined,
 			attemptData: undefined,
 			contestable: false,
 			previewBeats: 1,
 			stageOf: (item, settled, _locale, aids, place) => ({
 				model: {
-					index: (item as ChordGridItem).index,
+					index: (item as ChangeItem).index,
 					settled: settled ? settled.value.verdict : null,
 					place,
 					aids
@@ -973,38 +991,45 @@ describe('SessionController', () => {
 			}),
 			...overrides
 		});
-		/** A mechanic tapped on the screen in free time, shown at its prompt. */
-		const TAP: MechanicPresenter = presenter({
+		/** A set tapped on the screen in free time, shown at its prompt. */
+		const TAP: SetPresenter = presenter({
 			scene: 'screen',
 			sensors: ['tap'],
 			previewBeats: undefined
 		});
-		const mechanics = {
-			...GESTURE_PRESENTERS,
+		const presenters = {
+			...SET_PRESENTERS,
 			beat: presenter(),
 			'beat-unannounced': presenter({ previewBeats: undefined }),
 			tap: TAP
 		};
-		// The rounds of these mechanics are templates like any exercise's; the notes they derive
-		// are the vocabulary this file adds to the registry.
-		const derivations = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
-		derivations['test-note-c'] = {
-			kind: NOTE_CONTENT,
+		// The rounds of these sets are templates like any exercise's; the note C on the G string
+		// they ask (any of its places, as locate asks a note) and the name are the vocabulary this
+		// file adds to the registries.
+		const indexes = INDEX_DERIVATIONS as Record<string, IndexDerivation>;
+		indexes['test-note-c'] = {
+			family: 'note-places',
 			reads: ['beat', 'beat-unannounced'],
-			derive: () => NOTE_C
+			index: () => NOTE_C
 		};
+		const derivations = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
 		derivations['test-name'] = {
 			kind: NAME_CONTENT,
 			reads: ['tap'],
 			derive: () => ({ string: 3, fret: 5 })
 		};
+		// The vocabulary leaves the live registries with this block.
+		afterAll(() => {
+			delete indexes['test-note-c'];
+			delete derivations['test-name'];
+		});
 		const BEAT_ROUND: RoundTemplate = {
 			...(LOCATE_NECK.round as RoundTemplate),
 			expectations: [
 				{
 					at: { beats: 0 },
 					sensor: 'note',
-					content: { from: 'test-note-c' },
+					content: { family: 'note-places', of: 'test-note-c' },
 					window: { ms: { param: 'windows.perfectMs' } }
 				}
 			]
@@ -1024,26 +1049,39 @@ describe('SessionController', () => {
 		};
 		/** The id of the exercise of the tapped items: the gesture's, its round the tap's. */
 		const TAP_EXERCISE = 'fake-tap';
-		/** The gesture's exercises, their round the beat's; the tap's under its own id. */
+		/** The id of the exercise of the beat shown at its prompt. */
+		const UNANNOUNCED_EXERCISE = 'fake-beat-unannounced';
+		/**
+		 * The gesture's exercises, their round the beat's, practising the beat with no view of their
+		 * own; the tap's and the unannounced beat's under their own ids.
+		 */
 		const fakeExercise = (id: string) => {
 			const tap = id === TAP_EXERCISE;
+			const unannounced = id === UNANNOUNCED_EXERCISE;
 			return {
-				...exerciseById(tap ? 'gesture-zone' : id),
+				...exerciseById(tap ? 'grid-in-zone' : unannounced ? 'grid-reading' : id),
 				id,
+				practices: tap ? 'tap' : unannounced ? 'beat-unannounced' : 'beat',
+				view: undefined,
+				// Drawn by their fake presenter's own screen: no presentation.
+				presentation: undefined,
 				round: tap ? TAP_ROUND : BEAT_ROUND
 			};
 		};
-		/** Item `index` of `mechanic`, at `lead`; the first one counted in. */
+		/** The exercises of the series: the beat's sensor and the tap's open. */
+		const plays = ['grid-reading', TAP_EXERCISE];
+		/** Item `index` of `skill`, at `lead`; the first one counted in. */
 		const beat = (
 			index: number,
 			lead: LeadBeats = 8,
 			extra: Partial<PlannedItem> = {},
-			mechanic = 'beat'
+			skill = 'beat'
 		): PlannedItem => ({
 			...change(index % 2),
-			item: { ...(change(index % 2).item as ChordGridItem), index },
-			mechanic,
-			...(mechanic === 'tap' && { exerciseId: TAP_EXERCISE }),
+			item: { ...change(index % 2).item, index },
+			skill,
+			...(skill === 'tap' && { exerciseId: TAP_EXERCISE }),
+			...(skill === 'beat-unannounced' && { exerciseId: UNANNOUNCED_EXERCISE }),
 			leadBeats: lead,
 			countIn: index === 0,
 			...extra
@@ -1069,7 +1107,8 @@ describe('SessionController', () => {
 		const series = (items: PlannedItem[], options: Parameters<typeof setup>[1] = {}) => {
 			const fake = fakeSensors();
 			const ctx = setup(items, {
-				mechanics,
+				presenters,
+				plays,
 				exercise: fakeExercise,
 				sensors: fake.sensors,
 				...options
@@ -1128,7 +1167,8 @@ describe('SessionController', () => {
 			/** Bar 1's clicks laid by the time the count is placed, before any of them is due. */
 			const laidAfterCount = async (items: PlannedItem[], exercise = fakeExercise) => {
 				const ctx = setup(items, {
-					mechanics,
+					presenters,
+					plays,
 					exercise,
 					sensors: fakeSensors().sensors
 				});
@@ -1159,7 +1199,8 @@ describe('SessionController', () => {
 			};
 			const fake = fakeSensors();
 			const ctx = setup([beat(0, 4), beat(1, 4)], {
-				mechanics,
+				presenters,
+				plays,
 				exercise: onBeat3,
 				sensors: fake.sensors
 			});
@@ -1257,7 +1298,7 @@ describe('SessionController', () => {
 			expect(shown(ctx)).toMatchObject({ index: 1, settled: null });
 		});
 
-		it('takes the mechanic’s defaults when the exercise says nothing', async () => {
+		it('takes the presenter’s defaults when the exercise says nothing', async () => {
 			const exercise = (id: string) => ({ ...fakeExercise(id), flow: {} });
 			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
 			await ctx.controller.start();
@@ -1367,8 +1408,8 @@ describe('SessionController', () => {
 					.map((s) => ({ time: s.time, accent: s.sound === 'click-accent' }));
 
 			it('counts a bar in the new meter between a timed item and one of another meter, then plays in it', async () => {
-				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'gesture-zone' })], {
-					exercise: inWaltz('gesture-zone'),
+				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'grid-in-zone' })], {
+					exercise: inWaltz('grid-in-zone'),
 					levelStates
 				});
 				await ctx.controller.start();
@@ -1404,7 +1445,7 @@ describe('SessionController', () => {
 
 			it('counts a bar in 3/4 after an item in free time first, then plays in it', async () => {
 				const ctx = series([beat(0, 8, {}, 'tap'), beat(1, 3, { countIn: true })], {
-					exercise: inWaltz('gesture-jam'),
+					exercise: inWaltz('grid-reading'),
 					levelStates
 				});
 				await ctx.controller.start();
@@ -1463,26 +1504,55 @@ describe('SessionController', () => {
 		});
 	});
 	describe('scenes, taps and the meter', () => {
-		/** The gesture's presenter on the screen: a scene that does not click, answered by taps too. */
-		const SCREEN_GRID: MechanicPresenter = {
-			...GESTURE_PRESENTERS['chord-grid'],
-			scene: 'screen',
-			sensors: ['chord', 'tap']
+		/** The gesture's presenter on the screen: a scene that does not click. */
+		const SCREEN_GRID: SetPresenter = { ...changePresenter, scene: 'screen' };
+		registerSkill(
+			{
+				id: 'screen-grid',
+				name: { fr: 'écran', en: 'screen' },
+				items: 'screen-grid',
+				memory: false
+			},
+			'test'
+		);
+		/**
+		 * The jam on the screen: its own exercise, practising the screen's skill, no view of its own.
+		 * Neither tells its instruction: the series moves from one to the other without a briefing.
+		 */
+		const SCREEN_JAM = 'screen-jam';
+		const screenExercise = (id: string) => {
+			const jam = { ...exerciseById(id === SCREEN_JAM ? 'grid-reading' : id), howTo: undefined };
+			if (id !== SCREEN_JAM) return jam;
+			// Its chord's shapes on the zone of strings, through the change's index derivation.
+			const round = jam.round!;
+			const expectations = round.expectations.map((expectation) => ({
+				...expectation,
+				content: { family: 'chord-shapes', of: 'change-chord' }
+			})) as typeof round.expectations;
+			return {
+				...jam,
+				id,
+				practices: 'screen-grid',
+				view: undefined,
+				round: { ...round, expectations }
+			};
 		};
-		const mechanics = { ...GESTURE_PRESENTERS, 'screen-grid': SCREEN_GRID };
-		// The chord grid's items, read under another mechanic's name.
-		const grids = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
-		grids['grid-change'] = {
-			...grids['grid-change'],
-			reads: [...grids['grid-change'].reads, 'screen-grid']
+		// The chord grid's items, read under another set's name.
+		const changeIndexes = INDEX_DERIVATIONS as Record<string, IndexDerivation>;
+		const changeChord = changeIndexes['change-chord'];
+		changeIndexes['change-chord'] = {
+			...changeChord,
+			reads: [...changeChord.reads, 'screen-grid']
 		};
 		const numbers = ITEM_NUMBERS as Record<string, ItemNumber>;
-		numbers['change-beats'] = {
-			...numbers['change-beats'],
-			reads: [...numbers['change-beats'].reads, 'screen-grid']
-		};
+		const changeBeats = numbers['change-beats'];
+		numbers['change-beats'] = { ...changeBeats, reads: [...changeBeats.reads, 'screen-grid'] };
+		afterAll(() => {
+			changeIndexes['change-chord'] = changeChord;
+			numbers['change-beats'] = changeBeats;
+		});
 		const onScreen = (items: PlannedItem[]) =>
-			items.map((item) => ({ ...item, mechanic: 'screen-grid' }));
+			items.map((item) => ({ ...item, skill: 'screen-grid', exerciseId: SCREEN_JAM }));
 		/** A sensor fed by the screen, keeping what it was pushed. */
 		const pushable = () => {
 			const pushed: unknown[] = [];
@@ -1494,7 +1564,14 @@ describe('SessionController', () => {
 		};
 		const screenSeries = (items: PlannedItem[], options: Parameters<typeof setup>[1] = {}) => {
 			const tap = pushable();
-			const ctx = setup(items, { mechanics, sensors: { tap: tap.factory }, ...options });
+			const ctx = setup(items, {
+				presenters: { ...SET_PRESENTERS, 'screen-grid': SCREEN_GRID },
+				exercise: screenExercise,
+				// A session that plays identify too opens the tap.
+				plays: [...GESTURE_EXERCISE_IDS, IDENTIFY_NECK_ID],
+				sensors: { tap: tap.factory },
+				...options
+			});
 			return { ...ctx, pushed: tap.pushed };
 		};
 		const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
@@ -1511,7 +1588,7 @@ describe('SessionController', () => {
 			expect(clicksBetween(ctx, ctx.bar(4), ctx.bar(5))).toEqual([8.1, 8.6, 9.1, 9.6]);
 		});
 
-		it('plays an exercise of a guitar mechanic on the screen when the exercise says so: no click', async () => {
+		it('plays an exercise played on the guitar on the screen when the exercise says so: no click', async () => {
 			const exercise = (id: string) => ({
 				...exerciseById(id),
 				flow: { scene: 'screen' as const }

@@ -3,6 +3,7 @@
  * how long it lasts. `compileRound` turns it into a `RoundPlan` for one item. Pure data, JSON as is.
  */
 import type { Accompaniment } from '../../time/accompaniment';
+import type { SelectionTemplate } from '../selection/types';
 
 /** A number: written, read in the item's resolved params by path, or measured on the item. */
 export type Num = number | { param: string } | { item: string };
@@ -16,6 +17,15 @@ export type Position = { beats: Num } | { bars: Num };
  */
 export type WindowTemplate = { ms: Num } | { ofGap: string } | { param: string };
 
+/** A content derived from the item; `pattern` spreads a list over a figure's notes. */
+export interface DerivedContentTemplate {
+	from: string;
+	pattern?: number[];
+}
+
+/** A content: derived from the item, or a selection. */
+export type ContentTemplate = DerivedContentTemplate | SelectionTemplate;
+
 /** One expectation at a place. */
 export interface PointExpectationTemplate {
 	/** null: free time. */
@@ -26,9 +36,9 @@ export interface PointExpectationTemplate {
 	sensor: string;
 	/**
 	 * Derived from the item by a named derivation that gives one content (its kind is the
-	 * derivation's); null: rhythm only.
+	 * derivation's), or a selection of a family's members; null: rhythm only.
 	 */
-	content: { from: string } | null;
+	content: { from: string } | SelectionTemplate | null;
 	window: WindowTemplate;
 	bar?: number;
 }
@@ -52,7 +62,7 @@ export interface FigureExpectationTemplate {
 	 * (`{ from: 'figure' }`), or an element of the list a derivation gives, the `k`-th note taking
 	 * element `pattern[k mod pattern.length]` (from 1; no pattern: the list in order, looped).
 	 */
-	content: null | { from: string; pattern?: number[] };
+	content: null | DerivedContentTemplate;
 	window: WindowTemplate;
 }
 

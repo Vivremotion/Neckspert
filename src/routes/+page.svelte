@@ -2,46 +2,33 @@
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { useAppServices } from '$lib/application/app';
-	import type { TriadsHome } from '$lib/application/app';
-	import { refusedLocalExercises } from '$lib/composition/localExercises';
-	import { exerciseSessionExercises } from '$lib/domain/exercise';
-	import type { HomeStats } from '$lib/domain/types';
+	import type { RoutineEntry } from '$lib/application/app';
+	import { importedProblemCount } from '$lib/application/definitions/problems';
+	import { loadedDefinitions } from '$lib/composition/definitions';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
 	const services = useAppServices();
 
-	let stats = $state<HomeStats | null>(null);
-	let triads = $state<TriadsHome>({ anchorDue: 0, zoneDue: null });
-	let gesture = $state({ open: false });
-	let resting = $state<string[]>([]);
+	/** What the load refused of the catalog, files and objects alike. */
+	function catalogRefusals() {
+		const loaded = loadedDefinitions();
+		return loaded ? loaded.catalog.refusals : [];
+	}
+
+	let routines = $state<RoutineEntry[]>([]);
+	/** The routines were read: the screen waits for them, so Space finds them; a failure is told. */
+	let routinesRead = $state(false);
 	let now = $state(Date.now());
 	let error = $state<string | null>(null);
 
 	$effect(() => {
 		let cancelled = false;
-		void services.triads().then(
-			(value) => {
-				if (!cancelled) triads = value;
-			},
-			() => {}
-		);
-		void services.resting(exerciseSessionExercises().map((exercise) => exercise.id)).then(
-			(value) => {
-				if (!cancelled) resting = value;
-			},
-			() => {}
-		);
-		void services.gesture().then(
-			(value) => {
-				if (!cancelled) gesture = value;
-			},
-			() => {}
-		);
-		void services.homeStats().then(
+		void services.routines().then(
 			(value) => {
 				if (!cancelled) {
-					stats = value;
+					routines = value;
 					now = Date.now();
+					routinesRead = true;
 				}
 			},
 			(err: unknown) => {
@@ -53,17 +40,16 @@
 		};
 	});
 
+	/** A routine's session, by its id (D6). */
+	function startRoutine(id: string) {
+		void goto(`/session?routine=${encodeURIComponent(id)}`);
+	}
+
+	/** « Commencer » and Space: the first open routine. */
 	function start() {
-		if (!stats) return;
-		void goto('/session?kind=learn');
-	}
-
-	function startTriads(kind: 'triads' | 'triads-zone') {
-		void goto(`/session?kind=${kind}`);
-	}
-
-	function startGesture() {
-		void goto('/session?kind=gesture');
+		if (!routinesRead) return;
+		const first = routines.find((routine) => routine.open);
+		if (first) startRoutine(first.id);
 	}
 
 	function onKeydown(event: KeyboardEvent) {
@@ -80,17 +66,14 @@
 
 {#if error}
 	<p role="alert">{error}</p>
-{:else if stats}
+{:else if routinesRead}
 	<HomeScreen
-		{stats}
 		{now}
 		onstart={start}
-		{triads}
-		ontriads={startTriads}
-		{gesture}
-		ongesture={startGesture}
-		exercises={exerciseSessionExercises()}
-		{resting}
-		refused={dev ? refusedLocalExercises() : []}
+		{routines}
+		onroutine={startRoutine}
+		refused={dev ? catalogRefusals() : []}
+		catalogRefused={catalogRefusals().length > 0}
+		importedProblems={importedProblemCount(services.definitions.refusals())}
 	/>
 {/if}

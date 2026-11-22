@@ -1,6 +1,7 @@
 export type { SoundSchedulerPort } from './SoundSchedulerPort';
 export type { TakeBufferPort } from './TakeBufferPort';
 export type { AudioClockPort } from './AudioClockPort';
+export type { LoadMarkPort } from './LoadMarkPort';
 export type {
 	AudioInputDevice,
 	NoteDetectorPort,
@@ -22,6 +23,8 @@ export type {
 	AttemptRepositoryPort,
 	BackupPort,
 	CardStateRepositoryPort,
+	DefinitionFileRecord,
+	DefinitionFileRepositoryPort,
 	LevelStateRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort

@@ -1,28 +1,34 @@
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/testing/catalogIds';
 /** The notes' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
 import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationOutcome, CalibrationPort } from '$lib/application/ports';
-import { NECK_PRESENTERS, type MechanicPresenter } from '$lib/application/mechanics';
+import { SET_PRESENTERS, VIEW_PRESENTERS, type SetPresenter } from '$lib/application/sets';
 import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import { noteSensor, tapSensor, type SensorFactory } from '$lib/application/session/sensors';
+import {
+	chordSensor,
+	noteSensor,
+	tapSensor,
+	type SensorFactory
+} from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById, type ExerciseDefinition } from '$lib/domain/exercise';
 import {
 	acceptableMidis,
 	formatNote,
-	neckCardKey,
 	pitchOnString,
 	stringLabel,
 	type IdentifyItem,
-	type LocateItem,
-	type NeckCard
+	type LocateItem
 } from '$lib/domain/music';
+import { neckCardKey, type NeckCard } from './neck';
 import { CHROMATIC_NOTES, STRING_NUMBERS, type PitchName } from '$lib/domain/music/types';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt, CardState } from '$lib/domain/types';
 import {
+	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
 	FakeNoteDetector,
@@ -32,7 +38,8 @@ import {
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
-	InMemorySettingsRepository
+	InMemorySettingsRepository,
+	FakeDefinitionsService
 } from './fakes';
 
 class FakeBackup implements BackupPort {
@@ -55,7 +62,7 @@ class FakeCalibration implements CalibrationPort {
 /** A learned card of the neck, due at once (a cold review), acquired unless told otherwise. */
 export function learnedCard(card: NeckCard, options: { acquired?: boolean } = {}): CardState {
 	const learned = markLearned(
-		introduceCard({ key: neckCardKey(card), mechanic: card.mechanic, item: card.item }, 0, 's-old'),
+		introduceCard({ key: neckCardKey(card), skill: card.skill, item: card.item }, 0, 's-old'),
 		0
 	);
 	return {
@@ -66,12 +73,12 @@ export function learnedCard(card: NeckCard, options: { acquired?: boolean } = {}
 }
 
 export const locate = (string: LocateItem['string'], pitch: PitchName): NeckCard => ({
-	mechanic: 'locate',
+	skill: LOCATE_SKILL_ID,
 	item: { string, pitch }
 });
 
 export const identify = (string: IdentifyItem['string'], fret: number): NeckCard => ({
-	mechanic: 'identify',
+	skill: IDENTIFY_SKILL_ID,
 	item: { string, fret }
 });
 
@@ -79,7 +86,7 @@ export const identify = (string: IdentifyItem['string'], fret: number): NeckCard
 export function levelOf(card: NeckCard, level: number): LevelState {
 	const key = neckCardKey(card);
 	return {
-		exerciseId: card.mechanic === 'locate' ? 'locate-neck' : 'identify-neck',
+		exerciseId: card.skill === LOCATE_SKILL_ID ? 'locate-note-string' : 'identify-note',
 		scope: '',
 		item: key.slice(key.indexOf(':') + 1),
 		level,
@@ -107,9 +114,9 @@ export interface NotesSetup {
 	exercises?: readonly ExerciseDefinition[];
 	/** Attempts already stored. */
 	attempts?: Attempt[];
-	/** Presenters beside the neck's, by mechanic. */
-	presenters?: Record<string, MechanicPresenter>;
-	/** Sensors beside the note and the tap. */
+	/** Presenters beside the application's, by set id. */
+	presenters?: Record<string, SetPresenter>;
+	/** Sensors over the note, the tap and a chord sensor on a silent verifier. */
 	sensors?: Record<string, SensorFactory>;
 	/** The audio clock; a `FakeClock` by default. */
 	clock?: FakeClock;
@@ -131,8 +138,15 @@ export async function notesApp(setup: NotesSetup = {}) {
 		now: () => clock.toEpochMs(clock.now()),
 		random: setup.random ?? (() => 0),
 		newId: () => `notes-${++ids}`,
-		mechanics: { ...NECK_PRESENTERS, ...setup.presenters },
-		sensors: { note: noteSensor(detector), tap: tapSensor(), ...setup.sensors },
+		presenters: { ...SET_PRESENTERS, ...setup.presenters },
+		views: VIEW_PRESENTERS,
+		// The notes' sessions open the chord sensor too: they play every exercise of the tracks.
+		sensors: {
+			note: noteSensor(detector),
+			tap: tapSensor(),
+			chord: chordSensor(new FakeChordVerifier()),
+			...setup.sensors
+		},
 		sounds,
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory(),
@@ -146,6 +160,7 @@ export async function notesApp(setup: NotesSetup = {}) {
 	const services: AppServices = createAppServices({
 		...deps,
 		backup: new FakeBackup(),
+		definitions: new FakeDefinitionsService(),
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics(),
 		development: setup.development ?? false
@@ -155,9 +170,9 @@ export async function notesApp(setup: NotesSetup = {}) {
 
 export type NotesApp = Awaited<ReturnType<typeof notesApp>>;
 
-/** A session of `kind` started on `app`. */
+/** A session of the notes' routine started on `app`: learn, or free play. */
 export async function startNotes(app: NotesApp, kind: 'learn' | 'free') {
-	const controller = await app.services.startSession(kind);
+	const controller = await app.services.startRoutine('notes', { free: kind === 'free' });
 	await controller.ready?.();
 	await controller.start();
 	return controller;
@@ -214,7 +229,7 @@ export function onStage(controller: PlaySessionController): Staged | null {
 		const pitch = PITCH_OF.get(model.prompt.primary);
 		if (!string || !pitch) throw new Error(`Unreadable prompt: ${JSON.stringify(model.prompt)}`);
 		return {
-			card: { mechanic: 'locate', item: { string, pitch } },
+			card: { skill: LOCATE_SKILL_ID, item: { string, pitch } },
 			prompt: model.prompt,
 			anchorBeat: model.anchorBeat,
 			promptBeat: model.promptBeat,
@@ -229,7 +244,7 @@ export function onStage(controller: PlaySessionController): Staged | null {
 			throw new Error(`Unreadable prompt: ${JSON.stringify(model.prompt)}`);
 		}
 		return {
-			card: { mechanic: 'identify', item: { string, fret } },
+			card: { skill: IDENTIFY_SKILL_ID, item: { string, fret } },
 			prompt: model.prompt,
 			anchorBeat: null,
 			promptBeat: null,
@@ -305,7 +320,7 @@ export async function playRounds(
 					answeredAt: null
 				};
 				const answer = choose(round);
-				if (staged.card.mechanic === 'locate' && staged.anchorBeat !== null) {
+				if (staged.card.skill === LOCATE_SKILL_ID && staged.anchorBeat !== null) {
 					const beatS = 60 / controller.view.tempoBpm;
 					round.dueAt =
 						now +
@@ -325,11 +340,11 @@ export async function playRounds(
 			if (answer.play === 'none') continue;
 			round.answeredAt = now;
 			const { card } = round;
-			if (card.mechanic === 'locate') {
-				const midi = rightMidi(card.item) + (answer.play === 'right' ? 0 : 1);
+			if (card.skill === LOCATE_SKILL_ID) {
+				const midi = rightMidi(card.item as LocateItem) + (answer.play === 'right' ? 0 : 1);
 				detector.emitNote({ time: round.dueAt, midi, frequencyHz: 220, clarity: 0.9 });
 			} else {
-				const name = rightName(card.item);
+				const name = rightName(card.item as IdentifyItem);
 				controller.answer(answer.play === 'right' ? name : wrongName(name));
 			}
 		}

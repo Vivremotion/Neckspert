@@ -1,8 +1,8 @@
 import type { AudioClockPort } from '$lib/application/ports';
-import type { MechanicPresenter, SensorKind } from '$lib/application/mechanics/types';
+import type { SetPresenter, SensorKind } from '$lib/application/sets/types';
 import type { Observation, ObservationSource, SensorFactory } from '../sensors';
 
-/** The observation sources a series listens to: one per sensor its mechanics use. */
+/** The observation sources a series listens to: one per sensor its exercises' presenters use. */
 export class SeriesSensors {
 	readonly sources = new Map<SensorKind, ObservationSource>();
 	private unsubscribe: (() => void)[] = [];
@@ -10,7 +10,8 @@ export class SeriesSensors {
 	constructor(
 		private readonly deps: {
 			clock: AudioClockPort;
-			mechanics: Record<string, MechanicPresenter>;
+			/** The presenters of the exercises the session plays. */
+			listening: () => readonly SetPresenter[];
 			sensors: Record<SensorKind, SensorFactory>;
 		}
 	) {}
@@ -21,7 +22,7 @@ export class SeriesSensors {
 		onObservation: (kind: SensorKind, observation: Observation) => void
 	): void {
 		this.close();
-		const kinds = new Set(Object.values(this.deps.mechanics).flatMap((p) => p.sensors));
+		const kinds = new Set(this.deps.listening().flatMap((p) => p.sensors));
 		for (const kind of kinds) {
 			const factory = this.deps.sensors[kind];
 			if (!factory) throw new Error(`No factory for sensor: ${kind}`);

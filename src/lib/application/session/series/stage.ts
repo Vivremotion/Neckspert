@@ -1,8 +1,10 @@
+import { resolvedParamsOf } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { LiveReading, ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
-import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
-import { FIGURE_VIEW } from '$lib/application/presentation/playViews';
+import type { SetPresenter, StagePlace } from '$lib/application/sets/types';
+import { passageStage } from '$lib/application/presentation/passageStage';
+import { FIGURE_VIEW, PASSAGE_VIEWS } from '$lib/application/presentation/playViews';
 import { promptStage } from '$lib/application/presentation/promptStage';
 import { playViewOf } from '../contract';
 import { figureStage, type CycleMoment, type SettledRound } from './figureStage';
@@ -24,6 +26,15 @@ function showsFigure(definition: ExerciseDefinition): boolean {
 	return playViewOf(definition) === FIGURE_VIEW;
 }
 
+/** The exercise's presentation is drawn on the passage its round belongs to (`passageStage`). */
+function showsPassage(definition: ExerciseDefinition): boolean {
+	return (
+		definition.presentation !== undefined &&
+		definition.passages !== undefined &&
+		PASSAGE_VIEWS.includes(playViewOf(definition))
+	);
+}
+
 /**
  * The screen model follows the beat: the series shows it again on every beat, not only at a
  * round's opening and settlement (a figure's cursor, its muted bars).
@@ -35,14 +46,15 @@ export function followsBeats(definition: ExerciseDefinition): boolean {
 /**
  * The stage dispatch: the screen model of `item` in the view its exercise names. An exercise
  * drawn by the figure view has its model built from the series' events (`figureStage`, its
- * prompt above the figure when it writes a presentation); any other that writes its presentation
- * shares `promptStage`; any other takes its presenter's own (`stageOf`). Undefined when none
- * draws it.
+ * prompt above the figure when it writes a presentation); one that writes its presentation and
+ * its passages, on a view that draws a passage, takes `passageStage`; any other that writes its
+ * presentation shares `promptStage`; any other takes its presenter's own (`stageOf`), with the params resolved
+ * at the level its round is played at. Undefined when none draws it.
  */
 export function stageModel(input: {
 	definition: ExerciseDefinition;
 	item: PlannedItem;
-	presenter: MechanicPresenter;
+	presenter: SetPresenter;
 	plan: RoundPlan;
 	settled: { value: ResponseValue; success: boolean } | null;
 	place: StagePlace;
@@ -83,6 +95,19 @@ export function stageModel(input: {
 			coming: input.coming
 		});
 	}
+	if (showsPassage(definition)) {
+		return passageStage({
+			definition,
+			item,
+			plan,
+			settled,
+			place,
+			beatsPerBar: input.beatsPerBar,
+			chordDiagram: input.chordDiagram,
+			locale,
+			random
+		});
+	}
 	if (definition.presentation) {
 		return promptStage({
 			definition,
@@ -104,6 +129,14 @@ export function stageModel(input: {
 		{ aid: item.aid, stringAid: item.stringAid ?? false },
 		place,
 		{ chordDiagram: input.chordDiagram },
-		random
+		random,
+		{
+			passage: item.passage ?? null,
+			expectations: plan.expectations,
+			params: resolvedParamsOf(definition, {
+				exerciseLevel: item.exerciseLevel,
+				itemLevel: item.level ?? null
+			})
+		}
 	)?.model;
 }

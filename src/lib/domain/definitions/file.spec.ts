@@ -1,0 +1,238 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
+import { describe, expect, it } from 'vitest';
+import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { MAX_DEFINITION_FILE_CHARS, readDefinitionFile } from './file';
+
+registerTestSkills();
+
+function arpeggioJson(): Record<string, unknown> {
+	const { figures: _figures, ...rest } = ARPEGGIO_EXERCISE;
+	return {
+		...JSON.parse(JSON.stringify(rest)),
+		figures: [
+			{ id: 'quarters', lilypond: 'c4 c c c' },
+			{ id: 'eighths', lilypond: 'c8 c c c c c c c' }
+		]
+	};
+}
+
+const GRID = {
+	id: 'blues',
+	title: 'Blues',
+	beatsPerBar: 4,
+	bars: 2,
+	chords: [
+		{ bar: 1, beat: 1, symbol: 'F7' },
+		{ bar: 2, beat: 1, symbol: 'Bb7' }
+	]
+};
+
+const read = (text: string) => readDefinitionFile('a.json', text);
+const fileRefusal = (text: string) => {
+	const result = read(text);
+	expect(result.grids).toEqual([]);
+	expect(result.exercises).toEqual([]);
+	expect(result.refusals).toHaveLength(1);
+	return result.refusals[0];
+};
+
+describe('readDefinitionFile', () => {
+	it('refuses a file that is too long', () => {
+		const refusal = fileRefusal(' '.repeat(MAX_DEFINITION_FILE_CHARS + 1));
+		expect(refusal).toEqual({
+			file: 'a.json',
+			kind: 'file',
+			id: null,
+			reason: 'the file is longer than 1000000 characters'
+		});
+	});
+
+	it('refuses text that is not JSON', () => {
+		for (const text of ['', '{"format": 0,']) {
+			const refusal = fileRefusal(text);
+			expect(refusal.kind).toBe('file');
+			expect(refusal.id).toBeNull();
+			expect(refusal.reason.startsWith('the file is not JSON: ')).toBe(true);
+		}
+	});
+
+	it('refuses JSON that is no object', () => {
+		for (const text of ['null', '[]', '"x"']) {
+			expect(fileRefusal(text).reason).toBe(
+				'the file must be a JSON object { format, skills, grids, exercises, routines }'
+			);
+		}
+	});
+
+	it('refuses a missing or wrong format', () => {
+		expect(fileRefusal('{}').reason).toBe('format must be 0, got undefined');
+		expect(fileRefusal('{"format": "0"}').reason).toBe('format must be 0, got "0"');
+	});
+
+	it('refuses an unknown key', () => {
+		expect(fileRefusal('{"format": 0, "exercices": []}').reason).toBe('unknown key "exercices"');
+	});
+
+	it('refuses a list that is not a list', () => {
+		expect(fileRefusal('{"format": 0, "exercises": {}}').reason).toBe('exercises must be a list');
+	});
+
+	it('refuses a list written null', () => {
+		expect(fileRefusal('{"format": 0, "grids": null}').reason).toBe('grids must be a list');
+	});
+
+	it('reads the routines, refusing one that routineFromJson refuses, and one written twice', () => {
+		const routine = { id: 'r', title: { fr: 'R', en: 'R' }, exercises: ['e'] };
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				routines: [routine, { ...routine, id: 'empty', exercises: [] }, routine, 3]
+			})
+		);
+		expect(result.routines).toEqual([routine]);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'routine', id: 'empty', reason: 'exercises is empty' },
+			{ file: 'a.json', kind: 'routine', id: 'r', reason: 'this id is used twice in the file' },
+			{ file: 'a.json', kind: 'routine', id: null, reason: 'a routine must be a JSON object' }
+		]);
+	});
+
+	it('refuses a grid that gridFromJson refuses, with its id', () => {
+		const result = read(JSON.stringify({ format: 0, grids: [{ ...GRID, beatsPerBar: 3 }] }));
+		expect(result.grids).toEqual([]);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'grid', id: 'blues', reason: 'beatsPerBar must be 4' }
+		]);
+	});
+
+	it('refuses an exercise that exerciseFromJson refuses, with its id', () => {
+		const result = read(
+			JSON.stringify({ format: 0, exercises: [{ ...arpeggioJson(), params: [] }] })
+		);
+		expect(result.refusals).toHaveLength(1);
+		expect(result.refusals[0]).toMatchObject({
+			kind: 'exercise',
+			id: ARPEGGIO_EXERCISE.id,
+			reason: 'params must be an object'
+		});
+	});
+
+	it('refuses an exercise whose figure does not read, or with an unknown key, naming it', () => {
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				exercises: [
+					{ ...arpeggioJson(), id: 'bad-figure', figures: [{ id: 'bad', lilypond: 'c4 #(foo)' }] },
+					{ ...arpeggioJson(), id: 'bad-key', colour: 'red' }
+				]
+			})
+		);
+		expect(result.exercises).toEqual([]);
+		expect(result.refusals).toEqual([
+			{
+				file: 'a.json',
+				kind: 'exercise',
+				id: 'bad-figure',
+				reason: expect.stringMatching(/^figures\[0\] \(bad\): lilypond:/)
+			},
+			{ file: 'a.json', kind: 'exercise', id: 'bad-key', reason: 'unknown key "colour"' }
+		]);
+	});
+
+	it('gives a null id to an entry that is no object', () => {
+		const result = read(JSON.stringify({ format: 0, exercises: [3] }));
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'exercise', id: null, reason: 'an exercise must be a JSON object' }
+		]);
+	});
+
+	it('keeps the first of two exercises with the same id', () => {
+		const result = read(JSON.stringify({ format: 0, exercises: [arpeggioJson(), arpeggioJson()] }));
+		expect(result.exercises).toHaveLength(1);
+		expect(result.refusals).toEqual([
+			{
+				file: 'a.json',
+				kind: 'exercise',
+				id: ARPEGGIO_EXERCISE.id,
+				reason: 'this id is used twice in the file'
+			}
+		]);
+	});
+
+	it('keeps the first of two grids with the same id', () => {
+		const result = read(JSON.stringify({ format: 0, grids: [GRID, GRID] }));
+		expect(result.grids).toHaveLength(1);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'grid', id: 'blues', reason: 'this id is used twice in the file' }
+		]);
+	});
+
+	it('reads an empty file as four empty lists', () => {
+		expect(read('{"format": 0}')).toEqual({
+			skills: [],
+			grids: [],
+			exercises: [],
+			routines: [],
+			refusals: []
+		});
+	});
+
+	it('accepts empty skills and routines', () => {
+		expect(read('{"format": 0, "skills": [], "routines": []}')).toEqual({
+			skills: [],
+			grids: [],
+			exercises: [],
+			routines: [],
+			refusals: []
+		});
+	});
+
+	it('reads a grid and a valid exercise and refuses the other exercise', () => {
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				grids: [GRID],
+				exercises: [arpeggioJson(), { ...arpeggioJson(), id: 'other', params: [] }]
+			})
+		);
+		expect(result.grids.map((grid) => grid.id)).toEqual(['blues']);
+		expect(result.exercises.map((exercise) => exercise.id)).toEqual([ARPEGGIO_EXERCISE.id]);
+		expect(result.refusals).toHaveLength(1);
+		expect(result.refusals[0]).toMatchObject({ kind: 'exercise', id: 'other' });
+	});
+
+	it('reads skills, and keeps the other objects when one is refused', () => {
+		const skill = {
+			id: 'inner-pulse',
+			name: { fr: 'x', en: 'x' },
+			items: 'figure',
+			memory: false
+		};
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				skills: [skill, { ...skill, id: 'bad', items: 'cards' }],
+				grids: [GRID]
+			})
+		);
+		expect(result.skills.map((s) => s.id)).toEqual(['inner-pulse']);
+		expect(result.grids.map((grid) => grid.id)).toEqual(['blues']);
+		expect(result.refusals).toEqual([
+			{
+				file: 'a.json',
+				kind: 'skill',
+				id: 'bad',
+				reason: 'items must name a registered set, got "cards"'
+			}
+		]);
+	});
+
+	it('refuses the second of two skills with one id', () => {
+		const skill = { id: 'x', name: { fr: 'x', en: 'x' }, items: 'figure', memory: false };
+		const result = read(JSON.stringify({ format: 0, skills: [skill, skill] }));
+		expect(result.skills).toHaveLength(1);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'skill', id: 'x', reason: 'this id is used twice in the file' }
+		]);
+	});
+});

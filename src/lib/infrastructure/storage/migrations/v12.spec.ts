@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { roundPlanFromRecord } from '$lib/application/session/series/recordResponse';
-import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
-import { figureRules } from '$lib/domain/mechanics';
+import { figureSet } from '$lib/domain/sets';
 import {
 	Fraction,
 	METER_4_4,
@@ -22,6 +21,7 @@ import {
 	cyclePlanToV12,
 	type CyclePlanRecordV11
 } from './v12';
+import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 
 function exerciseOf(id: string) {
 	const exercise = RHYTHM_EXERCISES.find((candidate) => candidate.id === id);
@@ -32,7 +32,7 @@ function exerciseOf(id: string) {
 function itemOf(exerciseId: string, figureId: string, level: number): PlannedItem {
 	return {
 		exerciseId,
-		mechanic: 'figure',
+		skill: exerciseOf(exerciseId).practices,
 		exerciseLevel: level,
 		item: { figureId, level },
 		phase: 'free',
@@ -156,7 +156,7 @@ describe('attemptToV12', () => {
 		const attempt = makeCycleAttemptV11();
 		const upgraded = attemptToV12(attempt) as Record<string, unknown>;
 		expect(RHYTHM_FIGURE_MECHANIC_V11).toBe('rhythm-figure');
-		expect(FIGURE_MECHANIC_V12).toBe(figureRules.id);
+		expect(FIGURE_MECHANIC_V12).toBe(figureSet.id);
 		expect(upgraded).toEqual({
 			...attempt,
 			mechanic: 'figure',

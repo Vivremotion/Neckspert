@@ -52,7 +52,7 @@ describe('lilypond boundary', () => {
 
 	it('allows the catalog and the notation folder, and unrelated words', () => {
 		const line = `import { parseLilyPond } from '../time/notation/lilypond';`;
-		expect(offendersIn({ '/src/lib/domain/exercise/catalog.ts': line })).toEqual([]);
+		expect(offendersIn({ '/src/lib/domain/exercise/fromJson.ts': line })).toEqual([]);
 		expect(offendersIn({ '/src/lib/domain/time/notation/other.ts': line })).toEqual([]);
 		expect(
 			offendersIn({ '/src/lib/domain/music/x.ts': '// staff notation is out of scope' })

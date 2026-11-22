@@ -1,10 +1,11 @@
+import { itemEntryKey } from '$lib/domain/exercise/itemEntries';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { ladderLevel } from '$lib/domain/learning/ladder';
-import type { LadderParams, LearningSubject } from '$lib/domain/learning/subject';
-import { practiceCards, type LocateItem } from '$lib/domain/music';
+import type { CardRef, LadderParams, LearningSubject } from '$lib/domain/learning/subject';
+import { setOfSkill } from '$lib/domain/sets';
 import { levelRange, type LevelState } from '$lib/domain/time/levels';
-import type { LeadBeats, PlannedItem } from '$lib/domain/types';
+import { cardKey, type LeadBeats, type PlannedItem } from '$lib/domain/types';
 import { FREE_PLAY_COUNT } from './constants';
-import { plannedFor } from './neck';
 
 function shuffle<T>(items: readonly T[], random: () => number): T[] {
 	const result = [...items];
@@ -16,19 +17,17 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 }
 
 /**
- * The level a located note is free-played at: its level, brought into the ladder the locate
- * exercise writes, as the learning procedure serves it; a note without a level is at level 0,
- * the procedure's default.
+ * The level an item is free-played at: its level, brought into the ladder its exercise writes, as
+ * the learning procedure serves it; an item without a level is at level 0, the procedure's default.
  */
 export function freeLevelOf(input: {
 	subject: LearningSubject;
 	levels: readonly LevelState[];
-}): (item: LocateItem) => number {
+}): (card: CardRef) => number {
 	const { subject, levels } = input;
-	const exerciseId = subject.exerciseOf('locate');
-	const ladder = subject.ladder('locate');
-	return (item) => {
-		const key = subject.itemKey({ mechanic: 'locate', item });
+	return (card) => {
+		const exerciseId = subject.exerciseOf(card.skill);
+		const key = subject.itemKey(card);
 		const held = levels.find(
 			(state) => state.exerciseId === exerciseId && state.scope === '' && state.item === key
 		) ?? {
@@ -40,47 +39,68 @@ export function freeLevelOf(input: {
 			failures: 0,
 			resumeAfter: null
 		};
-		return ladderLevel(held, ladder).level;
-	};
-}
-
-/** The lead a located note is free-played at: the lead of its level (`freeLevelOf`). */
-export function freeLeadOf(input: {
-	subject: LearningSubject;
-	levels: readonly LevelState[];
-}): (item: LocateItem) => LeadBeats {
-	const ladder = input.subject.ladder('locate');
-	const { lowest } = levelRange(ladder);
-	const levelOf = freeLevelOf(input);
-	return (item) => {
-		const { leadBeats } = ladder[levelOf(item) - lowest].params as LadderParams;
-		if (leadBeats === null) throw new Error('The locate ladder gives every level a lead');
-		return leadBeats;
+		return ladderLevel(held, subject.ladder(card.skill)).level;
 	};
 }
 
 /**
- * Free-play prompts drawn from every position; a located note at the lead `leadOf` gives it,
- * and at the ladder level `levelOf` gives it, when given.
+ * The lead an item is free-played at: the lead of its level (`freeLevelOf`) on its exercise's
+ * ladder; null when that level gives none (an item answered in free time).
+ */
+export function freeLeadOf(input: {
+	subject: LearningSubject;
+	levels: readonly LevelState[];
+}): (card: CardRef) => LeadBeats | null {
+	const levelOf = freeLevelOf(input);
+	return (card) => {
+		const ladder = input.subject.ladder(card.skill);
+		const { lowest } = levelRange(ladder);
+		return (ladder[levelOf(card) - lowest].params as LadderParams).leadBeats;
+	};
+}
+
+/**
+ * Free-play prompts drawn among the items the given exercises list (`definition.items`, read by
+ * their skill's set), with or without a card. An item whose level gives a lead is played at that
+ * lead and that level (`freeLeadOf`, `freeLevelOf`); one answered in free time at none. A prompt
+ * that asks a member of its item (`subject.promptItem`) is drawn once the plan is.
  */
 export function buildFreePlan(input: {
-	leadOf: (item: LocateItem) => LeadBeats;
-	levelOf?: (item: LocateItem) => number;
+	exercises: readonly ExerciseDefinition[];
+	subject: LearningSubject;
+	levels: readonly LevelState[];
 	count?: number;
 	random?: () => number;
 }): PlannedItem[] {
 	const random = input.random ?? Math.random;
 	const count = input.count ?? FREE_PLAY_COUNT;
-	return shuffle(practiceCards(), random)
+	const leadOf = freeLeadOf(input);
+	const levelOf = freeLevelOf(input);
+	const candidates = input.exercises.flatMap((definition) => {
+		const skill = definition.practices;
+		const set = setOfSkill(skill);
+		return (definition.items ?? []).map((entry) => {
+			const item = set.parseItem(itemEntryKey(entry));
+			return { key: cardKey(skill, set.itemKey(item)), exerciseId: definition.id, skill, item };
+		});
+	});
+	return shuffle(candidates, random)
 		.slice(0, count)
-		.map((card) =>
-			plannedFor(card, {
+		.map(({ exerciseId, skill, item }) => {
+			const card = { skill, item };
+			const leadBeats = leadOf(card);
+			const level = leadBeats === null ? null : levelOf(card);
+			const asked = input.subject.promptItem?.(card, random, level ?? 0) ?? item;
+			return {
+				exerciseId,
+				skill,
+				item: asked,
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'none',
-				leadBeats: card.mechanic === 'locate' ? input.leadOf(card.item) : null,
-				...(card.mechanic === 'locate' && input.levelOf && { level: input.levelOf(card.item) }),
+				leadBeats,
+				...(level !== null && { level }),
 				exerciseLevel: 0
-			})
-		);
+			};
+		});
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FakeClock } from '$lib/testing/fakes';
-import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import type { SetPresenter } from '$lib/application/sets/types';
 import type { ObservationSource, SensorFactory } from '../sensors';
 import { SeriesSensors } from './seriesSensors';
 
@@ -15,10 +15,10 @@ describe('SeriesSensors', () => {
 			};
 		const sensors = new SeriesSensors({
 			clock: new FakeClock(),
-			mechanics: {
-				a: { sensors: ['note', 'chord'] } as unknown as MechanicPresenter,
-				b: { sensors: ['tap'] } as unknown as MechanicPresenter
-			},
+			listening: () => [
+				{ sensors: ['note', 'chord'] } as unknown as SetPresenter,
+				{ sensors: ['tap'] } as unknown as SetPresenter
+			],
 			sensors: {
 				note: factoryOf('note'),
 				chord: factoryOf('chord'),
@@ -40,7 +40,7 @@ describe('SeriesSensors', () => {
 	it('names a sensor without a factory', () => {
 		const sensors = new SeriesSensors({
 			clock: new FakeClock(),
-			mechanics: { a: { sensors: ['note'] } as unknown as MechanicPresenter },
+			listening: () => [{ sensors: ['note'] } as unknown as SetPresenter],
 			sensors: {}
 		});
 		expect(() =>

@@ -1,41 +1,27 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import { chordGridPresenter, type LinkLaneModel } from '$lib/application/mechanics/chordGrid';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import type { PassageStageModel } from '$lib/application/presentation/passageStage';
+import { GESTURE_LINK } from '$lib/testing/catalog';
+import { passageModel } from '$lib/testing/changesPassages';
 import { PLAY_VIEWS } from './index';
 import LinkLaneView from './LinkLaneView.svelte';
 import { StageController } from './testing/StageController.svelte';
 
 afterEach(() => cleanup());
 
-const CHANGES = [0, 4, 8, 12, 16, 20, 24].map((at) => ({ at, length: 4, symbol: 'E' }));
-
-/** Change `index`'s model, its target on `anchorBeat` (null before its round opens). */
+/**
+ * Round `index` of the tour of E on G-B-E (its four lowest shapes up, then down again), its
+ * target on `anchorBeat` (null before its round opens), at the aid level when `aided`.
+ */
 function model(
 	index: number,
 	aided: boolean,
 	anchorBeat: number | null = index * 4
-): LinkLaneModel {
-	const item: ChordGridItem = {
-		rule: 'link',
-		element: 'link:E|maj:3,2,1',
-		passageId: 's:0',
-		index,
-		changes: CHANGES,
-		symbol: 'E',
-		chord: 'E|maj',
-		sets: [[3, 2, 1]],
-		previous: null
-	};
-	return chordGridPresenter.stageOf!(
-		item,
-		null,
-		'fr',
-		{ aid: aided ? 'show-position' : 'none', stringAid: false },
-		{ anchorBeat, promptBeat: anchorBeat === null ? null : anchorBeat - 1, history: [], bands: [] },
-		undefined,
-		() => 0
-	).model as LinkLaneModel;
+): PassageStageModel {
+	return passageModel(GESTURE_LINK, 'chord=E;strings=3,2,1', index, {
+		exerciseLevel: aided ? -1 : 0,
+		anchorBeat
+	});
 }
 
 function running(nowBeat: number) {
@@ -48,20 +34,27 @@ function running(nowBeat: number) {
 describe('LinkLaneView', () => {
 	it('draws a miss, heard and expected, until the next change', async () => {
 		const miss = {
+			correction: null,
 			heard: null,
 			expected: {
+				kind: 'shape' as const,
 				notes: [
 					{ string: 3 as const, fret: 9 },
 					{ string: 2 as const, fret: 9 },
 					{ string: 1 as const, fret: 7 }
 				]
 			},
-			gap: 'aucun accord entendu',
-			style: 'strings' as const
+			gap: 'aucun accord entendu'
+		};
+		const verdict = {
+			verdict: 'wrong' as const,
+			offsetMs: null,
+			answerLabel: null,
+			misses: [miss]
 		};
 		const controller = running(4.5);
 		const { rerender } = render(LinkLaneView, {
-			props: { controller, model: { ...model(1, false, 4), miss } }
+			props: { controller, model: { ...model(1, false, 4), verdict } }
 		});
 		const drawn = screen.getByTestId('miss');
 		expect(drawn.textContent).toMatch(/Attendu/);
@@ -81,8 +74,8 @@ describe('LinkLaneView', () => {
 		render(LinkLaneView, { props: { controller: running(0.5), model: model(0, false) } });
 		expect(screen.getByTestId('link-root').textContent).toBe('E');
 		expect(screen.getByText('majeur')).toBeTruthy();
-		expect(screen.getByText('sur cordes')).toBeTruthy();
-		expect(screen.getByText('sol · si · mi')).toBeTruthy();
+		// One line, the strings named as the triads' lane names them (plan 4c, decided).
+		expect(screen.getByText('sur cordes sol‑si‑mi')).toBeTruthy();
 	});
 
 	it('draws the root on the first tile, arrows after', () => {
@@ -112,7 +105,7 @@ describe('LinkLaneView', () => {
 		expect(due[0].textContent?.trim()).toBe('↗');
 	});
 
-	it('draws no neck unaided, the notes in circles aided, each the colour of its tile', () => {
+	it('draws no neck unaided, the notes in circles aided, each the colour of its tile, on the set’s strings', () => {
 		render(LinkLaneView, { props: { controller: running(9), model: model(2, false) } });
 		expect(screen.queryByTestId('aid-neck')).toBeNull();
 		cleanup();
@@ -127,6 +120,10 @@ describe('LinkLaneView', () => {
 			['next', 'B'],
 			['next', 'E']
 		]);
+		// The set's three strings, the high one on top, as before.
+		expect(
+			[...screen.getByTestId('aid-neck').querySelectorAll('.name')].map((n) => n.textContent)
+		).toEqual(['mi', 'si', 'sol']);
 	});
 
 	it('shows the root bigger during the silence before the counted bar', () => {

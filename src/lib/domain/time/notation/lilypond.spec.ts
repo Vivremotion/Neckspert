@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from '../fraction';
 import { attackNotes, attackPositions, validateFigure } from '../figure';
 import { METER_4_4 } from '../meter';
-import { RHYTHM_EXERCISES } from '$lib/domain/exercise/rhythmCatalog';
 import { parseLilyPond, parseLilyPondNotes } from './lilypond';
+import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 
 const of = Fraction.of;
 const attacks = (text: string) => attackPositions(parseLilyPond(text)).map(String);

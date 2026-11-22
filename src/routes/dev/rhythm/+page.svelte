@@ -15,9 +15,9 @@
 		type FigureStageModel,
 		type SettledCycle
 	} from '$lib/application/session/series/figureStage';
-	import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
+	import { allExercises } from '$lib/domain/exercise';
 	import { compileRound } from '$lib/domain/exercise/round';
-	import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+	import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 	import {
 		Fraction,
 		METER_4_4,
@@ -26,8 +26,11 @@
 		type FigureElement
 	} from '$lib/domain/time';
 	import type { PlannedItem } from '$lib/domain/types';
+	import { registerSkill } from '$lib/domain/skill/registry';
 	import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
+	import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
+	import NothingToShow from '$lib/ui/play/demo/NothingToShow.svelte';
 	import { StageController } from '$lib/ui/play/views/testing/StageController.svelte';
 
 	/** A still session: listening and replaying only say so. */
@@ -42,8 +45,14 @@
 		}
 	}
 
-	const figure = RHYTHM_SILENT_BARS.figures?.[0]?.figure;
-	if (!figure) throw new Error('the silent bars exercise has no figure');
+	// The first registered exercise drawn on the figure view that writes a figure (the catalog's
+	// silent bars), and its first figure.
+	const shown = allExercises().find(
+		(exercise) => exercise.view === 'figure' && (exercise.figures ?? []).length > 0
+	);
+	const found = shown?.figures?.[0]?.figure;
+	/** Without one the page says so; the model below is then built on an empty figure, never drawn. */
+	const figure: Figure = found ?? { schema: 2, meter: METER_4_4, bars: 1, voices: [] };
 
 	/** A cycle of four bars of eighths (32 attacks), bar 0 muted; offsets drawn from `seed`. */
 	function cycle(seed: number, passed: boolean): SettledCycle {
@@ -74,7 +83,7 @@
 	const phase = page.url.searchParams.get('phase');
 	const base: FigureStageModel = {
 		phase: 'play',
-		exerciseLabel: 'Mesures silencieuses',
+		exerciseLabel: shown?.title?.fr ?? shown?.id ?? '',
 		level: { shown: 3, of: 6, aid: false },
 		tempo: { bpm: 80, unit: '♩' },
 		figure,
@@ -178,11 +187,13 @@
 
 	/** The arpeggio's aid level, its round under way: the tab of the C chord's notes. */
 	function derived(): FigureStageModel {
+		// The arpeggio practises a skill of the tests, which no file of the app defines.
+		registerSkill(TEST_PLACED_VOICING_SKILL, 'dev');
 		const item: PlannedItem = {
 			exerciseId: ARPEGGIO_EXERCISE.id,
-			mechanic: ARPEGGIO_EXERCISE.mechanic,
+			skill: ARPEGGIO_EXERCISE.practices,
 			exerciseLevel: -1,
-			item: voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+			item: { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
 			aid: 'none',
@@ -249,4 +260,8 @@
 	controller.view.announcement = announcement;
 </script>
 
-<PlayFrame {controller} kind="exercise" />
+{#if found}
+	<PlayFrame {controller} />
+{:else}
+	<NothingToShow text="No exercise on the figure view writes a figure: nothing to show." />
+{/if}

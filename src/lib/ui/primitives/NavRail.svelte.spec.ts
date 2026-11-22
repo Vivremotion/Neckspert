@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const items = [
 	{ key: 'practice', href: '/', label: 'Pratiquer' },
-	{ key: 'library', href: '/session?kind=free', label: 'Bibliothèque' },
+	{ key: 'library', href: '/session?routine=notes&free=1', label: 'Bibliothèque' },
 	{ key: 'progress', href: '/map', label: 'Progrès' }
 ];
 

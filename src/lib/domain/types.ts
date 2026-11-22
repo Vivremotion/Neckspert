@@ -1,7 +1,8 @@
 import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './time/modes/types';
-import type { Execution, ExerciseId, MechanicId } from './exercise/types';
+import type { Execution, ExerciseId } from './exercise/types';
+import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
 	Aid,
@@ -14,26 +15,26 @@ import type {
 	VerdictEnvelope
 } from './time';
 
-export type { Aid, Execution, ExerciseId, LevelState, Measures, MechanicId, VerdictEnvelope };
+export type { Aid, Execution, ExerciseId, LevelState, Measures, SkillId, VerdictEnvelope };
 
 export type Locale = 'fr' | 'en';
 
-/** `${mechanic}:${itemKey}`: `locate:6:F`, `identify:6:3`. */
+/** `${skill}:${itemKey}`: `locate-note-string:6:F`, `identify-note:6:3`. */
 export type CardKey = string;
 
-export function cardKey(mechanic: MechanicId, itemKey: string): CardKey {
-	return `${mechanic}:${itemKey}`;
+export function cardKey(skill: SkillId, itemKey: string): CardKey {
+	return `${skill}:${itemKey}`;
 }
 
 /** Splits at the first `:`; throws without one or with an empty side. */
-export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: string } {
+export function parseCardKey(key: CardKey): { skill: SkillId; itemKey: string } {
 	const colon = key.indexOf(':');
-	const mechanic = colon < 0 ? '' : key.slice(0, colon);
+	const skill = colon < 0 ? '' : key.slice(0, colon);
 	const itemKey = colon < 0 ? '' : key.slice(colon + 1);
-	if (mechanic === '' || itemKey === '') {
+	if (skill === '' || itemKey === '') {
 		throw new Error(`Invalid card key: ${key}`);
 	}
-	return { mechanic, itemKey };
+	return { skill, itemKey };
 }
 
 // The one-answer verdict lives with the response verdict mode; re-exported for its readers.
@@ -70,24 +71,9 @@ export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
-/**
- * Notes: learn and free play. The memory track of the triads (spec 2026-10-08), one exercise per
- * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
- * The gesture track (spec 2026-10-10): `gesture`, every open gesture exercise in turn.
- */
-export type SessionKind =
-	| 'learn'
-	| 'free'
-	| 'triads'
-	| 'triads-zone'
-	| 'gesture'
-	/** Free play of one exercise (`SessionRecord.exerciseId`): the rhythm exercises. */
-	| 'exercise';
-
-/** A session of the triads' memory track. */
-export function isTriadsKind(kind: SessionKind): boolean {
-	return kind === 'triads' || kind === 'triads-zone';
-}
+/** What a session plays, as it records it: a routine, or one exercise, freely or not. */
+export type SessionOrigin =
+	{ routine: string; free?: true } | { exercise: ExerciseId; free?: true };
 
 /** Where an attempt happened inside a session. */
 export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
@@ -105,7 +91,8 @@ export interface Attempt<D = unknown> {
 	id?: number;
 	sessionId: string;
 	exerciseId: ExerciseId;
-	mechanic: MechanicId;
+	/** The skill its exercise practises. */
+	skill: SkillId;
 	cardKey: CardKey;
 	phase: ItemPhase;
 	temperature: Temperature;
@@ -133,7 +120,7 @@ export interface Attempt<D = unknown> {
 	measures: Measures;
 	/** The round's resolved plan; null before plans and for the one-answer relations. */
 	plan: unknown | null;
-	/** Mechanic-specific: item, answer and confusion. */
+	/** Specific to its skill's items: item, answer and confusion. */
 	data: D;
 	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */
 	observations: RecordedObservation[] | null;
@@ -178,7 +165,7 @@ export interface SchedulingState {
 
 export interface CardState<I = unknown> {
 	key: CardKey;
-	mechanic: MechanicId;
+	skill: SkillId;
 	item: I;
 	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
@@ -192,7 +179,8 @@ export interface CardState<I = unknown> {
 
 export interface PlannedItem<I = unknown> {
 	exerciseId: ExerciseId;
-	mechanic: MechanicId;
+	/** The skill its exercise practises (`ExerciseDefinition.practices`). */
+	skill: SkillId;
 	item: I;
 	phase: ItemPhase;
 	temperature: Temperature;
@@ -217,21 +205,58 @@ export interface PlannedItem<I = unknown> {
 	scope?: string;
 	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
 	stringAid?: boolean;
+	/** The passage it is a round of, for an exercise that writes passages (`createPassageSource`). */
+	passage?: PlannedPassage;
+}
+
+/** A round's place in the passage it belongs to. */
+export interface PlannedPassage {
+	/** This passage in the series. */
+	id: string;
+	/** Its index's key and values. */
+	index: string;
+	of: Readonly<Record<string, unknown>>;
+	/** Its rank in the passage, and the passage's length. */
+	rank: number;
+	length: number;
+	/**
+	 * The item of every round of the passage, in order, as its source serves them (a view draws
+	 * the whole passage); absent when the source does not tell them.
+	 */
+	items?: readonly unknown[];
+	/** The values of the passage params, as this round reads them. */
+	each: Readonly<Record<string, unknown>>;
+	/** The identity of the last member heard in the passage; null before any. */
+	previous: string | null;
+}
+
+/**
+ * What an attempt of a passage's round keeps of it in its `data.passage`: the passage, its
+ * index's key, the round's rank, and the passage params as the round read them.
+ */
+export interface AttemptPassage {
+	id: string;
+	index: string;
+	rank: number;
+	each: Readonly<Record<string, unknown>>;
 }
 
 export interface SessionRecord {
 	id: string;
-	kind: SessionKind;
+	/** The id of the routine the session played; absent for a session of one exercise. */
+	routine?: string;
+	/** The exercise played, for a session of one exercise. */
+	exercise?: ExerciseId;
+	/** A routine played freely, out of the learning procedure (the notes' free play). */
+	free?: true;
 	startedAt: number;
 	endedAt: number | null;
 	fatigueDetected: boolean;
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
-	/** The exercise played, for a session of kind `'exercise'`. */
-	exerciseId?: ExerciseId;
 	/**
 	 * The level the exercise was held at when the series ended (0 = level 1, aid levels negative),
-	 * for a session of kind `'exercise'`; absent from sessions stored before it was kept.
+	 * for a session of one exercise; absent from sessions stored before it was kept.
 	 */
 	levelReached?: number;
 	/** Calibrated detection latency in ms applied to the session's onsets. Null when unknown (older sessions). */
@@ -319,16 +344,6 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';
 
-export interface HomeStats {
-	/** Cards a learn session would review cold right now. */
-	dueCount: number;
-	/** Earliest time a learned card can be reviewed cold. Null without a learned card. */
-	nextReviewAt: number | null;
-	/** Median |onset − beat| in ms, cold correct locate attempts. The home number. */
-	medianColdOffsetMs: number | null;
-	trend: 'improving' | 'stable' | 'worsening' | null;
-}
-
 export type SessionGrade = 'S+' | 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'F+';
 
 export interface SessionSummary {
@@ -355,30 +370,31 @@ export interface SessionSummary {
 	 * Null when it did not run.
 	 */
 	tempoBpm: number | null;
-	/** Which session it was: a triads session counts triads, not notes. */
-	kind: SessionKind;
-	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
-	gesture?: GestureSummary;
-	/** A rhythm exercise session: the rest of the summary is not shown for it. */
-	exercise?: ExerciseSummary;
-}
-
-/** What a rhythm exercise session did: the level it ended on and its cycles. */
-export interface ExerciseSummary {
-	exerciseId: ExerciseId;
-	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level). */
-	levelReached: { shown: number; of: number; aid: boolean };
-	/** Cycles played. */
-	cycles: number;
-	/** Cycles that succeeded (`Attempt.success`). */
-	successes: number;
-	/** Of the successes, those played with an aid the level does not give (they do not count towards moving up). */
-	aided: number;
-	/** The series as its trace tells it; absent once the session is no longer in memory (a reload). */
+	/**
+	 * The session played chord voicings (its skills' item set is `voicing-on-strings`): it counts
+	 * triads, not notes.
+	 */
+	chords: boolean;
+	/**
+	 * The session practised skills with cards, or nothing tells otherwise (a session whose
+	 * exercises and skills are all gone): the screen shows the fields above, not `exercises`.
+	 */
+	memory: boolean;
+	/** A line per exercise and scope played, in the order first played. */
+	exercises: PlayedExercise[];
+	/** The missed changes, oldest first: contestable (« Joué juste »). */
+	misses: SummaryMiss[];
+	/**
+	 * The series as its trace tells it, for a session that is not of memory exercises; absent once
+	 * the session is no longer in memory (a reload).
+	 */
 	series?: SeriesSummary;
 	/** The runs whose take is still held, by the id of their segment: each can be heard again. */
 	replayable?: number[];
-	/** The last cycle played, in full; shown in development builds. Absent without a cycle. */
+	/**
+	 * The last cycle played, in full, of an exercise played alone whose round writes a figure;
+	 * shown in development builds. Absent without a cycle.
+	 */
 	lastCycle?: {
 		report: CycleReport;
 		verdict: CycleVerdict;
@@ -389,30 +405,51 @@ export interface ExerciseSummary {
 	};
 }
 
-/** What a gesture session did, exercise by exercise, and the changes it missed. */
-export interface GestureSummary {
-	/** One line per exercise and scope (its grid; none for the link). */
-	exercises: {
-		exerciseId: ExerciseId;
-		scope?: string;
-		passagesPlayed: number;
-		passagesSucceeded: number;
-		/** Share of its changes right and in time (`Attempt.success`). */
-		changeSuccessRate: number;
-		/** The tempo of its first round. */
-		tempoBpm: number;
-		/** The tempo of its last round: a level reached and not played yet does not show. */
-		lastTempoBpm: number;
-	}[];
-	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */
-	misses: {
-		attemptId: number;
-		exerciseId: ExerciseId;
-		symbol: string;
-		heard: string | null;
-		expected: string | null;
-		contested: boolean;
-	}[];
+/** What a session did with one exercise and scope (its grid; none for most). */
+export interface PlayedExercise {
+	exerciseId: ExerciseId;
+	scope?: string;
+	/**
+	 * Rounds played, and those that passed (`Attempt.success`). A round of an exercise that plays
+	 * passages is one of their changes.
+	 */
+	rounds: number;
+	passed: number;
+	/**
+	 * Of the rounds passed, those played with an aid that is not the level's own (they do not
+	 * count towards moving up).
+	 */
+	aided: number;
+	/**
+	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level);
+	 * null when the exercise writes no level, and for any exercise but one played alone whose
+	 * round writes a figure (the changes' levels are their tempos, told by `tempo`).
+	 */
+	level: { shown: number; of: number; aid: boolean } | null;
+	/** The tempo of its first and of its last round; null in free time. */
+	tempo: { first: number; last: number } | null;
+	/** Its rounds were played in passages: they are changes, told as right and in time. */
+	inPassages: boolean;
+	/**
+	 * Passages played and passed, for rounds played in passages of an exercise a file still
+	 * defines (its threshold is known); null otherwise.
+	 */
+	passages: { played: number; passed: number } | null;
+	/**
+	 * It left the session by « On change d’air »: known only while the session's series is in
+	 * memory. Computed, never stored.
+	 */
+	changedAir: boolean;
+}
+
+/** A missed change; `heard` and `expected` are the frets of a shape ("7-7-5"). */
+export interface SummaryMiss {
+	attemptId: number;
+	exerciseId: ExerciseId;
+	symbol: string;
+	heard: string | null;
+	expected: string | null;
+	contested: boolean;
 }
 
 /** A triad attempt whose chord was judged wrong, as the summary lists it. */
@@ -434,13 +471,21 @@ export interface NeckMapCell {
 	coldAccuracy: number | null;
 }
 
+/** A definition file the player imported, kept as the text it was read from, by its name. */
+export interface DefinitionFileRecord {
+	name: string;
+	text: string;
+	importedAt: number;
+}
+
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 8;
+	version: 9;
 	exportedAt: number;
 	settings: Settings;
 	cards: CardState[];
 	attempts: Attempt[];
 	sessions: SessionRecord[];
 	levelStates: LevelState[];
+	definitionFiles: DefinitionFileRecord[];
 }

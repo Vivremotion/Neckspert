@@ -26,12 +26,30 @@ export const settingsMessages = defineMessages({
 		export: 'Exporter',
 		import: 'Importer',
 		confirmTitle: 'Remplacer les données actuelles ?',
-		confirmBody: 'L’import écrase réglages, cartes, tentatives et sessions.',
+		confirmBody: 'L’import écrase réglages, cartes, tentatives, sessions et les fichiers importés.',
 		confirm: 'Confirmer',
 		cancel: 'Annuler',
 		decrease: '−',
 		increase: '+',
 		backup: 'Sauvegarde',
+		importedFiles: 'Fichiers importés',
+		importFiles: 'Importer des fichiers',
+		importedFilesEmpty: 'Aucun fichier importé.',
+		importedFilesHelp: 'Un fichier du même nom remplace le précédent.',
+		importedFileCounts: (skills: number, grids: number, exercises: number, routines: number) =>
+			[
+				skills > 0 && `${skills} ${skills === 1 ? 'capacité' : 'capacités'}`,
+				grids > 0 && `${grids} ${grids === 1 ? 'grille' : 'grilles'}`,
+				exercises > 0 && `${exercises} ${exercises === 1 ? 'exercice' : 'exercices'}`,
+				routines > 0 && `${routines} ${routines === 1 ? 'routine' : 'routines'}`
+			]
+				.filter(Boolean)
+				.join(', '),
+		importedFileNothing: 'Rien n’a été lu dans ce fichier.',
+		removeFile: 'Supprimer',
+		removeFileNamed: (name: string) => `Supprimer ${name}`,
+		removeFileConfirm: 'Supprimer ce fichier ? Ta progression est gardée.',
+		notImported: (file: string, reason: string) => `${file} n’a pas été importé : ${reason}`,
 		diagnostics: 'Diagnostic',
 		diagnosticsRecord: 'Enregistrer le son et les détails de la détection',
 		diagnosticsToggle: (on: boolean) =>
@@ -67,12 +85,30 @@ export const settingsMessages = defineMessages({
 		export: 'Export',
 		import: 'Import',
 		confirmTitle: 'Replace current data?',
-		confirmBody: 'Import overwrites settings, cards, attempts and sessions.',
+		confirmBody: 'Import overwrites settings, cards, attempts, sessions and the imported files.',
 		confirm: 'Confirm',
 		cancel: 'Cancel',
 		decrease: '−',
 		increase: '+',
 		backup: 'Backup',
+		importedFiles: 'Imported files',
+		importFiles: 'Import files',
+		importedFilesEmpty: 'No imported file.',
+		importedFilesHelp: 'A file of the same name replaces the one before.',
+		importedFileCounts: (skills: number, grids: number, exercises: number, routines: number) =>
+			[
+				skills > 0 && `${skills} ${skills === 1 ? 'skill' : 'skills'}`,
+				grids > 0 && `${grids} ${grids === 1 ? 'grid' : 'grids'}`,
+				exercises > 0 && `${exercises} ${exercises === 1 ? 'exercise' : 'exercises'}`,
+				routines > 0 && `${routines} ${routines === 1 ? 'routine' : 'routines'}`
+			]
+				.filter(Boolean)
+				.join(', '),
+		importedFileNothing: 'Nothing was read from this file.',
+		removeFile: 'Remove',
+		removeFileNamed: (name: string) => `Remove ${name}`,
+		removeFileConfirm: 'Remove this file? Your progress is kept.',
+		notImported: (file: string, reason: string) => `${file} was not imported: ${reason}`,
 		diagnostics: 'Diagnostics',
 		diagnosticsRecord: 'Record sound and detection details',
 		diagnosticsToggle: (on: boolean) => `Record sound and detection details: ${on ? 'on' : 'off'}`,

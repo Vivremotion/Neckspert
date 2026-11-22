@@ -1,8 +1,9 @@
+import { cardKey } from '$lib/domain/types';
 import { describe, expect, it, vi } from 'vitest';
 import type { Attempt, LevelState, PlannedItem, RecordedObservation } from '$lib/domain/types';
 import { introduceCard, markLearned, type ItemSource } from '$lib/domain/progress';
-import { directRecallOf } from '$lib/domain/learning';
-import { cardKeyOf, locateRules, mechanicRules } from '$lib/domain/mechanics';
+import { directRecallWithin } from '$lib/domain/learning';
+import { noteOnStringSet } from '$lib/domain/sets';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
@@ -16,8 +17,8 @@ const F_ON_B = { string: 2, pitch: 'F' } as const;
 
 function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
-		exerciseId: 'locate-neck',
-		mechanic: 'locate',
+		exerciseId: 'locate-note-string',
+		skill: 'locate-note-string',
 		exerciseLevel: 0,
 		item: F_ON_B,
 		phase: 'review',
@@ -30,7 +31,7 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 
 describe('AttemptRecorder', () => {
 	const THRESHOLD_MS = 1500;
-	const LOCATE_KEY = cardKeyOf(locateRules, F_ON_B);
+	const LOCATE_KEY = cardKey('locate-note-string', noteOnStringSet.itemKey(F_ON_B));
 
 	/** A note's response attempt as `recordedAttempt` writes it: hot, at the item's lead. */
 	function noteAttempt(
@@ -40,7 +41,7 @@ describe('AttemptRecorder', () => {
 		return {
 			sessionId: 'sess-1',
 			exerciseId: planned.exerciseId,
-			mechanic: planned.mechanic,
+			skill: planned.skill,
 			cardKey: LOCATE_KEY,
 			phase: planned.phase,
 			temperature: 'hot',
@@ -70,11 +71,7 @@ describe('AttemptRecorder', () => {
 		};
 	}
 
-	function setupResponse(
-		selector?: Partial<ItemSource>,
-		learner: 'memory' | 'skill' = 'memory',
-		withRecall = true
-	) {
+	function setupResponse(selector?: Partial<ItemSource>, withRecall = true) {
 		const clock = new FakeClock();
 		const attempts = new InMemoryAttemptRepository();
 		const cards = new InMemoryCardStateRepository();
@@ -102,8 +99,7 @@ describe('AttemptRecorder', () => {
 			now: () => 5_000,
 			selector: source,
 			sessionId: 'sess-1',
-			rules: (mechanic) => ({ ...mechanicRules(mechanic), learner }),
-			recall: withRecall ? () => directRecallOf(THRESHOLD_MS) : undefined,
+			recall: withRecall ? () => directRecallWithin(THRESHOLD_MS) : undefined,
 			levels
 		});
 		return { recorder, attempts, cards, levels, told };
@@ -146,15 +142,23 @@ describe('AttemptRecorder', () => {
 	});
 
 	it('refuses a probe without a recall rule', () => {
-		const { recorder } = setupResponse(undefined, 'memory', false);
+		const { recorder } = setupResponse(undefined, false);
 		const probe = item({ phase: 'probe', temperature: 'cold' });
 		expect(() => recorder.recordResponse(noteAttempt(probe), span(probe), probe)).toThrow(/recall/);
+	});
+
+	it('refuses an attempt of a memory skill without a recall rule', () => {
+		const { recorder } = setupResponse(undefined, false);
+		const review = item({ phase: 'review', temperature: 'cold' });
+		expect(() => recorder.recordResponse(noteAttempt(review), span(review), review)).toThrow(
+			'No direct-recall rule for skill locate-note-string'
+		);
 	});
 
 	it('grades a cold review through FSRS and stores its card', async () => {
 		const { recorder, cards } = setupResponse();
 		const card = markLearned(
-			introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, 0, 'old'),
+			introduceCard({ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B }, 0, 'old'),
 			0
 		);
 		await cards.put(card);
@@ -182,7 +186,7 @@ describe('AttemptRecorder', () => {
 
 	it('writes the level the source moved, and none when it moved none', async () => {
 		const level: LevelState = {
-			exerciseId: 'locate-neck',
+			exerciseId: 'locate-note-string',
 			scope: '',
 			item: 'F@2',
 			level: 2,
@@ -205,7 +209,11 @@ describe('AttemptRecorder', () => {
 	/** F on B learned long ago, untouched since. */
 	const learnedLongAgo = () =>
 		markLearned(
-			introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, -10_000_000, 'old'),
+			introduceCard(
+				{ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B },
+				-10_000_000,
+				'old'
+			),
 			-9_000_000
 		);
 
@@ -228,7 +236,7 @@ describe('AttemptRecorder', () => {
 	it('keeps free play hot on a note without a learned card, its card untouched', async () => {
 		const { recorder, cards } = setupResponse();
 		const being = introduceCard(
-			{ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B },
+			{ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B },
 			-10_000_000,
 			'old'
 		);
@@ -262,7 +270,7 @@ describe('AttemptRecorder', () => {
 
 	it('stores the card the source reports for a probe and for a learning prompt', async () => {
 		const known = {
-			...introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, 0, 'sess-1'),
+			...introduceCard({ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B }, 0, 'sess-1'),
 			acquiredAt: 456
 		};
 		const probed = setupResponse({ record: () => ({ card: known }) });
@@ -294,20 +302,26 @@ describe('AttemptRecorder', () => {
 		});
 	});
 
-	it('touches no card for a skill learner', async () => {
-		const { recorder, cards, attempts } = setupResponse(undefined, 'skill');
-		const learning = item({ phase: 'learning', temperature: 'hot' });
+	it('touches no card for a skill without memory', async () => {
+		const { recorder, cards, attempts } = setupResponse();
+		const learning = item({
+			exerciseId: 'rhythm-silent-bars',
+			skill: 'inner-pulse',
+			item: { figureId: 'quarters', level: 0 },
+			phase: 'learning',
+			temperature: 'hot'
+		});
 		await recorder.recordResponse(noteAttempt(learning), span(learning), learning);
 		await recorder.settled();
 		expect(await cards.all()).toEqual([]);
 		expect(await attempts.all()).toHaveLength(1);
 	});
-	it('keeps on a new card only the part of the item its mechanic keeps', async () => {
+	it('keeps on a new card only the part of the item its set keeps', async () => {
 		const { recorder, cards } = setupResponse();
 		const key = 'D|maj|3:5,2:1,1:3';
 		const planned = item({
-			exerciseId: 'triads-zone',
-			mechanic: 'triad-zone',
+			exerciseId: 'chord-zone',
+			skill: 'chord-zone',
 			item: { voicingKey: key, position: 2 },
 			phase: 'learning',
 			temperature: 'hot',
@@ -315,12 +329,12 @@ describe('AttemptRecorder', () => {
 		});
 		const attempt = {
 			...noteAttempt(planned),
-			cardKey: `triad-zone:${key}`,
+			cardKey: `chord-zone:${key}`,
 			data: { item: planned.item, answer: null, confusion: null }
 		};
 		await recorder.recordResponse(attempt, span(planned), planned);
 		await recorder.settled();
-		expect((await cards.get(`triad-zone:${key}`))?.item).toEqual({ voicingKey: key });
+		expect((await cards.get(`chord-zone:${key}`))?.item).toEqual({ voicingKey: key });
 	});
 
 	describe('observations', () => {

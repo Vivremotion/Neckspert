@@ -1,5 +1,4 @@
-import type { MechanicId } from '$lib/domain/exercise/types';
-import type { TriadZoneItem, VoicingFigureItem } from '$lib/domain/mechanics';
+import type { VoicingOnStringsItem, VoicingFigureItem } from '$lib/domain/sets';
 import { openPitch, parseVoicingKey, type LocateItem } from '$lib/domain/music';
 import { fretOf } from '$lib/domain/music/fretboard';
 import { voicingNotes } from '$lib/domain/music/voicingNotes';
@@ -13,7 +12,13 @@ import { lowestShape, shapeAt, shapeOf } from './triadWords';
 export type Picture =
 	| { kind: 'string'; string: StringNumber; label: string }
 	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] }
-	| { kind: 'neck'; notes: NeckNote[]; frets?: { low: number; high: number } };
+	| {
+			kind: 'neck';
+			notes: NeckNote[];
+			frets?: { low: number; high: number };
+			/** The strings to draw, low to high; absent: all six. */
+			strings?: StringNumber[];
+	  };
 
 /** A note named at its place on the neck. */
 export interface NeckNote {
@@ -70,53 +75,60 @@ export function neckWithNext(
 }
 
 export interface PictureKind {
-	/** The mechanics whose items it draws. */
-	reads: readonly MechanicId[];
+	/** The sets whose items it draws. */
+	reads: readonly string[];
 	/** The picture of one item, null when it has nothing to draw. */
 	draw(item: unknown): Picture | null;
 }
-
-const TRIADS: readonly MechanicId[] = ['triad-anchor', 'triad-zone'];
 
 /** The pictures an exercise can name, by name. */
 export const PICTURES: Readonly<Record<string, PictureKind>> = {
 	/** The string of the item and its open note. */
 	string: {
-		reads: ['locate'],
+		reads: ['note-on-string'],
 		draw: (item) => {
 			const { string } = item as LocateItem;
 			return { kind: 'string', string, label: openPitch(string) };
 		}
 	},
-	/** The lowest fretted shape of the item's voicing. */
+	/** The lowest fretted shape of the item's voicing; nothing for a voicing without a shape. */
 	'lowest-shape': {
-		reads: TRIADS,
-		draw: (item) => ({
-			kind: 'shape',
-			...shapeOf(lowestShape(parseVoicingKey((item as TriadZoneItem).voicingKey)))
-		})
+		reads: ['voicing-on-strings'],
+		draw: (item) => {
+			const shape = lowestShape(parseVoicingKey((item as VoicingOnStringsItem).voicingKey));
+			return shape && { kind: 'shape', ...shapeOf(shape) };
+		}
 	},
-	/** The shape of the item's voicing at its position, the lowest when it has none. */
+	/**
+	 * The shape of the item's voicing at its position, the lowest when it has none; nothing for a
+	 * voicing without a shape.
+	 */
 	'shape-at-position': {
-		reads: TRIADS,
+		reads: ['voicing-on-strings'],
 		draw: (raw) => {
-			const item = raw as TriadZoneItem;
+			const item = raw as VoicingOnStringsItem;
 			const voicing = parseVoicingKey(item.voicingKey);
 			const shape =
 				item.position === undefined ? lowestShape(voicing) : shapeAt(voicing, item.position);
-			return { kind: 'shape', ...shapeOf(shape) };
+			return shape && { kind: 'shape', ...shapeOf(shape) };
 		}
 	},
-	/** The shape of the item's voicing at its occurrence on the neck. */
+	/** The shape of the item's voicing at its place on the neck. */
 	shape: {
-		reads: ['voicing-figure'],
+		reads: ['placed-voicing'],
 		draw: (raw) => {
-			const { voicing, occurrence } = raw as VoicingFigureItem;
-			const notes = voicingNotes(parseVoicingKey(voicing), occurrence);
+			const { voicing, frets } = raw as VoicingFigureItem;
+			const notes = voicingNotes(parseVoicingKey(voicing), frets);
 			return { kind: 'shape', notes: notes.map(({ string, fret }) => ({ string, fret })) };
 		}
 	}
 };
+
+/**
+ * The pictures that read the content of the round, not its item: `admitted`, the members its
+ * member content admits (`membersPicture`), drawn by the view of the round.
+ */
+export const CONTENT_PICTURES: readonly string[] = ['admitted'];
 
 /**
  * The picture of where a derived list of notes comes from, by derivation (`CONTENT_DERIVATIONS`):

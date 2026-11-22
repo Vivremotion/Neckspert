@@ -11,6 +11,8 @@
 		type Locale,
 		type Settings
 	} from '$lib/domain/types';
+	import type { ImportedFile } from '$lib/application/definitions/service';
+	import { MAX_DEFINITION_FILE_CHARS, type Refusal } from '$lib/domain/definitions';
 	import { downloadDiagnosticArchive } from '$lib/infrastructure/diagnostics';
 	import { downloadBackup, readBackupFile, validateBackup } from '$lib/infrastructure/storage';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -36,6 +38,13 @@
 	const diagnosticsEnabled = $derived(resolveDiagnosticsEnabled(diagnostics, import.meta.env.DEV));
 	/** Bumped by user edits so a late initial load cannot overwrite them. */
 	let loadSeq = 0;
+	/** Bumped by every read of the list, so a late read cannot overwrite a newer one. */
+	let filesSeq = 0;
+	let importedFiles = $state<ImportedFile[]>([]);
+	let notStored = $state<Refusal[]>([]);
+	/** The refusals of the imported files that no stored file carries: what kept them from loading. */
+	let definitionsProblems = $state<Refusal[]>([]);
+	let definitionsError = $state<string | null>(null);
 
 	async function load() {
 		const seq = ++loadSeq;
@@ -60,6 +69,7 @@
 
 	void load();
 	void loadUsage();
+	void reloadFiles();
 
 	async function onlocale(next: Locale) {
 		loadSeq += 1;
@@ -108,6 +118,71 @@
 		await services.settings.update({ inputDeviceId: id });
 	}
 
+	const refusalKey = ({ file, kind, id, reason }: Refusal) =>
+		JSON.stringify([file, kind, id, reason]);
+
+	async function reloadFiles() {
+		const seq = ++filesSeq;
+		try {
+			const files = await services.definitions.files();
+			if (seq !== filesSeq) return;
+			importedFiles = files;
+			// What no stored file already tells under its name (a file may bear any name).
+			const told = new Set(files.flatMap((file) => file.refusals.map(refusalKey)));
+			definitionsProblems = services.definitions
+				.refusals()
+				.filter((refusal) => !told.has(refusalKey(refusal)));
+		} catch (error) {
+			definitionsError = error instanceof Error ? error.message : String(error);
+		}
+	}
+
+	/** A file's text, or why it is not imported: unread, or so big that no text of it could pass. */
+	async function readFile(file: File): Promise<{ name: string; text: string } | Refusal> {
+		const refused = (reason: string): Refusal => ({
+			file: file.name,
+			kind: 'file',
+			id: null,
+			reason
+		});
+		// A character takes at most 3 bytes in UTF-8 (4 for two characters): a file of more bytes
+		// than that holds more characters than the service keeps, and is not read at all.
+		if (file.size > 3 * MAX_DEFINITION_FILE_CHARS) {
+			return refused(`the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters`);
+		}
+		try {
+			return { name: file.name, text: await file.text() };
+		} catch {
+			return refused('the file could not be read');
+		}
+	}
+
+	async function onimportfiles(chosen: File[]) {
+		definitionsError = null;
+		const read = await Promise.all(chosen.map(readFile));
+		const unreadable = read.filter((file): file is Refusal => 'reason' in file);
+		const texts = read.filter((file) => 'text' in file);
+		try {
+			const result = await services.definitions.import(texts);
+			notStored = [...unreadable, ...result.refused];
+		} catch (error) {
+			notStored = unreadable;
+			definitionsError = error instanceof Error ? error.message : String(error);
+		}
+		await reloadFiles();
+	}
+
+	async function onremovefile(name: string) {
+		definitionsError = null;
+		notStored = [];
+		try {
+			await services.definitions.remove(name);
+		} catch (error) {
+			definitionsError = error instanceof Error ? error.message : String(error);
+		}
+		await reloadFiles();
+	}
+
 	async function onexport() {
 		downloadBackup(await services.backup.exportAll());
 	}
@@ -132,6 +207,7 @@
 			confirmingImport = false;
 			pendingImport = null;
 			await load();
+			await reloadFiles();
 		} catch (error) {
 			importError = error instanceof Error ? error.message : String(error);
 			confirmingImport = false;
@@ -209,6 +285,12 @@
 	{ondiagnosticsnativerate}
 	{ondiagnosticsexport}
 	{ondiagnosticsclear}
+	{importedFiles}
+	{notStored}
+	{definitionsProblems}
+	{definitionsError}
+	{onimportfiles}
+	{onremovefile}
 	{diagnosticsExporting}
 	{diagnosticsError}
 />

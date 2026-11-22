@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ExerciseId, MechanicId } from '../exercise/types';
+import type { ExerciseId } from '../exercise/types';
+import type { SkillId } from '../types';
 import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
 import { DEFAULT_ITEM_LEARNING, DEFAULT_SET_LEARNING } from './params';
@@ -7,8 +8,8 @@ import { createLearningProcedure, type LearningProcedure } from './procedure';
 import type { LearningSubject } from './subject';
 import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
 
-const FAKE = 'fake' as MechanicId;
-const OTHER = 'other' as MechanicId;
+const FAKE = 'fake' as SkillId;
+const OTHER = 'other' as SkillId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
 const SESSION = 'session';
 /** The fake subject's ladder: leads 8 (aided), 4, 2 beats; at 80 bpm 2 beats is 1 500 ms, the threshold. */
@@ -46,11 +47,11 @@ function procedure(
 }
 
 const learning = (item: number) => fakeCard(item, { introducedInSession: 'past' });
-const learned = (item: number, stability = 1, mechanic: MechanicId = FAKE) =>
-	fakeCard(item, { mechanic, learnedAt: 0, scheduling: { due: 1e12, stability } });
-const solid = (item: number, mechanic: MechanicId = FAKE) =>
+const learned = (item: number, stability = 1, skill: SkillId = FAKE) =>
+	fakeCard(item, { skill, learnedAt: 0, scheduling: { due: 1e12, stability } });
+const solid = (item: number, skill: SkillId = FAKE) =>
 	fakeCard(item, {
-		mechanic,
+		skill,
 		learnedAt: 0,
 		acquiredAt: 0,
 		scheduling: { due: 1e12, stability: 100 }
@@ -58,9 +59,9 @@ const solid = (item: number, mechanic: MechanicId = FAKE) =>
 const reviewable = (item: number) =>
 	fakeCard(item, { learnedAt: 0, scheduling: { due: 0, stability: 100 } });
 
-function levelAt(item: number, level: number, mechanic: MechanicId = FAKE): LevelState {
+function levelAt(item: number, level: number, skill: SkillId = FAKE): LevelState {
 	return {
-		exerciseId: `exercise-${mechanic}`,
+		exerciseId: `exercise-${skill}`,
 		scope: '',
 		item: String(item),
 		level,
@@ -75,12 +76,12 @@ function played(
 	item: number,
 	phase: Attempt['phase'],
 	overrides: Parameters<typeof attemptOf>[1] = {},
-	mechanic: MechanicId = FAKE
+	skill: SkillId = FAKE
 ): Attempt {
 	return attemptOf(
 		{
-			exerciseId: `exercise-${mechanic}` as ExerciseId,
-			mechanic,
+			exerciseId: `exercise-${skill}` as ExerciseId,
+			skill,
 			item,
 			phase,
 			temperature: phase === 'review' ? 'cold' : 'hot'
@@ -98,7 +99,7 @@ function answer(
 	return attemptOf(item, { success, ...overrides });
 }
 
-const ref = (item: number, mechanic: MechanicId = FAKE) => ({ mechanic, item });
+const ref = (item: number, skill: SkillId = FAKE) => ({ skill, item });
 
 describe('createLearningProcedure record', () => {
 	it('writes the ladder level it serves an item at, its exercise level at 0', () => {
@@ -341,12 +342,12 @@ describe('createLearningProcedure record', () => {
 	});
 
 	it('calls a solid item after a miss, never after a missed recovery', () => {
-		const subject = fakeSubject({ items: 10, mechanics: [FAKE, OTHER] });
+		const subject = fakeSubject({ items: 10, skills: [FAKE, OTHER] });
 		const cards = [
 			// Solid: acquired, no recent miss, not waiting for its review.
 			solid(0),
 			solid(1),
-			// Acquired, but missed lately, waiting for its review, or of another mechanic.
+			// Acquired, but missed lately, waiting for its review, or of another skill.
 			solid(2),
 			fakeCard(3, { learnedAt: 0, acquiredAt: 0, scheduling: { due: 0, stability: 100 } }),
 			solid(3, OTHER),
@@ -363,7 +364,7 @@ describe('createLearningProcedure record', () => {
 			source.record(played(4, 'consolidation', { success: false }), 0);
 			const recovery = source.next(at(0))!;
 			expect(recovery).toMatchObject({
-				mechanic: FAKE,
+				skill: FAKE,
 				phase: 'consolidation',
 				temperature: 'hot'
 			});
@@ -371,13 +372,13 @@ describe('createLearningProcedure record', () => {
 			// A missed recovery calls for no other.
 			source.record(answer(recovery, false), 0);
 			const after = source.next(at(0))!;
-			expect(after.mechanic === FAKE && [0, 1].includes(after.item as number)).toBe(false);
+			expect(after.skill === FAKE && [0, 1].includes(after.item as number)).toBe(false);
 			// A success clears the call.
 			const cleared = procedure({ subject, cards, attempts: history, random: seeded(seed) });
 			cleared.record(played(4, 'consolidation', { success: false }), 0);
 			cleared.record(played(5, 'consolidation'), 0);
 			const plain = cleared.next(at(0))!;
-			expect(plain.mechanic === FAKE && [0, 1].includes(plain.item as number)).toBe(false);
+			expect(plain.skill === FAKE && [0, 1].includes(plain.item as number)).toBe(false);
 		}
 		// Tired, no recovery.
 		const tired = procedure({ subject, cards, attempts: history });
@@ -443,9 +444,9 @@ describe('createLearningProcedure record', () => {
 		const review = reviewed.next(at(1e12))!;
 		expect(review).toMatchObject({ item: 0, phase: 'review' });
 		expect(review.stringAid ?? false).toBe(false);
-		// Never for a mechanic without it.
+		// Never for a skill without it.
 		const other = procedure({
-			subject: fakeSubject({ items: 2, mechanics: [OTHER] }),
+			subject: fakeSubject({ items: 2, skills: [OTHER] }),
 			cards: [learned(0, 1, OTHER), learned(1, 1, OTHER)]
 		});
 		other.record(played(0, 'consolidation', { success: false }, OTHER), 0);
@@ -483,12 +484,12 @@ describe('createLearningProcedure record', () => {
 	});
 
 	it('counts every attempt of the procedure in the session’s success, probes left out', () => {
-		const subject = fakeSubject({ items: 20, mechanics: [FAKE, OTHER] });
+		const subject = fakeSubject({ items: 20, skills: [FAKE, OTHER] });
 		const cards = [0, 1, 2, 3].flatMap((item) => [learned(item), learned(item, 1, OTHER)]);
 		const source = procedure({ subject, cards });
 		const probe = source.next(at(0))!;
 		expect(probe).toMatchObject({ phase: 'probe' });
-		// Four misses then six successes, on both mechanics: 0.6, under the threshold.
+		// Four misses then six successes, on both skills: 0.6, under the threshold.
 		const outcomes = [false, false, false, false, true, true, true, true, true, true];
 		outcomes.forEach((success, index) =>
 			source.record(

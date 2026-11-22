@@ -18,52 +18,62 @@
 </script>
 
 <Page title={t.title} wide>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex: a scrollable region must take focus so the keyboard can scroll it -->
-	<div class="frame" role="region" tabindex="0" aria-label={t.board}>
-		<div class="board" role="grid" aria-label={t.title}>
-			{#each rows as row (row[0].string)}
-				<div class="row" role="row">
-					{#each row as cell (cell.fret)}
-						<div
-							class="cell"
-							class:mastered={cell.locate === 'mastered' || cell.identify === 'mastered'}
-							class:acquired={cell.locate === 'acquired' || cell.identify === 'acquired'}
-							class:learning={cell.locate === 'learning' || cell.identify === 'learning'}
-							role="gridcell"
-							aria-label="{t.cell(cell.string, cell.fret)}. {t.locate}: {cell.locateRecallMs == null
-								? t.status[cell.locate]
-								: `${t.status[cell.locate]}, ${t.recall(t.seconds(cell.locateRecallMs))}`}. {t.identify}: {t
-								.status[cell.identify]}{cell.identifyMedianReactionMs == null
-								? ''
-								: `, ${t.seconds(cell.identifyMedianReactionMs)}`}"
-						>
-							<span class="pitch">{cell.pitch}</span>
-							<span class="dirs">
-								<span data-status={cell.locate}>
-									{#if cell.locate === 'unseen' && cell.identify !== 'unseen'}
-										<span aria-hidden="true">&nbsp;</span>
-									{:else if cell.locate !== 'unseen'}
-										{cell.locateRecallMs == null
-											? t.status[cell.locate]
-											: t.seconds(cell.locateRecallMs)}
-									{/if}
-								</span>
-								<span data-status={cell.identify}>
-									{#if cell.identify === 'unseen' && cell.locate !== 'unseen'}
-										<span aria-hidden="true">&nbsp;</span>
-									{:else if cell.identify !== 'unseen'}
-										{cell.identifyMedianReactionMs == null
-											? t.status[cell.identify]
-											: t.seconds(cell.identifyMedianReactionMs)}
-									{/if}
-								</span>
-							</span>
-						</div>
-					{/each}
-				</div>
-			{/each}
+	{#if cells.length === 0}
+		<p class="empty-map">{t.empty}</p>
+	{:else}
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex: a scrollable region must take focus so the keyboard can scroll it -->
+		<div class="frame" role="region" tabindex="0" aria-label={t.board}>
+			<div class="board" role="grid" aria-label={t.title}>
+				{#each rows as row (row.string)}
+					<div class="row" role="row">
+						{#each row.slots as { fret, cell } (fret)}
+							{#if cell === null}
+								<!-- A place this string does not hold: drawn blank, the grid's shape kept. -->
+								<div class="cell blank" role="gridcell" aria-label={t.cell(row.string, fret)}></div>
+							{:else}
+								<div
+									class="cell"
+									class:mastered={cell.locate === 'mastered' || cell.identify === 'mastered'}
+									class:acquired={cell.locate === 'acquired' || cell.identify === 'acquired'}
+									class:learning={cell.locate === 'learning' || cell.identify === 'learning'}
+									role="gridcell"
+									aria-label="{t.cell(cell.string, cell.fret)}. {t.locate}: {cell.locateRecallMs ==
+									null
+										? t.status[cell.locate]
+										: `${t.status[cell.locate]}, ${t.recall(t.seconds(cell.locateRecallMs))}`}. {t.identify}: {t
+										.status[cell.identify]}{cell.identifyMedianReactionMs == null
+										? ''
+										: `, ${t.seconds(cell.identifyMedianReactionMs)}`}"
+								>
+									<span class="pitch">{cell.pitch}</span>
+									<span class="dirs">
+										<span data-status={cell.locate}>
+											{#if cell.locate === 'unseen' && cell.identify !== 'unseen'}
+												<span aria-hidden="true">&nbsp;</span>
+											{:else if cell.locate !== 'unseen'}
+												{cell.locateRecallMs == null
+													? t.status[cell.locate]
+													: t.seconds(cell.locateRecallMs)}
+											{/if}
+										</span>
+										<span data-status={cell.identify}>
+											{#if cell.identify === 'unseen' && cell.locate !== 'unseen'}
+												<span aria-hidden="true">&nbsp;</span>
+											{:else if cell.identify !== 'unseen'}
+												{cell.identifyMedianReactionMs == null
+													? t.status[cell.identify]
+													: t.seconds(cell.identifyMedianReactionMs)}
+											{/if}
+										</span>
+									</span>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				{/each}
+			</div>
 		</div>
-	</div>
+	{/if}
 	<footer>
 		<Button variant="quiet" onclick={onhome}>{t.home}</Button>
 	</footer>
@@ -107,6 +117,16 @@
 		background: transparent;
 		color: var(--np-text);
 		font-variant-numeric: tabular-nums;
+	}
+
+	.cell.blank {
+		border-color: transparent;
+	}
+
+	.empty-map {
+		margin-top: var(--np-step-6);
+		font-size: var(--np-size-body);
+		color: var(--np-text);
 	}
 
 	.cell.learning {

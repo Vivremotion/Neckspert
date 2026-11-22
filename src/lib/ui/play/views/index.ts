@@ -6,7 +6,7 @@ import LaneView from './LaneView.svelte';
 import LinkLaneView from './LinkLaneView.svelte';
 import FigureView from './FigureView.svelte';
 
-/** What a play view is given: the session, and the screen model of its mechanic. */
+/** What a play view is given: the session, and the screen model of its exercise. */
 export type PlayViewProps = { controller: PlaySessionController; model: unknown };
 
 /**

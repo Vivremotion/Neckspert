@@ -1,7 +1,12 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { allExercises } from '$lib/domain/exercise/registry';
 import { readZip } from '$lib/infrastructure/diagnostics/testing/readZip';
+import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
+import { CATALOG_FILES } from './catalogFiles';
 import { createApp } from './createApp';
+import { loadDefinitions } from './definitions';
 
 class StubAudioContext {
 	currentTime = 0;
@@ -70,6 +75,25 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+/** A definition file of one arpeggio exercise `id`, with the skill it practises. */
+function arpeggioFile(id: string): string {
+	const { figures: _figures, ...rest } = ARPEGGIO_EXERCISE;
+	return JSON.stringify({
+		format: 0,
+		skills: [TEST_PLACED_VOICING_SKILL],
+		exercises: [
+			{
+				...JSON.parse(JSON.stringify(rest)),
+				id,
+				figures: [
+					{ id: 'quarters', lilypond: 'c4 c c c' },
+					{ id: 'eighths', lilypond: 'c8 c c c c c c c' }
+				]
+			}
+		]
+	});
+}
+
 describe('createApp', () => {
 	it('wires AppServices without creating an AudioContext at construction', async () => {
 		const factory = vi.fn(() => new StubAudioContext() as unknown as AudioContext);
@@ -83,10 +107,12 @@ describe('createApp', () => {
 		expect(services.backup).toBeDefined();
 		expect(services.detector).toBeDefined();
 		expect(services.calibration).toBeDefined();
-		expect(typeof services.homeStats).toBe('function');
+		expect(services).not.toHaveProperty('homeStats');
+		expect(typeof services.library).toBe('function');
+		expect(typeof services.routines).toBe('function');
 		expect(typeof services.sessionSummary).toBe('function');
 		expect(typeof services.neckMap).toBe('function');
-		expect(typeof services.startSession).toBe('function');
+		expect(typeof services.startRoutine).toBe('function');
 		expect(typeof services.startExercise).toBe('function');
 
 		const settings = await services.settings.get();
@@ -95,8 +121,12 @@ describe('createApp', () => {
 		expect(settings.inputDeviceId).toBeNull();
 		expect(settings.latency).toEqual({});
 
-		const stats = await services.homeStats();
-		expect(stats.dueCount).toBe(0);
+		expect((await services.routines()).map((routine) => [routine.id, routine.open])).toEqual([
+			['notes', true],
+			['chords', true],
+			['chords-zone', false],
+			['changes', false]
+		]);
 		expect(factory).not.toHaveBeenCalled();
 	});
 
@@ -123,7 +153,7 @@ describe('createApp', () => {
 		await services.settings.update({ locale: 'en' });
 		const file = await services.backup.exportAll();
 		expect(file.settings.locale).toBe('en');
-		expect(file.version).toBe(8);
+		expect(file.version).toBe(9);
 		expect(file.attempts).toEqual([]);
 		expect(file.cards).toEqual([]);
 		expect(file.sessions).toEqual([]);
@@ -153,5 +183,28 @@ describe('createApp', () => {
 		const learning = JSON.parse(new TextDecoder().decode(entries[0].bytes));
 		expect(learning.settings.locale).toBe('en');
 		await expect(services.diagnostics.clear()).resolves.toBeUndefined();
+	});
+
+	it('loads the definition files of a backup it imports', async () => {
+		const services = createApp({
+			createContext: () => new StubAudioContext() as unknown as AudioContext,
+			databaseName: crypto.randomUUID()
+		});
+		await services.definitions.ready();
+		const file = JSON.parse(JSON.stringify(await services.backup.exportAll()));
+		file.definitionFiles = [
+			{ name: 'a.json', text: arpeggioFile('backup-arpeggio'), importedAt: 1 }
+		];
+
+		try {
+			await services.backup.importAll(file);
+
+			expect(allExercises().map((exercise) => exercise.id)).toContain('backup-arpeggio');
+			expect((await services.definitions.files()).map((stored) => stored.exercises)).toEqual([
+				['backup-arpeggio']
+			]);
+		} finally {
+			loadDefinitions({ catalog: CATALOG_FILES });
+		}
 	});
 });

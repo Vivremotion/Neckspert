@@ -1,0 +1,361 @@
+{
+	"format": 0,
+	"skills": [
+		{
+			"id": "locate-note-string",
+			"name": {
+				"fr": "Trouver une note sur une corde",
+				"en": "Find a note on a string"
+			},
+			"items": "note-on-string",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 1500
+			}
+		},
+		{
+			"id": "identify-note",
+			"name": {
+				"fr": "Nommer une note",
+				"en": "Name a note"
+			},
+			"items": "placed-note",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 3000
+			}
+		}
+	],
+	"exercises": [
+		{
+			"id": "locate-note-string",
+			"practices": "locate-note-string",
+			"view": "lane",
+			"tempo": 80,
+			"presentation": {
+				"primary": "{note}",
+				"secondary": "{string}",
+				"preview": "{string}",
+				"aided": {
+					"line": "{fret}"
+				},
+				"fading": {
+					"picture": "string"
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": {
+						"param": "leadBeats"
+					}
+				},
+				"expectations": [
+					{
+						"at": {
+							"beats": 0
+						},
+						"sensor": "note",
+						"content": {
+							"family": "note-places"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"breath": true
+				},
+				"listenBeforeEnd": {
+					"beats": {
+						"param": "previewBeats"
+					}
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": false,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": {
+								"param": "windows.minResponseMs"
+							}
+						},
+						"lateMs": {
+							"param": "windows.lateMs"
+						},
+						"lateCapture": {
+							"ms": {
+								"param": "windows.lateCaptureMs"
+							}
+						}
+					}
+				}
+			},
+			"params": {
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": 8,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 4,
+							"aided": false
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 2,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				]
+			},
+			"items": [
+				"6:G",
+				"5:C",
+				"4:F",
+				"3:C",
+				"2:D",
+				"1:G",
+				"6:A",
+				"5:D",
+				"4:G",
+				"3:D",
+				"2:E",
+				"1:A",
+				"6:B",
+				"5:E",
+				"4:A",
+				"3:E",
+				"2:C",
+				"1:B",
+				"6:F",
+				"5:B",
+				"4:B",
+				"3:A",
+				"2:F",
+				"1:F",
+				"6:C",
+				"5:F",
+				"4:E",
+				"3:B",
+				"2:G",
+				"1:C",
+				"6:D",
+				"5:G",
+				"4:C",
+				"3:F",
+				"2:A",
+				"1:D",
+				"6:F#",
+				"5:A#",
+				"4:D#",
+				"3:G#",
+				"2:C#",
+				"1:F#",
+				"6:G#",
+				"5:C#",
+				"4:F#",
+				"3:A#",
+				"2:D#",
+				"1:G#",
+				"6:A#",
+				"5:D#",
+				"4:G#",
+				"3:C#",
+				"2:F#",
+				"1:A#",
+				"6:C#",
+				"5:F#",
+				"4:A#",
+				"3:D#",
+				"2:G#",
+				"1:C#",
+				"6:D#",
+				"5:G#",
+				"4:C#",
+				"3:F#",
+				"2:A#",
+				"1:D#"
+			]
+		},
+		{
+			"id": "identify-note",
+			"practices": "identify-note",
+			"view": "answer-keys",
+			"presentation": {
+				"primary": "{fret}",
+				"secondary": "{string}",
+				"aided": {
+					"line": "{name}"
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": 0
+				},
+				"expectations": [
+					{
+						"at": null,
+						"sensor": "tap",
+						"content": {
+							"from": "name-of-item"
+						},
+						"window": {
+							"ms": {
+								"param": "directRecall.withinMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"bars": 1
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": false,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": 0
+						},
+						"lateMs": 0,
+						"lateCapture": null
+					}
+				}
+			},
+			"params": {
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": null,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": null,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				],
+				"learning": {
+					"enter": {
+						"acquired": {
+							"skill": "locate-note-string",
+							"item": "same-place"
+						}
+					}
+				}
+			},
+			"items": [
+				"6:3",
+				"5:3",
+				"4:3",
+				"3:5",
+				"2:3",
+				"1:3",
+				"6:5",
+				"5:5",
+				"4:5",
+				"3:7",
+				"2:5",
+				"1:5",
+				"6:7",
+				"5:7",
+				"4:7",
+				"3:9",
+				"2:1",
+				"1:7",
+				"6:1",
+				"5:2",
+				"4:9",
+				"3:2",
+				"2:6",
+				"1:1",
+				"6:8",
+				"5:8",
+				"4:2",
+				"3:4",
+				"2:8",
+				"1:8",
+				"6:10",
+				"5:10",
+				"4:10",
+				"3:10",
+				"2:10",
+				"1:10",
+				"6:2",
+				"5:1",
+				"4:1",
+				"3:1",
+				"2:2",
+				"1:2",
+				"6:4",
+				"5:4",
+				"4:4",
+				"3:3",
+				"2:4",
+				"1:4",
+				"6:6",
+				"5:6",
+				"4:6",
+				"3:6",
+				"2:7",
+				"1:6",
+				"6:9",
+				"5:9",
+				"4:8",
+				"3:8",
+				"2:9",
+				"1:9",
+				"6:11",
+				"5:11",
+				"4:11",
+				"3:11",
+				"2:11",
+				"1:11"
+			]
+		}
+	]
+}

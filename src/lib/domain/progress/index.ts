@@ -17,11 +17,9 @@ export {
 	isMastered,
 	cardStatus
 } from './cards';
-export { introductionOrder, nextNewCard } from './introduction';
 export { createListSource } from './selector';
 export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
-export { createGestureSelector } from './gestureSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
-export { isNeck } from './neck';
-export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';
+export { summarizeSession, buildNeckMap } from './stats';
+export { sessionPlayed, type SessionPlayed } from './sessionPlayed';

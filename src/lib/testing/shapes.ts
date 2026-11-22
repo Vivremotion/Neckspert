@@ -1,3 +1,4 @@
+import type { SkillId } from '$lib/domain/skill/types';
 import {
 	closeTriadVoicings,
 	parseSpelledNote,
@@ -35,9 +36,9 @@ export function shapeId(
 	return occurrenceId(shapeAt(root, quality, set, frets));
 }
 
-/** The cards of the three inversions of a close triad in a triads mechanic, acquired or not. */
+/** The cards of the three inversions of a close triad in a triads skill, acquired or not. */
 export function triadCards(
-	mechanic: 'triad-anchor' | 'triad-zone',
+	skill: SkillId,
 	root: string,
 	quality: string,
 	set: readonly StringNumber[],
@@ -47,8 +48,8 @@ export function triadCards(
 	return closeTriadVoicings(chord, set).map((voicing) => {
 		const key = voicingKey(voicing);
 		return {
-			key: cardKey(mechanic, key),
-			mechanic,
+			key: cardKey(skill, key),
+			skill,
 			item: { voicingKey: key },
 			introducedAt: 1000,
 			introducedInSession: 's0',

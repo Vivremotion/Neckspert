@@ -1,16 +1,18 @@
-import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { ChordExpectation } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { exerciseById } from '$lib/domain/exercise';
-import { GESTURE_CLIMB, GESTURE_LINK } from '$lib/domain/gesture';
-import { linkShapes } from '$lib/domain/gesture/passages';
-import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
+import { allExercises, exerciseById, findExercise } from '$lib/domain/exercise';
+import { allGrids } from '$lib/domain/grid';
+import { routines } from '$lib/domain/routine/registry';
+import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
+import { passageRound } from '$lib/domain/exercise/passage/round';
+import { passageDerivation } from '$lib/domain/families';
+import { exerciseLevelsOf } from '$lib/domain/exercise/levels';
+import { levelRange } from '$lib/domain/time';
 import type { ItemSource } from '$lib/domain/progress';
-import { occurrenceId } from '$lib/domain/triads';
 import type { ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
 import {
@@ -29,11 +31,16 @@ import {
 /** Which exercise the demo plays: the link on its lane, or a climb on the scrolling grid. */
 export type DemoGestureMode = 'link' | 'climb';
 
-const GRID_ID = 'iohefy-a';
-const GRID = gridChanges(gridById(GRID_ID));
-/** E on G-B-E, linked up the neck and back: one shape per bar. */
-const LINK_SHAPES_E = linkShapes(parseTriadId('E|maj'), [3, 2, 1]);
-const LINK = LINK_SHAPES_E.map((_, i) => ({ at: i * 4, length: 4, symbol: 'E' }));
+/** The view each demo draws its exercise on. */
+const DEMO_VIEWS: Record<DemoGestureMode, string> = { link: 'link-lane', climb: 'grid-scroll' };
+
+/**
+ * The index of the passage the demo plays, when its exercise has it: E linked on G-B-E, or the
+ * first registered grid on G-B-E; else the exercise's first index.
+ */
+function demoIndexKey(mode: DemoGestureMode): string {
+	return mode === 'link' ? 'chord=E;strings=3,2,1' : `grid=${allGrids()[0]?.id};strings=3,2,1`;
+}
 
 /** The verdict the scripted player aims at on each change, in turn. */
 const AIMS: readonly ResponseVerdict[] = [
@@ -52,58 +59,49 @@ const STRUM_BEATS: Partial<Record<ResponseVerdict, number>> = {
 	wrong: 0.02
 };
 
-function changeOf(mode: DemoGestureMode, passage: number, index: number): ChordGridItem {
-	const passageId = `demo:${passage}`;
-	if (mode === 'link') {
-		return {
-			rule: 'link',
-			element: 'link:E|maj:3,2,1',
-			passageId,
-			index,
-			changes: LINK,
-			symbol: 'E',
-			chord: 'E|maj',
-			sets: [[3, 2, 1]],
-			shape: occurrenceId(LINK_SHAPES_E[index]),
-			previous: null
-		};
-	}
-	const symbol = GRID[index].symbol;
-	return {
-		rule: 'climb',
-		element: `climb:${GRID_ID}:3,2,1`,
-		passageId,
-		index,
-		changes: GRID,
-		symbol,
-		chord: triadId(triadOf(symbol)),
-		sets: [[3, 2, 1]],
-		direction: 'up',
-		previous: null
-	};
+/** The exercise the demo plays: the first registered one playing passages on its view. */
+export function gestureDemoExercise(mode: DemoGestureMode) {
+	return allExercises().find(
+		(candidate) => candidate.passages !== undefined && candidate.view === DEMO_VIEWS[mode]
+	);
 }
 
-/** Serves the demo's passage again and again, each one counted in, aided. */
+/**
+ * The demo's exercise, read from the registry by what it is: the first that plays passages on the
+ * demo's view (the link on its lane, the climb on the scrolling grid); the index of its passage,
+ * and each passage param at its first value (the climb going up).
+ */
+function demoPassage(mode: DemoGestureMode) {
+	const exercise = gestureDemoExercise(mode);
+	if (!exercise) {
+		throw new Error(`No exercise plays passages on the ${DEMO_VIEWS[mode]} view: nothing to show`);
+	}
+	const indices = passageIndices(exercise);
+	const index = indices.find((found) => found.key === demoIndexKey(mode)) ?? indices[0];
+	const each = Object.fromEntries(
+		Object.entries(exercise.passages?.each ?? {}).map(([name, values]) => [name, values[0]])
+	);
+	const scope = exercise.passages?.scope;
+	return { exercise, index, each, scope: scope === undefined ? '' : String(index.of[scope]) };
+}
+
+/** Serves the demo's passage again and again, each one counted in. */
 function passageLoop(mode: DemoGestureMode): ItemSource {
-	const exercise = mode === 'link' ? GESTURE_LINK : GESTURE_CLIMB;
-	const length = mode === 'link' ? LINK.length : GRID.length;
+	const { exercise, index, each, scope } = demoPassage(mode);
+	const derivation = passageDerivation(exercise.passages!.members.family)!;
+	const items = passageMembers(exercise, index, each).map((member) => derivation.itemOf(member));
 	let served = 0;
 	return {
 		next: () => {
-			const passage = Math.floor(served / length);
-			const index = served % length;
+			const passage = Math.floor(served / items.length);
+			const rank = served % items.length;
 			served++;
+			const round = passageRound(exercise, index, each, items[rank], rank, items.length);
 			return {
-				exerciseId: exercise.id,
-				mechanic: 'chord-grid',
-				exerciseLevel: 0,
-				item: changeOf(mode, passage, index),
-				phase: 'free',
-				temperature: 'hot',
-				aid: 'show-position',
-				leadBeats: null,
-				...(index === 0 && { countIn: true }),
-				...(mode === 'climb' && { scope: GRID_ID })
+				...round,
+				passage: { ...round.passage, id: `demo:${passage}`, items },
+				...(rank === 0 && { countIn: true }),
+				...(scope !== '' && { scope })
 			};
 		},
 		record: () => null,
@@ -125,10 +123,33 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 		settings: new InMemorySettingsRepository()
 	};
 	const cards = new InMemoryCardStateRepository();
+	// The demo starts at its exercise's aid level, the shapes drawn; the scripted player moves it up.
+	const { exercise, scope } = demoPassage(mode);
+	const levels = new InMemoryLevelStateRepository([
+		{
+			exerciseId: exercise.id,
+			scope,
+			item: '',
+			level: levelRange(exerciseLevelsOf(exercise)).lowest,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		}
+	]);
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
+	// Named as the first routine of the registry that plays passages (the changes), so its start
+	// screen tells what that routine tells; the exercise alone when there is none.
+	const passages = routines().find(
+		(routine) =>
+			routine.exercises.length > 0 &&
+			routine.exercises.every((id) => findExercise(id)?.passages !== undefined)
+	);
 	const controller = new SessionController(
-		{ id: 'demo-gesture', kind: 'gesture' },
+		{
+			id: 'demo-gesture',
+			origin: passages ? { routine: passages.id } : { exercise: exercise.id }
+		},
 		async (sessionId) => {
 			const source = passageLoop(mode);
 			sources.set(sessionId, source);
@@ -139,10 +160,14 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			sounds,
 			detector: new FakeNoteDetector(),
 			sensors: { chord: chordSensor(chords) },
-			mechanics: GESTURE_PRESENTERS,
+			presenters: SET_PRESENTERS,
+			views: VIEW_PRESENTERS,
+			plays: allExercises()
+				.filter((exercise) => exercise.passages !== undefined)
+				.map((exercise) => exercise.id),
 			repositories,
 			// Where its levels stand, in memory: the scripted player moves them up as it plays.
-			levels: new InMemoryLevelStateRepository(),
+			levels,
 			recorderFor: (sessionId) =>
 				new AttemptRecorder({
 					attempts: repositories.attempts,
@@ -150,8 +175,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 					clock,
 					now: () => clock.toEpochMs(clock.now()),
 					selector: sources.get(sessionId) ?? passageLoop(mode),
-					sessionId,
-					rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
+					sessionId
 				}),
 			exercise: exerciseById,
 			locale,

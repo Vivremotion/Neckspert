@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { GridStageModel } from '$lib/application/mechanics/chordGrid';
+	import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import { i18n } from '$lib/i18n/index.svelte';
-	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
 	import DrawnMiss from './DrawnMiss.svelte';
 	import { gridPlacement } from './gridScroll';
 	import { viewMessages } from './messages';
+	import { PICTURE_VIEWS } from './pictures';
 
 	/** Bars on the line: the one before the current one, with its verdicts, then the next ones. */
 	const VISIBLE_BARS = 4;
@@ -14,7 +13,7 @@
 
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
-	const stage = $derived(model as GridStageModel);
+	const stage = $derived(model as PassageStageModel);
 	const t = $derived(viewMessages());
 
 	let nowBeat = $state(0);
@@ -32,33 +31,20 @@
 		gridPlacement(stage, { nowBeat, visibleBars: VISIBLE_BARS, barsBefore: BARS_BEFORE })
 	);
 
-	const cue = $derived.by((): string | null => {
-		const { cue } = stage;
-		switch (cue.kind) {
-			case 'link':
-				return `${cue.set} · ${cue.inversion}`;
-			case 'climb':
-				return `${cue.set} · ${cue.direction === 'up' ? t.up : t.down}`;
-			case 'zone':
-				return t.zone(cue.from, cue.to);
-			case 'jam':
-				return null;
-		}
-		return null;
-	});
-
 	const current = $derived(
-		placement.current === null ? null : stage.changes[placement.current].symbol
+		placement.current === null ? null : stage.rounds[placement.current].label
 	);
-	const next = $derived(placement.next === null ? null : stage.changes[placement.next].symbol);
+	const next = $derived(placement.next === null ? null : stage.rounds[placement.next].label);
 	const firstBar = $derived(placement.bars[0]?.bar ?? 0);
 </script>
 
 <div class="grid-scroll">
 	<header class="head">
-		<p class="title">{stage.title}</p>
-		{#if cue}
-			<p class="cue">{cue}</p>
+		{#if stage.prompt.secondary}
+			<p class="title">{stage.prompt.secondary}</p>
+		{/if}
+		{#if stage.prompt.detail}
+			<p class="cue">{stage.prompt.detail}</p>
 		{/if}
 	</header>
 
@@ -72,22 +58,11 @@
 			<p class="label">{t.next}</p>
 			<p class="symbol next-symbol" data-testid="next-chord">{next ?? t.end}</p>
 		</div>
-		{#if stage.aid}
-			<div class="aid">
-				<p class="label">{t.aid}</p>
-				<ChordShape
-					shape={stage.aid}
-					style={stage.chordDiagram}
-					locale={i18n.locale}
-					size="small"
-				/>
-			</div>
-		{/if}
 	</div>
 
-	{#if stage.miss}
-		<DrawnMiss miss={stage.miss} />
-	{/if}
+	{#each stage.verdict?.misses ?? [] as miss, i (i)}
+		<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
+	{/each}
 
 	{#key firstBar}
 		<ol class="bars">
@@ -111,6 +86,15 @@
 			{/each}
 		</ol>
 	{/key}
+
+	{#if stage.aid}
+		{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
+		<!-- Its own row under the cells, as the link's under its lane. No legend: the neck tells now
+		from next by the colour of its notes. -->
+		<div class="aid" data-testid="grid-aid">
+			<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -165,11 +149,16 @@
 		font-size: var(--np-type-hero);
 	}
 
-	.next,
-	.aid {
+	.next {
 		display: grid;
 		justify-items: center;
 		gap: var(--np-space-1, 8px);
+	}
+
+	/* The aid's neck at the view's width: a climb's first change spans the whole neck. */
+	.aid {
+		--neck-max: none;
+		min-width: 0;
 	}
 
 	.next-symbol {

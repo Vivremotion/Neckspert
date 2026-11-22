@@ -135,7 +135,7 @@ export function recordedAttempt(input: {
 	outcome: RoundOutcome;
 	item: PlannedItem;
 	plan: RoundPlan;
-	/** The mechanic's data for a response value (`MechanicPresenter.attemptData`). */
+	/** The presenter's data for a response value (`SetPresenter.attemptData`). */
 	data: (value: ResponseValue) => unknown;
 	sessionId: string;
 	execution: Execution;
@@ -159,7 +159,7 @@ export function recordedAttempt(input: {
 	return {
 		sessionId: input.sessionId,
 		exerciseId: execution.exerciseId,
-		mechanic: item.mechanic,
+		skill: item.skill,
 		cardKey: input.cardKey,
 		phase: item.phase,
 		temperature: 'hot',

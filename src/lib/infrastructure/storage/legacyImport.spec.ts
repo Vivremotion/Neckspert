@@ -160,19 +160,19 @@ describe('importing an export of 2026-10-04', () => {
 		await new DexieBackup(db).importAll(JSON.parse(JSON.stringify(EXPORT_2026_10_04)));
 
 		const cards = new Map((await new DexieCardStateRepository(db).all()).map((c) => [c.key, c]));
-		expect(cards.get('locate:6:A')).toMatchObject({
-			mechanic: 'locate',
+		expect(cards.get('locate-note-string:6:A')).toMatchObject({
+			skill: 'locate-note-string',
 			item: { string: 6, pitch: 'A' },
 			learnedAt: T0 - 2 * DAY
 		});
-		expect(cards.get('locate:6:A')?.scheduling).toEqual(scheduling(1));
-		expect(cards.get('locate:5:D')).toMatchObject({
-			mechanic: 'locate',
+		expect(cards.get('locate-note-string:6:A')?.scheduling).toEqual(scheduling(1));
+		expect(cards.get('locate-note-string:5:D')).toMatchObject({
+			skill: 'locate-note-string',
 			item: { string: 5, pitch: 'D' }
 		});
-		expect(cards.get('locate:5:D')?.scheduling.state).toBe(1);
-		expect(cards.get('identify:6:3')).toMatchObject({
-			mechanic: 'identify',
+		expect(cards.get('locate-note-string:5:D')?.scheduling.state).toBe(1);
+		expect(cards.get('identify-note:6:3')).toMatchObject({
+			skill: 'identify-note',
 			item: { string: 6, fret: 3 }
 		});
 		expect([...cards.values()].some((card) => 'target' in card)).toBe(false);
@@ -186,9 +186,9 @@ describe('importing an export of 2026-10-04', () => {
 		);
 		expect(levels).toEqual(
 			new Map([
-				['locate-neck/6:A', 2],
-				['locate-neck/5:D', 1],
-				['identify-neck/6:3', 1]
+				['locate-note-string/6:A', 2],
+				['locate-note-string/5:D', 1],
+				['identify-note/6:3', 1]
 			])
 		);
 
@@ -200,9 +200,9 @@ describe('importing an export of 2026-10-04', () => {
 		expect(sessions.map((s) => s.latencyMs)).toEqual(sessions.map(() => null));
 		expect(sessions.length).toBeGreaterThan(0);
 		expect(attempts.map((a) => a.exerciseId)).toEqual([
-			'locate-neck',
-			'locate-neck',
-			'identify-neck'
+			'locate-note-string',
+			'locate-note-string',
+			'identify-note'
 		]);
 		expect(attempts.map((a) => a.data)).toEqual([
 			{ item: { string: 6, pitch: 'A' }, answer: null, confusion: null },
@@ -216,7 +216,7 @@ describe('importing an export of 2026-10-04', () => {
 
 		// The settings tempo went to a locate progression, which version 7 no longer keeps.
 		const exported = await new DexieBackup(db).exportAll();
-		expect(exported.version).toBe(8);
+		expect(exported.version).toBe(9);
 		expect(Object.hasOwn(exported, 'progressions')).toBe(false);
 
 		const settings = await new DexieSettingsRepository(db).get();
@@ -236,9 +236,9 @@ describe('importing an export of 2026-10-04', () => {
 	it('lets a card stuck in Learning reach Review on its next cold success', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await new DexieBackup(db).importAll(JSON.parse(JSON.stringify(EXPORT_2026_10_04)));
-		const card = (await new DexieCardStateRepository(db).get('locate:6:A'))!;
+		const card = (await new DexieCardStateRepository(db).get('locate-note-string:6:A'))!;
 		const now = T0 + 2 * DAY;
-		const [stored] = await new DexieAttemptRepository(db).listByCard('locate:6:A');
+		const [stored] = await new DexieAttemptRepository(db).listByCard('locate-note-string:6:A');
 		const success: Attempt = responseAttempt({
 			...stored,
 			id: undefined,

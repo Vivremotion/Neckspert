@@ -3,7 +3,7 @@ import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import { DERIVED_PICTURES, neckPicture, PICTURES } from './pictures';
 
 describe('DERIVED_PICTURES', () => {
-	it('maps derivations of lists of notes to pictures that read their mechanics', () => {
+	it('maps derivations of lists of notes to pictures that read their sets', () => {
 		const entries = Object.entries(DERIVED_PICTURES);
 		expect(entries.length).toBeGreaterThan(0);
 		for (const [derivation, picture] of entries) {

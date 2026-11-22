@@ -1,5 +1,6 @@
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
-import { CONTENT_JUDGES, PITCH_CONTENT } from '../../judges';
+import { exerciseSetId } from '../../sets';
+import { CONTENT_JUDGES, MEMBER_CONTENT, PITCH_CONTENT } from '../../judges';
 import { attackNotes, validateFigure, type Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
 import {
@@ -13,10 +14,12 @@ import {
 import { ROUND_MODES } from '../../time/modes';
 import type { Expectation, PairingPolicy, RoundPlan } from '../../time/plan';
 import { pacingOf } from '../pacing';
-import { ladderFieldOf, ladderOf } from '../ladder';
+import { ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
 import { levelRange } from '../../time/levels';
+import { selectionFieldProblem, type LevelSweep } from '../selection/validate';
+import { isSelectionTemplate } from '../selection/types';
 import { FIGURE_CONTENT } from './types';
 
 /** What a check may be told about the session that will play the exercise. */
@@ -60,6 +63,25 @@ function isNum(value: unknown): value is { param: string } | { item: string } {
 
 const at = (field: string, text: string) => `round.${field} ${text}`;
 
+/** Expectations of one round: each may cost a look at every level (a selection read in the params). */
+export const MAX_ROUND_EXPECTATIONS = 64;
+
+/**
+ * The notes a round's figure entries may expand to, and the bars they may span, checked by the
+ * compiler before it expands them, at load and at play. The reason is the judge: the alignment of
+ * a round's attacks (`alignAttacks`) grows much faster than its notes, measured at 0.5 s for
+ * 1 000 notes, 3.7 s for 2 000, 26 s for 4 000 (Apple M3 Pro, plan 5b). A whole theme of several
+ * hundred notes as one figure fits.
+ */
+export const MAX_FIGURE_ROUND_NOTES = 1_024;
+
+/**
+ * The bars a round may span, checked by the compiler as soon as the round's length is known,
+ * before anything loops over its bars (muted bars, accompaniment, figure entries), at load and at
+ * play. A session lasts five minutes; 1 024 bars last 51 minutes at ♩ = 80.
+ */
+export const MAX_ROUND_BARS = 1_024;
+
 function unknownKey(value: Record_, allowed: readonly string[], field: string): string | null {
 	for (const key of Object.keys(value)) {
 		if (!allowed.includes(key)) {
@@ -75,6 +97,8 @@ interface Check {
 	definition: ExerciseDefinition;
 	params: Readonly<Record<string, unknown>>;
 	options: RoundCheckOptions;
+	/** The levels the round's selections read, swept once for the whole round. */
+	sweep: LevelSweep;
 }
 
 /** The value a path of the params gives, undefined when it gives none. */
@@ -87,10 +111,10 @@ function paramValue(params: Readonly<Record<string, unknown>>, path: string): un
 /** Why no level of the ladder can give the lead, naming the levels; null when each gives one. */
 function leadProblem(check: Check): string | null {
 	const { definition } = check;
-	const field = ladderFieldOf(definition, definition.mechanic);
+	const field = 'params.ladder';
 	let ladder;
 	try {
-		ladder = ladderOf(definition, definition.mechanic);
+		ladder = ladderOf(definition);
 	} catch {
 		return `reads param "leadBeats", but the exercise writes no ladder (${field})`;
 	}
@@ -118,10 +142,10 @@ function numberOf(check: Check, field: string, value: unknown): number | undefin
 			return at(field, `measures unknown item number "${String(value.item)}"`);
 		}
 		const { reads } = ITEM_NUMBERS[value.item];
-		if (!reads.includes(check.definition.mechanic)) {
+		if (!reads.includes(exerciseSetId(check.definition))) {
 			return at(
 				field,
-				`measures "${value.item}" which reads ${reads.join(', ')}, not ${check.definition.mechanic}`
+				`measures "${value.item}" which reads ${reads.join(', ')}, not ${exerciseSetId(check.definition)}`
 			);
 		}
 		return undefined;
@@ -239,8 +263,14 @@ function policyProblem(check: Check, policy: unknown): string | null {
 
 function contentProblem(check: Check, field: string, content: unknown): string | null {
 	if (content === null) return null;
+	if (isSelectionTemplate(content)) {
+		return selectionContentProblem(check, field, content);
+	}
 	if (!isRecord(content) || typeof content.from !== 'string') {
-		return at(field, 'must be null or { from: derivation }');
+		return at(
+			field,
+			'must be null, { from: derivation } or a selection { family, of?, where?, order?, take? }'
+		);
 	}
 	const unknown = unknownKey(content, ['from'], field);
 	if (unknown !== null) return unknown;
@@ -256,19 +286,26 @@ function contentProblem(check: Check, field: string, content: unknown): string |
 	return derivationProblem(check, field, content.from);
 }
 
-/** Why a known derivation cannot serve the exercise: another mechanic's, or a kind with no judge. */
+/** Why a known derivation cannot serve the exercise: another set's, or a kind with no judge. */
 function derivationProblem(check: Check, field: string, from: string): string | null {
 	const derivation = CONTENT_DERIVATIONS[from];
-	if (!derivation.reads.includes(check.definition.mechanic)) {
+	if (!derivation.reads.includes(exerciseSetId(check.definition))) {
 		return at(
 			field,
-			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${check.definition.mechanic}`
+			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${exerciseSetId(check.definition)}`
 		);
 	}
 	if (!Object.hasOwn(CONTENT_JUDGES, derivation.kind)) {
 		return at(field, `derives "${from}", whose content kind "${derivation.kind}" has no judge`);
 	}
 	return null;
+}
+
+/** A selection's problem, told under the content's field. */
+function selectionContentProblem(check: Check, field: string, content: unknown): string | null {
+	const problem = selectionFieldProblem(check.definition, content, check.sweep);
+	if (problem === null) return null;
+	return at(problem.field === '' ? field : `${field}.${problem.field}`, problem.text);
 }
 
 const WINDOW_KEYS = ['ms', 'ofGap', 'param'];
@@ -394,10 +431,10 @@ function namedFigures(
 			return at(field, `reads unknown item figure "${String(name)}"`);
 		}
 		const { reads } = ITEM_FIGURES[name];
-		if (!reads.includes(definition.mechanic)) {
+		if (!reads.includes(exerciseSetId(definition))) {
 			return at(
 				field,
-				`reads "${name}" which reads ${reads.join(', ')}, not ${definition.mechanic}`
+				`reads "${name}" which reads ${reads.join(', ')}, not ${exerciseSetId(definition)}`
 			);
 		}
 		if (written.length === 0)
@@ -422,6 +459,9 @@ function figureContentProblem(
 	figures: readonly { id: string; figure: Figure }[]
 ): string | null {
 	if (content === null) return null;
+	if (isSelectionTemplate(content)) {
+		return at(field, 'a figure entry takes its content from a derivation');
+	}
 	if (!isRecord(content) || typeof content.from !== 'string') {
 		return at(
 			field,
@@ -626,8 +666,9 @@ function knownPlan(
 			// What its content is does not matter to a mode, only that it asks for some, and its kind.
 			content: isRecord(e.content)
 				? {
-						kind:
-							e.content.from === FIGURE_CONTENT
+						kind: isSelectionTemplate(e.content)
+							? MEMBER_CONTENT
+							: e.content.from === FIGURE_CONTENT
 								? PITCH_CONTENT
 								: CONTENT_DERIVATIONS[e.content.from as string].kind,
 						value: null
@@ -752,7 +793,7 @@ function levelWithoutThresholds(definition: ExerciseDefinition): number | null {
 /** Why an accompaniment cannot be played under the round: no on/off bars, or an invalid figure. */
 function playableProblem(value: unknown): string | null {
 	if (!isRecord(value) || !isRecord(value.figure) || !Array.isArray(value.bars)) {
-		return 'is no accompaniment ({ figure, bars })';
+		return 'is no accompaniment ({ figure, bars }; a file writes { clicks, bars })';
 	}
 	const { bars } = value;
 	if (bars.length === 0 || !bars.every((bar) => bar === 'on' || bar === 'off')) {
@@ -798,6 +839,12 @@ function templateProblem(check: Check): string | null {
 
 	const expectations = template.expectations;
 	if (!Array.isArray(expectations)) return at('expectations', 'must be a list');
+	if (expectations.length > MAX_ROUND_EXPECTATIONS) {
+		return at(
+			'expectations',
+			`has ${expectations.length} entries, more than ${MAX_ROUND_EXPECTATIONS}`
+		);
+	}
 	for (const [i, expectation] of expectations.entries()) {
 		const problem = expectationProblem(check, expectation, i);
 		if (problem !== null) return problem;
@@ -866,7 +913,7 @@ function templateProblem(check: Check): string | null {
 /**
  * Null when the exercise writes no round or writes one the engine can run, else the first thing
  * it cannot, naming the field (`round.expectations[1].until …`): a key it does not know, a
- * derivation or number of an item that does not read the exercise's mechanic, content without a
+ * derivation or number of an item that does not read the exercise's set, content without a
  * judge, a mode it does not have, a sensor the session lacks (when told the `sensors`), a param
  * no level resolves, a negative place, a stretch that does not end after it starts, expectations
  * in free time mixed with placed ones, a bar offset outside its bar; and, as far as the exercise
@@ -875,14 +922,14 @@ function templateProblem(check: Check): string | null {
  */
 export function roundProblem(
 	definition: ExerciseDefinition,
-	options: RoundCheckOptions = {}
+	options: RoundCheckOptions = {},
+	sweep: LevelSweep = new Map()
 ): string | null {
 	if (definition.round === undefined) return null;
-	let params: Readonly<Record<string, unknown>>;
-	try {
-		params = exerciseParamsOf(definition);
-	} catch (error) {
-		return (error as Error).message;
-	}
-	return templateProblem({ definition, params, options });
+	return templateProblem({
+		definition,
+		params: exerciseParamsOf(definition),
+		options,
+		sweep
+	});
 }

@@ -1,10 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import {
-	IDENTIFY_NECK,
-	LOCATE_NECK,
-	TRIADS_ANCHOR,
-	TRIADS_ZONE
-} from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
 	fretLabel,
@@ -16,6 +10,14 @@ import {
 import type { AidLevel, Locale, PlannedItem } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { presentPrompt } from './presentPrompt';
+import { presentationProblem } from './validate';
+import {
+	GESTURE_CLIMB,
+	IDENTIFY_NECK,
+	LOCATE_NECK,
+	TRIADS_ANCHOR,
+	TRIADS_ZONE
+} from '$lib/testing/catalog';
 
 /** The locate prompt as its presenter wrote it before its presentation became data (H5). */
 function locateToday(
@@ -51,7 +53,7 @@ function planned(
 ): PlannedItem {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'review',
@@ -194,6 +196,25 @@ describe('presentPrompt', () => {
 		).toBe('à vide');
 	});
 
+	it('shows the aided presentation at an aid level of the exercise as when the item is served aided, on the lane too', () => {
+		const item = { voicingKey: D_ON_B, position: 14, fret: 15 };
+		const at = (over: Partial<PlannedItem>) =>
+			presentPrompt(TRIADS_ZONE, planned(TRIADS_ZONE, item, over), 'en', () => 0);
+		expect(at({ exerciseLevel: -1 }).aid).toBe('root on B');
+		expect(at({ exerciseLevel: -2 }).aid).toBe('root on B');
+		expect(at({ exerciseLevel: 0 }).aid).toBeNull();
+		expect(at({ exerciseLevel: 1 }).aid).toBeNull();
+		const anchor = (over: Partial<PlannedItem>) =>
+			presentPrompt(
+				TRIADS_ANCHOR,
+				planned(TRIADS_ANCHOR, { voicingKey: D_ON_B }, over),
+				'fr',
+				() => 0
+			).pictures.length;
+		expect(anchor({ exerciseLevel: -1 })).toBe(1);
+		expect(anchor({ exerciseLevel: 0 })).toBe(0);
+	});
+
 	it('writes a slot per language', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,
@@ -228,13 +249,38 @@ describe('presentPrompt', () => {
 		expect(count({ aid: 'show-position', stringAid: true })).toBe(2);
 	});
 
-	it('refuses to present a prompt the exercise writes wrongly', () => {
+	it('leaves a presentation written wrongly to the check at load', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,
 			presentation: { primary: '{chord}' }
 		};
-		expect(() =>
-			presentPrompt(definition, planned(definition, { string: 2, pitch: 'F' }), 'fr', () => 0)
-		).toThrow('locate-neck: presentation.primary names field "chord", which locate does not have');
+		expect(presentationProblem(definition)).toBe(
+			'locate-note-string: presentation.primary names field "chord", which note-on-string does not have'
+		);
+	});
+
+	it("reads the fields of its round's content, an item field winning over one of the same name", () => {
+		const definition: ExerciseDefinition = {
+			...GESTURE_CLIMB,
+			presentation: { primary: '{symbol}', detail: '{strings} · {toward}', target: '{title}' }
+		};
+		const item = planned(definition, { grid: 'iohefy-a', index: 1 });
+		const content = { strings: 'sol‑si‑mi', toward: '↑ en montant', symbol: 'never' };
+		expect(presentPrompt(definition, item, 'fr', () => 0, content)).toMatchObject({
+			primary: 'G7',
+			detail: 'sol‑si‑mi · ↑ en montant',
+			target: 'I Only Have Eyes for You'
+		});
+		// Without the content's fields, a slot that reads them says what is left.
+		expect(presentPrompt(definition, item, 'fr', () => 0).detail).toBe('·');
+	});
+
+	it('leaves the picture of the members admitted to the view of its round', () => {
+		const definition: ExerciseDefinition = {
+			...GESTURE_CLIMB,
+			presentation: { primary: '{symbol}', aided: { picture: 'admitted' } }
+		};
+		const item = planned(definition, { grid: 'iohefy-a', index: 0 }, { aid: 'show-position' });
+		expect(presentPrompt(definition, item, 'fr', () => 0).pictures).toEqual([]);
 	});
 });

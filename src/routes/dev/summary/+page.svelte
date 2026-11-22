@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { SessionSummary } from '$lib/domain/types';
 	import SummaryScreen from '$lib/ui/screens/summary/SummaryScreen.svelte';
 
@@ -16,7 +17,10 @@
 		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+',
 		tempoBpm: 92,
-		kind: 'learn'
+		chords: false,
+		memory: true,
+		exercises: [],
+		misses: []
 	};
 
 	const triads: SessionSummary = {
@@ -24,21 +28,31 @@
 		pool: 'cold',
 		grade: null,
 		identifyMedianReactionMs: null,
-		kind: 'triads'
+		chords: true
 	};
+
+	/** The last registered exercise played cycle after cycle (the catalog's offbeats). */
+	const figureExercise = exerciseSessionExercises().at(-1);
 
 	const rhythm: SessionSummary = {
 		...summary,
 		pool: 'cold',
 		grade: null,
-		kind: 'exercise',
-		exercise: {
-			exerciseId: 'rhythm-offbeats',
-			levelReached: { shown: 3, of: 6, aid: false },
-			cycles: 14,
-			successes: 11,
-			aided: 2
-		}
+		chords: false,
+		memory: false,
+		exercises: [
+			{
+				exerciseId: figureExercise?.id ?? '',
+				rounds: 14,
+				passed: 11,
+				aided: 2,
+				level: { shown: 3, of: 6, aid: false },
+				tempo: { first: 80, last: 80 },
+				inPassages: false,
+				passages: null,
+				changedAir: false
+			}
+		]
 	};
 </script>
 

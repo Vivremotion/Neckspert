@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { roundPlanRecord } from '$lib/application/session/series/recordResponse';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import { METER_4_4, attackPositions } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
@@ -20,6 +19,7 @@ import {
 	pickOracleRuns,
 	type OracleRun
 } from './oracle';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 const figure = RHYTHM_OFFBEATS.figures?.[0]?.figure;
 if (!figure) throw new Error('no offbeats figure');
@@ -34,7 +34,7 @@ const PLAN = {
 			RHYTHM_OFFBEATS,
 			{
 				exerciseId: RHYTHM_OFFBEATS.id,
-				mechanic: 'figure',
+				skill: RHYTHM_OFFBEATS.practices,
 				exerciseLevel: 0,
 				item: { figureId: 'offbeats-1', level: 0 },
 				phase: 'free',
@@ -55,8 +55,8 @@ function cycle(id: number, sessionId: string, promptedAt: number, contested = fa
 		id,
 		sessionId,
 		exerciseId: RHYTHM_OFFBEATS.id,
-		mechanic: 'figure',
-		cardKey: `figure:offbeats-1@0`,
+		skill: RHYTHM_OFFBEATS.practices,
+		cardKey: `${RHYTHM_OFFBEATS.practices}:offbeats-1@0`,
 		phase: 'free',
 		temperature: 'hot',
 		aids: [],
@@ -132,6 +132,38 @@ describe('oracleRuns', () => {
 		const empty = { ...cycle(2, 's', 10_000 + CYCLE_MS), plan: { ...PLAN, expectations: [] } };
 		expect(oracleRuns([empty])).toEqual([]);
 		expect(oracleRuns([cycle(1, 's', 10_000), empty]).map((run) => run.attemptIds)).toEqual([[1]]);
+	});
+
+	it('leaves out a cycle plan whose content no judge reads any more, without throwing', () => {
+		// Kept before plan 4a: a stored plan keeps its content kind (D10), `note` among them.
+		const old = {
+			...cycle(2, 's', 10_000 + CYCLE_MS),
+			plan: {
+				...PLAN,
+				expectations: PLAN.expectations.map((e) => ({
+					...e,
+					content: { kind: 'note', value: { string: 2, pitch: 'F' } }
+				}))
+			}
+		};
+		expect(oracleRuns([cycle(1, 's', 10_000), old]).map((run) => run.attemptIds)).toEqual([[1]]);
+	});
+
+	it('leaves out a member plan whose family is no longer registered, without throwing', () => {
+		const gone = {
+			...cycle(2, 's', 10_000 + CYCLE_MS),
+			plan: {
+				...PLAN,
+				expectations: PLAN.expectations.map((e) => ({
+					...e,
+					content: {
+						kind: 'member',
+						value: { family: 'gone-family', index: null, selection: { family: 'gone-family' } }
+					}
+				}))
+			}
+		};
+		expect(oracleRuns([cycle(1, 's', 10_000), gone]).map((run) => run.attemptIds)).toEqual([[1]]);
 	});
 
 	it('chains a cycle that starts within a beat of the last one’s end', () => {

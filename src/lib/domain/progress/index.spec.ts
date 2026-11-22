@@ -18,14 +18,11 @@ describe('progress index', () => {
 			'isAcquired',
 			'isMastered',
 			'cardStatus',
-			'introductionOrder',
-			'nextNewCard',
 			'createListSource',
 			'buildFreePlan',
 			'freeLeadOf',
 			'freeLevelOf',
 			'nextReviewAt',
-			'computeHomeStats',
 			'summarizeSession',
 			'buildNeckMap'
 		] as const) {
@@ -34,7 +31,7 @@ describe('progress index', () => {
 
 		expect(progress).not.toHaveProperty('isDirectRecall');
 		expect(progress).not.toHaveProperty('introScheduling');
-		expect(progress).not.toHaveProperty('TREND_WINDOW_MS');
-		expect(progress).not.toHaveProperty('TREND_RATIO');
+		expect(progress).not.toHaveProperty('computeHomeStats');
+		expect(progress).not.toHaveProperty('isNeck');
 	});
 });

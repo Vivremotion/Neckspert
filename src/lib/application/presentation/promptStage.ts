@@ -1,9 +1,10 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import type { StagePlace } from '$lib/application/mechanics/types';
+import type { StagePlace } from '$lib/application/sets/types';
 import type { AnswerChoice, LaneEntry } from '$lib/application/session/contract';
-import { CONTENT_VIEWS, type ContentView, type MissView } from './contentViews';
+import { MEMBER_CONTENT } from '$lib/domain/judges';
+import { CONTENT_VIEWS, roundMemberFields, type ContentView, type MissView } from './contentViews';
 import { presentPrompt, type PresentedPrompt } from './presentPrompt';
 
 /** What a settled round tells. */
@@ -27,7 +28,7 @@ export interface PromptStageModel {
 	beatsPerBar: number;
 	verdict: StageVerdict | null;
 	chordDiagram: ChordDiagramStyle;
-	/** The answer keys of a screen mechanic (`presenter.answerChoices`); empty otherwise. */
+	/** The answer keys of items answered on the screen (`presenter.answerChoices`); empty otherwise. */
 	choices: readonly AnswerChoice[];
 }
 
@@ -42,7 +43,7 @@ function viewOf(kind: string): ContentView | null {
 }
 
 /** What a settled round tells: each answer by its content, and each expectation it missed. */
-function stageVerdict(
+export function stageVerdict(
 	plan: RoundPlan,
 	settled: { value: ResponseValue; success: boolean },
 	locale: Locale,
@@ -81,7 +82,8 @@ function stageVerdict(
 }
 
 /**
- * The screen model of `item`'s prompt, from its exercise's presentation and its round's plan:
+ * The screen model of `item`'s prompt, from its exercise's presentation and its round's plan (the
+ * fields of its member contents among them, each the first's that offers it):
  * before its round (`settled` null) and once settled. `place` tells where it stands on the lane;
  * `random` spells a note: give every call for one item the same value.
  */
@@ -98,8 +100,12 @@ export function promptStage(input: {
 	random: () => number;
 }): PromptStageModel {
 	const { definition, item, plan, settled, place, locale, random } = input;
+	const members = plan.expectations.flatMap(({ content }) =>
+		content?.kind === MEMBER_CONTENT ? [content.value] : []
+	);
+	const contentFields = roundMemberFields(members, locale);
 	return {
-		prompt: presentPrompt(definition, item, locale, random),
+		prompt: presentPrompt(definition, item, locale, random, contentFields),
 		anchorBeat: place.anchorBeat,
 		promptBeat: place.promptBeat,
 		history: place.history,

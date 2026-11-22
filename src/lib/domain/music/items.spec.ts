@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	asNeckCard,
-	identifyItemKey,
-	locateItemKey,
-	neckCardKey,
-	parseIdentifyItem,
-	parseLocateItem
-} from './items';
+import { identifyItemKey, locateItemKey, parseIdentifyItem, parseLocateItem } from './items';
 
 describe('locate item keys', () => {
 	it('round-trips a string and a pitch', () => {
@@ -40,29 +33,5 @@ describe('identify item keys', () => {
 		expect(() => parseIdentifyItem('1:1.5')).toThrow();
 		expect(() => parseIdentifyItem('0:3')).toThrow();
 		expect(() => parseIdentifyItem('1:')).toThrow();
-	});
-});
-
-describe('neckCardKey', () => {
-	it('prefixes the item key with its mechanic', () => {
-		expect(neckCardKey({ mechanic: 'identify', item: { string: 6, fret: 3 } })).toBe(
-			'identify:6:3'
-		);
-		expect(neckCardKey({ mechanic: 'locate', item: { string: 6, pitch: 'F' } })).toBe('locate:6:F');
-	});
-});
-
-describe('asNeckCard', () => {
-	it('reads a card of either neck mechanic', () => {
-		const card = { key: 'locate:6:F', mechanic: 'locate', item: { string: 6, pitch: 'F' } };
-		expect(asNeckCard(card)).toEqual({ mechanic: 'locate', item: { string: 6, pitch: 'F' } });
-		expect(asNeckCard({ mechanic: 'identify', item: { string: 6, fret: 3 } })).toEqual({
-			mechanic: 'identify',
-			item: { string: 6, fret: 3 }
-		});
-	});
-
-	it('throws on another mechanic', () => {
-		expect(() => asNeckCard({ mechanic: 'chords', item: {} })).toThrow(/chords/);
 	});
 });

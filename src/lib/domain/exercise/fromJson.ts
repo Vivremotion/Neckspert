@@ -1,12 +1,20 @@
-import { Fraction, type Figure, type Meter } from '$lib/domain/time';
+import { idProblem, RESERVED_EXERCISE_IDS } from '$lib/domain/definitions/ids';
+import {
+	Fraction,
+	METER_4_4,
+	clickAccompaniment,
+	type Accompaniment,
+	type Figure,
+	type Meter
+} from '$lib/domain/time';
 import { parseLilyPond, parseLilyPondNotes } from '$lib/domain/time/notation/lilypond';
-import type { ExerciseDefinition, ExerciseForm } from './types';
+import { CHORD_DIAGRAM_STYLES } from '$lib/domain/types';
+import type { ExerciseDefinition, ExerciseShape } from './types';
 
 /** Every key an `ExerciseDefinition` has (the type's own list, held by the compiler). */
 const KEYS: Record<keyof ExerciseDefinition, true> = {
 	id: true,
-	version: true,
-	mechanic: true,
+	practices: true,
 	params: true,
 	tempo: true,
 	chordDiagram: true,
@@ -19,9 +27,10 @@ const KEYS: Record<keyof ExerciseDefinition, true> = {
 	title: true,
 	levels: true,
 	figures: true,
-	forms: true,
+	shapes: true,
 	pick: true,
-	items: true
+	items: true,
+	passages: true
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -45,6 +54,75 @@ function meterFromJson(value: unknown, where: string): Meter {
 	return { count, unit: fraction, grouping: grouping as number[] };
 }
 
+/** An accompaniment written `{ clicks: { beats, accent? }, bars }`; throws naming `where`. */
+function accompanimentFromJson(value: unknown, meter: Meter, where: string): Accompaniment {
+	const shape = `${where} must be { clicks: { beats, accent? }, bars }`;
+	if (!isObject(value) || !isObject(value.clicks)) throw new Error(shape);
+	const { clicks, bars, ...rest } = value;
+	const { beats, accent = [], ...clickRest } = clicks;
+	const unknown = Object.keys(rest)[0] ?? Object.keys(clickRest)[0];
+	if (unknown !== undefined) throw new Error(`${where}: unknown key "${unknown}"`);
+	const numbers = (list: unknown): list is number[] =>
+		Array.isArray(list) && list.every((n) => typeof n === 'number');
+	if (
+		!numbers(beats) ||
+		!numbers(accent) ||
+		!Array.isArray(bars) ||
+		!bars.every((bar) => bar === 'on' || bar === 'off')
+	) {
+		throw new Error(shape);
+	}
+	try {
+		return clickAccompaniment({ meter, beats, accent, bars });
+	} catch (error) {
+		throw new Error(`${where}: ${(error as Error).message}`, { cause: error });
+	}
+}
+
+const OBJECT_KEYS = ['params', 'flow', 'round', 'presentation', 'passages'];
+const LIST_KEYS = ['levels', 'items', 'figures', 'shapes'];
+/** What a list of figures or shapes holds, told after "must be a list". */
+const LIST_FORMS: Record<string, string> = {
+	figures: ' of { id, lilypond }',
+	shapes: ' of { id, symbol, lilypond }'
+};
+const TEXT_KEYS = ['howTo', 'title'];
+
+/** The form of every top-level key, before anything reads its content. */
+function shapesOfKeys(json: Record<string, unknown>): void {
+	for (const key of OBJECT_KEYS) {
+		if (json[key] !== undefined && !isObject(json[key]))
+			throw new Error(`${key} must be an object`);
+	}
+	for (const key of LIST_KEYS) {
+		if (json[key] !== undefined && !Array.isArray(json[key])) {
+			throw new Error(`${key} must be a list${LIST_FORMS[key] ?? ''}`);
+		}
+	}
+	for (const key of TEXT_KEYS) {
+		const text = json[key];
+		if (
+			text !== undefined &&
+			!(isObject(text) && typeof text.fr === 'string' && typeof text.en === 'string')
+		) {
+			throw new Error(`${key} must be { fr, en }`);
+		}
+	}
+	if (json.pick !== undefined && json.pick !== 'loop' && json.pick !== 'next') {
+		throw new Error('pick must be "loop" or "next"');
+	}
+	if (json.view !== undefined && typeof json.view !== 'string')
+		throw new Error('view must be a string');
+	if (json.tempo !== undefined && typeof json.tempo !== 'number')
+		throw new Error('tempo must be a number');
+	if (
+		json.chordDiagram !== undefined &&
+		!(CHORD_DIAGRAM_STYLES as readonly unknown[]).includes(json.chordDiagram)
+	) {
+		throw new Error(`chordDiagram must be one of ${CHORD_DIAGRAM_STYLES.join(', ')}`);
+	}
+}
+
 function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {
 	if (!Array.isArray(value)) throw new Error('figures must be a list of { id, lilypond }');
 	return value.map((entry: unknown, index) => {
@@ -64,10 +142,10 @@ function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {
 	});
 }
 
-function formsFromJson(value: unknown): ExerciseForm[] {
-	if (!Array.isArray(value)) throw new Error('forms must be a list of { id, symbol, lilypond }');
+function shapesFromJson(value: unknown): ExerciseShape[] {
+	if (!Array.isArray(value)) throw new Error('shapes must be a list of { id, symbol, lilypond }');
 	return value.map((entry: unknown, index) => {
-		const where = `forms[${index}]`;
+		const where = `shapes[${index}]`;
 		if (!isObject(entry)) throw new Error(`${where} must be { id, symbol, lilypond }`);
 		const { id, symbol, lilypond, ...rest } = entry;
 		const unknown = Object.keys(rest)[0];
@@ -85,7 +163,7 @@ function formsFromJson(value: unknown): ExerciseForm[] {
 
 /**
  * An exercise written as JSON: its figures as `{ id, lilypond, meter? }` (parsed by
- * `parseLilyPond`), its forms as `{ id, symbol, lilypond }` (parsed by `parseLilyPondNotes`), its
+ * `parseLilyPond`), its shapes as `{ id, symbol, lilypond }` (parsed by `parseLilyPondNotes`), its
  * top-level `meter` as `{ count, unit: "1/4", grouping }`, everything else
  * as the `ExerciseDefinition` it is. Throws an `Error` naming the field when the value is no
  * exercise or has a key the definition does not know; whether the engine can run it is for
@@ -96,15 +174,60 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 	for (const key of Object.keys(json)) {
 		if (!Object.hasOwn(KEYS, key)) throw new Error(`unknown key "${key}"`);
 	}
-	if (typeof json.id !== 'string' || json.id === '') throw new Error('id must be a string');
-	if (typeof json.version !== 'number') throw new Error('version must be a number');
-	if (typeof json.mechanic !== 'string') throw new Error('mechanic must be a string');
+	const badId = idProblem(json.id, { reserved: RESERVED_EXERCISE_IDS });
+	if (badId !== null) throw new Error(badId);
+	if (typeof json.practices !== 'string') throw new Error('practices must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');
-	const { figures, forms, meter, ...rest } = json;
+	shapesOfKeys(json);
+	const { figures, shapes, meter, ...rest } = json;
+	const exerciseMeter = meter === undefined ? undefined : meterFromJson(meter, 'meter');
 	return {
-		...(rest as unknown as ExerciseDefinition),
+		...(accompanimentsFromJson(rest, exerciseMeter ?? METER_4_4) as unknown as ExerciseDefinition),
 		...(figures !== undefined && { figures: figuresFromJson(figures) }),
-		...(forms !== undefined && { forms: formsFromJson(forms) }),
-		...(meter !== undefined && { meter: meterFromJson(meter, 'meter') })
+		...(shapes !== undefined && { shapes: shapesFromJson(shapes) }),
+		...(exerciseMeter !== undefined && { meter: exerciseMeter })
+	};
+}
+
+/**
+ * Turns every click accompaniment the file writes into the engine's: the one in `round`, or, when
+ * `round.accompaniment` names a param, that param in `params` and in each level's `params`. The
+ * param must be a top-level one: a dotted name is refused, the nested value being out of reach.
+ */
+function accompanimentsFromJson(
+	json: Record<string, unknown>,
+	meter: Meter
+): Record<string, unknown> {
+	const round = json.round;
+	if (!isObject(round) || round.accompaniment === undefined) return json;
+	const written = round.accompaniment;
+	if (!isObject(written) || typeof written.param !== 'string') {
+		return {
+			...json,
+			round: {
+				...round,
+				accompaniment: accompanimentFromJson(written, meter, 'round.accompaniment')
+			}
+		};
+	}
+	const name = written.param;
+	if (name.includes('.')) {
+		throw new Error(`round.accompaniment.param must name a top-level param, got "${name}"`);
+	}
+	const convert = (params: unknown, where: string): unknown =>
+		isObject(params) && Object.hasOwn(params, name)
+			? { ...params, [name]: accompanimentFromJson(params[name], meter, `${where}.${name}`) }
+			: params;
+	const levels = Array.isArray(json.levels)
+		? json.levels.map((level: unknown, index) =>
+				isObject(level) && level.params !== undefined
+					? { ...level, params: convert(level.params, `levels[${index}].params`) }
+					: level
+			)
+		: json.levels;
+	return {
+		...json,
+		params: convert(json.params, 'params'),
+		...(levels !== undefined && { levels })
 	};
 }

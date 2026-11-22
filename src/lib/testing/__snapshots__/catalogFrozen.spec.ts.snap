@@ -1,0 +1,3941 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`keeps chord-anchor as it is 1`] = `
+{
+  "id": "chord-anchor",
+  "items": [
+    "C|maj|3:5,2:1,1:3",
+    "C|maj|3:1,2:3,1:5",
+    "C|maj|3:3,2:5,1:1",
+    "C|min|3:1,2:b3,1:5",
+    "C|min|3:b3,2:5,1:1",
+    "C|min|3:5,2:1,1:b3",
+    "D|maj|3:5,2:1,1:3",
+    "D|maj|3:1,2:3,1:5",
+    "D|maj|3:3,2:5,1:1",
+    "D|min|3:5,2:1,1:b3",
+    "D|min|3:1,2:b3,1:5",
+    "D|min|3:b3,2:5,1:1",
+    "E|maj|3:3,2:5,1:1",
+    "E|maj|3:5,2:1,1:3",
+    "E|maj|3:1,2:3,1:5",
+    "E|min|3:b3,2:5,1:1",
+    "E|min|3:5,2:1,1:b3",
+    "E|min|3:1,2:b3,1:5",
+    "F|maj|3:3,2:5,1:1",
+    "F|maj|3:5,2:1,1:3",
+    "F|maj|3:1,2:3,1:5",
+    "F|min|3:b3,2:5,1:1",
+    "F|min|3:5,2:1,1:b3",
+    "F|min|3:1,2:b3,1:5",
+    "G|maj|3:3,2:5,1:1",
+    "G|maj|3:5,2:1,1:3",
+    "G|maj|3:1,2:3,1:5",
+    "G|min|3:b3,2:5,1:1",
+    "G|min|3:5,2:1,1:b3",
+    "G|min|3:1,2:b3,1:5",
+    "A|maj|3:1,2:3,1:5",
+    "A|maj|3:3,2:5,1:1",
+    "A|maj|3:5,2:1,1:3",
+    "A|min|3:1,2:b3,1:5",
+    "A|min|3:b3,2:5,1:1",
+    "A|min|3:5,2:1,1:b3",
+    "B|maj|3:1,2:3,1:5",
+    "B|maj|3:3,2:5,1:1",
+    "B|maj|3:5,2:1,1:3",
+    "B|min|3:1,2:b3,1:5",
+    "B|min|3:b3,2:5,1:1",
+    "B|min|3:5,2:1,1:b3",
+    "C#|maj|3:5,2:1,1:3",
+    "C#|maj|3:1,2:3,1:5",
+    "C#|maj|3:3,2:5,1:1",
+    "C#|min|3:5,2:1,1:b3",
+    "C#|min|3:1,2:b3,1:5",
+    "C#|min|3:b3,2:5,1:1",
+    "D#|maj|3:5,2:1,1:3",
+    "D#|maj|3:1,2:3,1:5",
+    "D#|maj|3:3,2:5,1:1",
+    "D#|min|3:5,2:1,1:b3",
+    "D#|min|3:1,2:b3,1:5",
+    "D#|min|3:b3,2:5,1:1",
+    "F#|maj|3:3,2:5,1:1",
+    "F#|maj|3:5,2:1,1:3",
+    "F#|maj|3:1,2:3,1:5",
+    "F#|min|3:b3,2:5,1:1",
+    "F#|min|3:5,2:1,1:b3",
+    "F#|min|3:1,2:b3,1:5",
+    "G#|maj|3:3,2:5,1:1",
+    "G#|maj|3:5,2:1,1:3",
+    "G#|maj|3:1,2:3,1:5",
+    "G#|min|3:b3,2:5,1:1",
+    "G#|min|3:5,2:1,1:b3",
+    "G#|min|3:1,2:b3,1:5",
+    "A#|maj|3:1,2:3,1:5",
+    "A#|maj|3:3,2:5,1:1",
+    "A#|maj|3:5,2:1,1:3",
+    "A#|min|3:1,2:b3,1:5",
+    "A#|min|3:b3,2:5,1:1",
+    "A#|min|3:5,2:1,1:b3",
+    "C|maj|4:3,3:5,2:1",
+    "C|maj|4:5,3:1,2:3",
+    "C|maj|4:1,3:3,2:5",
+    "C|min|4:b3,3:5,2:1",
+    "C|min|4:5,3:1,2:b3",
+    "C|min|4:1,3:b3,2:5",
+    "D|maj|4:3,3:5,2:1",
+    "D|maj|4:5,3:1,2:3",
+    "D|maj|4:1,3:3,2:5",
+    "D|min|4:b3,3:5,2:1",
+    "D|min|4:5,3:1,2:b3",
+    "D|min|4:1,3:b3,2:5",
+    "E|maj|4:1,3:3,2:5",
+    "E|maj|4:3,3:5,2:1",
+    "E|maj|4:5,3:1,2:3",
+    "E|min|4:1,3:b3,2:5",
+    "E|min|4:b3,3:5,2:1",
+    "E|min|4:5,3:1,2:b3",
+    "F|maj|4:1,3:3,2:5",
+    "F|maj|4:3,3:5,2:1",
+    "F|maj|4:5,3:1,2:3",
+    "F|min|4:1,3:b3,2:5",
+    "F|min|4:b3,3:5,2:1",
+    "F|min|4:5,3:1,2:b3",
+    "G|maj|4:5,3:1,2:3",
+    "G|maj|4:1,3:3,2:5",
+    "G|maj|4:3,3:5,2:1",
+    "G|min|4:1,3:b3,2:5",
+    "G|min|4:b3,3:5,2:1",
+    "G|min|4:5,3:1,2:b3",
+    "A|maj|4:5,3:1,2:3",
+    "A|maj|4:1,3:3,2:5",
+    "A|maj|4:3,3:5,2:1",
+    "A|min|4:5,3:1,2:b3",
+    "A|min|4:1,3:b3,2:5",
+    "A|min|4:b3,3:5,2:1",
+    "B|maj|4:5,3:1,2:3",
+    "B|maj|4:1,3:3,2:5",
+    "B|maj|4:3,3:5,2:1",
+    "B|min|4:5,3:1,2:b3",
+    "B|min|4:1,3:b3,2:5",
+    "B|min|4:b3,3:5,2:1",
+    "C#|maj|4:3,3:5,2:1",
+    "C#|maj|4:5,3:1,2:3",
+    "C#|maj|4:1,3:3,2:5",
+    "C#|min|4:b3,3:5,2:1",
+    "C#|min|4:5,3:1,2:b3",
+    "C#|min|4:1,3:b3,2:5",
+    "D#|maj|4:3,3:5,2:1",
+    "D#|maj|4:5,3:1,2:3",
+    "D#|maj|4:1,3:3,2:5",
+    "D#|min|4:b3,3:5,2:1",
+    "D#|min|4:5,3:1,2:b3",
+    "D#|min|4:1,3:b3,2:5",
+    "F#|maj|4:1,3:3,2:5",
+    "F#|maj|4:3,3:5,2:1",
+    "F#|maj|4:5,3:1,2:3",
+    "F#|min|4:1,3:b3,2:5",
+    "F#|min|4:b3,3:5,2:1",
+    "F#|min|4:5,3:1,2:b3",
+    "G#|maj|4:5,3:1,2:3",
+    "G#|maj|4:1,3:3,2:5",
+    "G#|maj|4:3,3:5,2:1",
+    "G#|min|4:5,3:1,2:b3",
+    "G#|min|4:1,3:b3,2:5",
+    "G#|min|4:b3,3:5,2:1",
+    "A#|maj|4:5,3:1,2:3",
+    "A#|maj|4:1,3:3,2:5",
+    "A#|maj|4:3,3:5,2:1",
+    "A#|min|4:5,3:1,2:b3",
+    "A#|min|4:1,3:b3,2:5",
+    "A#|min|4:b3,3:5,2:1",
+  ],
+  "params": {
+    "ladder": [
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": true,
+          "leadBeats": 8,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 4,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 2,
+        },
+        "pass": {
+          "successes": 2,
+        },
+        "success": "direct-recall",
+      },
+    ],
+    "learning": {
+      "presentAtOnce": false,
+    },
+    "pacing": {
+      "respirationBars": 1,
+    },
+  },
+  "practices": "chord-anchor",
+  "presentation": {
+    "aided": {
+      "picture": "lowest-shape",
+    },
+    "band": "{chord}",
+    "detail": "{strings}",
+    "primary": "{chord}",
+    "secondary": {
+      "en": "root on {rootString}",
+      "fr": "fondamentale sur {rootString}",
+    },
+    "target": "{root}",
+  },
+  "round": {
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "note-places",
+          "of": "root",
+        },
+        "sensor": "note",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+      {
+        "at": {
+          "beats": {
+            "param": "windows.anchorChordFromBeats",
+          },
+        },
+        "content": {
+          "family": "chord-shapes",
+        },
+        "sensor": "chord",
+        "until": {
+          "bars": 1,
+        },
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "length": {
+      "bars": 1,
+      "breath": true,
+    },
+    "policy": {
+      "correction": true,
+      "pairing": {
+        "lateCapture": {
+          "ms": {
+            "param": "windows.lateCaptureMs",
+          },
+        },
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "afterPromptMs": {
+            "param": "windows.minResponseMs",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": {
+        "param": "leadBeats",
+      },
+    },
+  },
+  "tempo": 80,
+  "view": "lane",
+}
+`;
+
+exports[`keeps chord-zone as it is 1`] = `
+{
+  "id": "chord-zone",
+  "items": [
+    "C|maj|3:5,2:1,1:3",
+    "C|maj|3:1,2:3,1:5",
+    "C|maj|3:3,2:5,1:1",
+    "C|min|3:1,2:b3,1:5",
+    "C|min|3:b3,2:5,1:1",
+    "C|min|3:5,2:1,1:b3",
+    "D|maj|3:5,2:1,1:3",
+    "D|maj|3:1,2:3,1:5",
+    "D|maj|3:3,2:5,1:1",
+    "D|min|3:5,2:1,1:b3",
+    "D|min|3:1,2:b3,1:5",
+    "D|min|3:b3,2:5,1:1",
+    "E|maj|3:3,2:5,1:1",
+    "E|maj|3:5,2:1,1:3",
+    "E|maj|3:1,2:3,1:5",
+    "E|min|3:b3,2:5,1:1",
+    "E|min|3:5,2:1,1:b3",
+    "E|min|3:1,2:b3,1:5",
+    "F|maj|3:3,2:5,1:1",
+    "F|maj|3:5,2:1,1:3",
+    "F|maj|3:1,2:3,1:5",
+    "F|min|3:b3,2:5,1:1",
+    "F|min|3:5,2:1,1:b3",
+    "F|min|3:1,2:b3,1:5",
+    "G|maj|3:3,2:5,1:1",
+    "G|maj|3:5,2:1,1:3",
+    "G|maj|3:1,2:3,1:5",
+    "G|min|3:b3,2:5,1:1",
+    "G|min|3:5,2:1,1:b3",
+    "G|min|3:1,2:b3,1:5",
+    "A|maj|3:1,2:3,1:5",
+    "A|maj|3:3,2:5,1:1",
+    "A|maj|3:5,2:1,1:3",
+    "A|min|3:1,2:b3,1:5",
+    "A|min|3:b3,2:5,1:1",
+    "A|min|3:5,2:1,1:b3",
+    "B|maj|3:1,2:3,1:5",
+    "B|maj|3:3,2:5,1:1",
+    "B|maj|3:5,2:1,1:3",
+    "B|min|3:1,2:b3,1:5",
+    "B|min|3:b3,2:5,1:1",
+    "B|min|3:5,2:1,1:b3",
+    "C#|maj|3:5,2:1,1:3",
+    "C#|maj|3:1,2:3,1:5",
+    "C#|maj|3:3,2:5,1:1",
+    "C#|min|3:5,2:1,1:b3",
+    "C#|min|3:1,2:b3,1:5",
+    "C#|min|3:b3,2:5,1:1",
+    "D#|maj|3:5,2:1,1:3",
+    "D#|maj|3:1,2:3,1:5",
+    "D#|maj|3:3,2:5,1:1",
+    "D#|min|3:5,2:1,1:b3",
+    "D#|min|3:1,2:b3,1:5",
+    "D#|min|3:b3,2:5,1:1",
+    "F#|maj|3:3,2:5,1:1",
+    "F#|maj|3:5,2:1,1:3",
+    "F#|maj|3:1,2:3,1:5",
+    "F#|min|3:b3,2:5,1:1",
+    "F#|min|3:5,2:1,1:b3",
+    "F#|min|3:1,2:b3,1:5",
+    "G#|maj|3:3,2:5,1:1",
+    "G#|maj|3:5,2:1,1:3",
+    "G#|maj|3:1,2:3,1:5",
+    "G#|min|3:b3,2:5,1:1",
+    "G#|min|3:5,2:1,1:b3",
+    "G#|min|3:1,2:b3,1:5",
+    "A#|maj|3:1,2:3,1:5",
+    "A#|maj|3:3,2:5,1:1",
+    "A#|maj|3:5,2:1,1:3",
+    "A#|min|3:1,2:b3,1:5",
+    "A#|min|3:b3,2:5,1:1",
+    "A#|min|3:5,2:1,1:b3",
+    "C|maj|4:3,3:5,2:1",
+    "C|maj|4:5,3:1,2:3",
+    "C|maj|4:1,3:3,2:5",
+    "C|min|4:b3,3:5,2:1",
+    "C|min|4:5,3:1,2:b3",
+    "C|min|4:1,3:b3,2:5",
+    "D|maj|4:3,3:5,2:1",
+    "D|maj|4:5,3:1,2:3",
+    "D|maj|4:1,3:3,2:5",
+    "D|min|4:b3,3:5,2:1",
+    "D|min|4:5,3:1,2:b3",
+    "D|min|4:1,3:b3,2:5",
+    "E|maj|4:1,3:3,2:5",
+    "E|maj|4:3,3:5,2:1",
+    "E|maj|4:5,3:1,2:3",
+    "E|min|4:1,3:b3,2:5",
+    "E|min|4:b3,3:5,2:1",
+    "E|min|4:5,3:1,2:b3",
+    "F|maj|4:1,3:3,2:5",
+    "F|maj|4:3,3:5,2:1",
+    "F|maj|4:5,3:1,2:3",
+    "F|min|4:1,3:b3,2:5",
+    "F|min|4:b3,3:5,2:1",
+    "F|min|4:5,3:1,2:b3",
+    "G|maj|4:5,3:1,2:3",
+    "G|maj|4:1,3:3,2:5",
+    "G|maj|4:3,3:5,2:1",
+    "G|min|4:1,3:b3,2:5",
+    "G|min|4:b3,3:5,2:1",
+    "G|min|4:5,3:1,2:b3",
+    "A|maj|4:5,3:1,2:3",
+    "A|maj|4:1,3:3,2:5",
+    "A|maj|4:3,3:5,2:1",
+    "A|min|4:5,3:1,2:b3",
+    "A|min|4:1,3:b3,2:5",
+    "A|min|4:b3,3:5,2:1",
+    "B|maj|4:5,3:1,2:3",
+    "B|maj|4:1,3:3,2:5",
+    "B|maj|4:3,3:5,2:1",
+    "B|min|4:5,3:1,2:b3",
+    "B|min|4:1,3:b3,2:5",
+    "B|min|4:b3,3:5,2:1",
+    "C#|maj|4:3,3:5,2:1",
+    "C#|maj|4:5,3:1,2:3",
+    "C#|maj|4:1,3:3,2:5",
+    "C#|min|4:b3,3:5,2:1",
+    "C#|min|4:5,3:1,2:b3",
+    "C#|min|4:1,3:b3,2:5",
+    "D#|maj|4:3,3:5,2:1",
+    "D#|maj|4:5,3:1,2:3",
+    "D#|maj|4:1,3:3,2:5",
+    "D#|min|4:b3,3:5,2:1",
+    "D#|min|4:5,3:1,2:b3",
+    "D#|min|4:1,3:b3,2:5",
+    "F#|maj|4:1,3:3,2:5",
+    "F#|maj|4:3,3:5,2:1",
+    "F#|maj|4:5,3:1,2:3",
+    "F#|min|4:1,3:b3,2:5",
+    "F#|min|4:b3,3:5,2:1",
+    "F#|min|4:5,3:1,2:b3",
+    "G#|maj|4:5,3:1,2:3",
+    "G#|maj|4:1,3:3,2:5",
+    "G#|maj|4:3,3:5,2:1",
+    "G#|min|4:5,3:1,2:b3",
+    "G#|min|4:1,3:b3,2:5",
+    "G#|min|4:b3,3:5,2:1",
+    "A#|maj|4:5,3:1,2:3",
+    "A#|maj|4:1,3:3,2:5",
+    "A#|maj|4:3,3:5,2:1",
+    "A#|min|4:5,3:1,2:b3",
+    "A#|min|4:1,3:b3,2:5",
+    "A#|min|4:b3,3:5,2:1",
+  ],
+  "params": {
+    "ladder": [
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": true,
+          "leadBeats": 8,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 4,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 2,
+        },
+        "pass": {
+          "successes": 2,
+        },
+        "success": "direct-recall",
+      },
+    ],
+    "learning": {
+      "asks": {
+        "family": "chord-shapes",
+        "where": [
+          {
+            "other": "previous",
+          },
+        ],
+      },
+      "enter": {
+        "acquired": {
+          "item": "same",
+          "skill": "chord-anchor",
+        },
+      },
+      "presentAtOnce": false,
+    },
+    "pacing": {
+      "respirationBars": 1,
+    },
+  },
+  "practices": "chord-zone",
+  "presentation": {
+    "aided": {
+      "line": {
+        "en": "root on {rootString}",
+        "fr": "fondamentale sur {rootString}",
+      },
+    },
+    "detail": "{strings}",
+    "primary": "{chord}",
+    "secondary": "{around}",
+  },
+  "round": {
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "chord-shapes",
+          "where": [
+            {
+              "at": {
+                "item": "fret",
+              },
+            },
+          ],
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "length": {
+      "breath": true,
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": {
+          "ms": {
+            "param": "windows.lateCaptureMs",
+          },
+        },
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "afterPromptMs": {
+            "param": "windows.minResponseMs",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": {
+        "param": "leadBeats",
+      },
+    },
+  },
+  "tempo": 80,
+  "view": "lane",
+}
+`;
+
+exports[`keeps grid-in-direction as it is 1`] = `
+{
+  "flow": {
+    "antiBlocking": true,
+  },
+  "howTo": {
+    "en": "Play the chart on the strings shown. At each change, pick a shape higher up the neck than the one before (or lower if the arrow points down). When the neck runs out, turn back the other way.",
+    "fr": "Joue la grille sur le groupe indiqué. À chaque changement, choisis une forme plus haute sur le manche que la précédente (ou plus basse si la flèche descend). Quand le manche s’arrête, repars dans l’autre sens.",
+  },
+  "id": "grid-in-direction",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "tempo": 80,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 80,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 85,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 90,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 95,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 100,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 105,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 110,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 115,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 120,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+  ],
+  "params": {},
+  "passages": {
+    "each": {
+      "direction": [
+        "up",
+        "down",
+      ],
+    },
+    "members": {
+      "family": "grid-changes",
+    },
+    "of": {
+      "grid": [
+        "iohefy-a",
+        "blues-f",
+      ],
+      "strings": [
+        [
+          3,
+          2,
+          1,
+        ],
+        [
+          4,
+          3,
+          2,
+        ],
+      ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "every-group",
+        "skill": "chord-anchor",
+      },
+    },
+    "passes": 0.9,
+    "scope": "grid",
+  },
+  "practices": "grid-in-direction",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "detail": "{strings} · {toward}",
+    "primary": "{symbol}",
+    "secondary": "{title}",
+    "target": "{symbol}",
+  },
+  "round": {
+    "countEndsOn": "target",
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "chord-shapes",
+          "where": [
+            {
+              "position": {
+                "beyond": "previous",
+                "toward": {
+                  "param": "direction",
+                },
+                "turns": true,
+              },
+            },
+          ],
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "beats": {
+        "item": "change-beats",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": "to-end",
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "beforeMs": {
+            "param": "windows.gridEarlyMs",
+          },
+          "maxBeats": {
+            "param": "windows.gridEarlyMaxBeats",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 1,
+    },
+  },
+  "tempo": 80,
+  "title": {
+    "en": "Move constraint",
+    "fr": "Contrainte de déplacement",
+  },
+  "view": "grid-scroll",
+}
+`;
+
+exports[`keeps grid-in-zone as it is 1`] = `
+{
+  "flow": {
+    "antiBlocking": true,
+  },
+  "howTo": {
+    "en": "Play the chart without leaving the frets shown, on either set of strings.",
+    "fr": "Joue la grille sans sortir de la zone indiquée, sur l’un des deux groupes de cordes.",
+  },
+  "id": "grid-in-zone",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "tempo": 80,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 80,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 85,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 90,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 95,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 100,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 105,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 110,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 115,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 120,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+  ],
+  "params": {
+    "strings": [
+      4,
+      3,
+      2,
+      1,
+    ],
+  },
+  "passages": {
+    "each": {
+      "zone": [
+        [
+          1,
+          5,
+        ],
+        [
+          6,
+          10,
+        ],
+        [
+          11,
+          15,
+        ],
+        [
+          3,
+          7,
+        ],
+        [
+          8,
+          12,
+        ],
+        [
+          13,
+          17,
+        ],
+        [
+          5,
+          9,
+        ],
+        [
+          10,
+          14,
+        ],
+        [
+          2,
+          6,
+        ],
+        [
+          7,
+          11,
+        ],
+        [
+          12,
+          16,
+        ],
+        [
+          4,
+          8,
+        ],
+        [
+          9,
+          13,
+        ],
+      ],
+    },
+    "members": {
+      "family": "grid-changes",
+    },
+    "of": {
+      "grid": [
+        "iohefy-a",
+        "blues-f",
+      ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "every-group",
+        "skill": "chord-zone",
+      },
+    },
+    "passes": 0.9,
+    "scope": "grid",
+  },
+  "practices": "grid-in-zone",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "detail": {
+      "en": "frets {frets}",
+      "fr": "cases {frets}",
+    },
+    "primary": "{symbol}",
+    "secondary": "{title}",
+    "target": "{symbol}",
+  },
+  "round": {
+    "countEndsOn": "target",
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "chord-shapes",
+          "where": [
+            {
+              "in": {
+                "frets": {
+                  "param": "zone",
+                },
+              },
+            },
+          ],
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "beats": {
+        "item": "change-beats",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": "to-end",
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "beforeMs": {
+            "param": "windows.gridEarlyMs",
+          },
+          "maxBeats": {
+            "param": "windows.gridEarlyMaxBeats",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 1,
+    },
+  },
+  "tempo": 80,
+  "title": {
+    "en": "Stay in a zone",
+    "fr": "Rester dans une zone",
+  },
+  "view": "grid-scroll",
+}
+`;
+
+exports[`keeps grid-reading as it is 1`] = `
+{
+  "flow": {
+    "antiBlocking": true,
+  },
+  "howTo": {
+    "en": "Play the chart as you like: any shape, any rhythm. Only the chord counts.",
+    "fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",
+  },
+  "id": "grid-reading",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "tempo": 80,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 80,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 85,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 90,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 95,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 100,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 105,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 110,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 115,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 120,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+  ],
+  "params": {
+    "strings": [
+      4,
+      3,
+      2,
+      1,
+    ],
+  },
+  "passages": {
+    "members": {
+      "family": "grid-changes",
+    },
+    "of": {
+      "grid": [
+        "iohefy-a",
+        "blues-f",
+      ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "one-group",
+        "skill": "chord-anchor",
+      },
+    },
+    "passes": 0.9,
+    "scope": "grid",
+  },
+  "practices": "grid-reading",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "primary": "{symbol}",
+    "secondary": "{title}",
+    "target": "{symbol}",
+  },
+  "round": {
+    "countEndsOn": "target",
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "chord-shapes",
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "beats": {
+        "item": "change-beats",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": "to-end",
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "beforeMs": {
+            "param": "windows.gridEarlyMs",
+          },
+          "maxBeats": {
+            "param": "windows.gridEarlyMaxBeats",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 1,
+    },
+  },
+  "tempo": 80,
+  "title": {
+    "en": "Jam",
+    "fr": "Jam",
+  },
+  "view": "grid-scroll",
+}
+`;
+
+exports[`keeps identify-note as it is 1`] = `
+{
+  "id": "identify-note",
+  "items": [
+    "6:3",
+    "5:3",
+    "4:3",
+    "3:5",
+    "2:3",
+    "1:3",
+    "6:5",
+    "5:5",
+    "4:5",
+    "3:7",
+    "2:5",
+    "1:5",
+    "6:7",
+    "5:7",
+    "4:7",
+    "3:9",
+    "2:1",
+    "1:7",
+    "6:1",
+    "5:2",
+    "4:9",
+    "3:2",
+    "2:6",
+    "1:1",
+    "6:8",
+    "5:8",
+    "4:2",
+    "3:4",
+    "2:8",
+    "1:8",
+    "6:10",
+    "5:10",
+    "4:10",
+    "3:10",
+    "2:10",
+    "1:10",
+    "6:2",
+    "5:1",
+    "4:1",
+    "3:1",
+    "2:2",
+    "1:2",
+    "6:4",
+    "5:4",
+    "4:4",
+    "3:3",
+    "2:4",
+    "1:4",
+    "6:6",
+    "5:6",
+    "4:6",
+    "3:6",
+    "2:7",
+    "1:6",
+    "6:9",
+    "5:9",
+    "4:8",
+    "3:8",
+    "2:9",
+    "1:9",
+    "6:11",
+    "5:11",
+    "4:11",
+    "3:11",
+    "2:11",
+    "1:11",
+  ],
+  "params": {
+    "ladder": [
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": true,
+          "leadBeats": null,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": null,
+        },
+        "pass": {
+          "successes": 2,
+        },
+        "success": "direct-recall",
+      },
+    ],
+    "learning": {
+      "enter": {
+        "acquired": {
+          "item": "same-place",
+          "skill": "locate-note-string",
+        },
+      },
+    },
+  },
+  "practices": "identify-note",
+  "presentation": {
+    "aided": {
+      "line": "{name}",
+    },
+    "primary": "{fret}",
+    "secondary": "{string}",
+  },
+  "round": {
+    "expectations": [
+      {
+        "at": null,
+        "content": {
+          "from": "name-of-item",
+        },
+        "sensor": "tap",
+        "window": {
+          "ms": {
+            "param": "directRecall.withinMs",
+          },
+        },
+      },
+    ],
+    "length": {
+      "bars": 1,
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": null,
+        "lateMs": 0,
+        "mode": "first-answer",
+        "opens": {
+          "afterPromptMs": 0,
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 0,
+    },
+  },
+  "view": "answer-keys",
+}
+`;
+
+exports[`keeps inversion-run as it is 1`] = `
+{
+  "flow": {
+    "antiBlocking": true,
+  },
+  "howTo": {
+    "en": "Play the chord asked on the strings shown, starting from its lowest position. Climb its inversions one by one, then come back down the same way: one chord per bar, struck on the first beat. The arrows give the way: ↗ up, ↘ down.",
+    "fr": "Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave. Monte ses renversements un par un vers l’aigu, puis redescends par le même chemin : un accord par mesure, attaqué sur le premier temps. Les flèches donnent le sens : ↗ monte, ↘ descends.",
+  },
+  "id": "inversion-run",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "tempo": 80,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 80,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 85,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 90,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 95,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 100,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 105,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 110,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 115,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 120,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+  ],
+  "params": {},
+  "passages": {
+    "again": "until-passed",
+    "members": {
+      "andBack": true,
+      "family": "chord-shapes",
+      "order": [
+        "position",
+      ],
+      "take": 4,
+    },
+    "of": {
+      "chord": [
+        "C",
+        "Cm",
+        "C#",
+        "C#m",
+        "D",
+        "Dm",
+        "Eb",
+        "Ebm",
+        "E",
+        "Em",
+        "F",
+        "Fm",
+        "F#",
+        "F#m",
+        "G",
+        "Gm",
+        "Ab",
+        "Abm",
+        "A",
+        "Am",
+        "Bb",
+        "Bbm",
+        "B",
+        "Bm",
+      ],
+      "strings": [
+        [
+          3,
+          2,
+          1,
+        ],
+        [
+          4,
+          3,
+          2,
+        ],
+      ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "every-group",
+        "skill": "chord-anchor",
+      },
+    },
+    "passes": 0.9,
+    "restBars": 1,
+  },
+  "practices": "inversion-run",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "detail": {
+      "en": "on strings {strings}",
+      "fr": "sur cordes {strings}",
+    },
+    "primary": "{chord}",
+    "secondary": "{quality}",
+    "target": "{chord}",
+  },
+  "round": {
+    "countEndsOn": "target",
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "chord-shapes",
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "bars": 1,
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": "to-end",
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "beforeMs": {
+            "param": "windows.gridEarlyMs",
+          },
+          "maxBeats": {
+            "param": "windows.gridEarlyMaxBeats",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 1,
+    },
+  },
+  "tempo": 80,
+  "title": {
+    "en": "Link the shapes",
+    "fr": "Relier les formes",
+  },
+  "view": "link-lane",
+}
+`;
+
+exports[`keeps locate-note-string as it is 1`] = `
+{
+  "id": "locate-note-string",
+  "items": [
+    "6:G",
+    "5:C",
+    "4:F",
+    "3:C",
+    "2:D",
+    "1:G",
+    "6:A",
+    "5:D",
+    "4:G",
+    "3:D",
+    "2:E",
+    "1:A",
+    "6:B",
+    "5:E",
+    "4:A",
+    "3:E",
+    "2:C",
+    "1:B",
+    "6:F",
+    "5:B",
+    "4:B",
+    "3:A",
+    "2:F",
+    "1:F",
+    "6:C",
+    "5:F",
+    "4:E",
+    "3:B",
+    "2:G",
+    "1:C",
+    "6:D",
+    "5:G",
+    "4:C",
+    "3:F",
+    "2:A",
+    "1:D",
+    "6:F#",
+    "5:A#",
+    "4:D#",
+    "3:G#",
+    "2:C#",
+    "1:F#",
+    "6:G#",
+    "5:C#",
+    "4:F#",
+    "3:A#",
+    "2:D#",
+    "1:G#",
+    "6:A#",
+    "5:D#",
+    "4:G#",
+    "3:C#",
+    "2:F#",
+    "1:A#",
+    "6:C#",
+    "5:F#",
+    "4:A#",
+    "3:D#",
+    "2:G#",
+    "1:C#",
+    "6:D#",
+    "5:G#",
+    "4:C#",
+    "3:F#",
+    "2:A#",
+    "1:D#",
+  ],
+  "params": {
+    "ladder": [
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": true,
+          "leadBeats": 8,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 4,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 2,
+        },
+        "pass": {
+          "successes": 2,
+        },
+        "success": "direct-recall",
+      },
+    ],
+  },
+  "practices": "locate-note-string",
+  "presentation": {
+    "aided": {
+      "line": "{fret}",
+    },
+    "fading": {
+      "picture": "string",
+    },
+    "preview": "{string}",
+    "primary": "{note}",
+    "secondary": "{string}",
+  },
+  "round": {
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "family": "note-places",
+        },
+        "sensor": "note",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "length": {
+      "breath": true,
+    },
+    "listenBeforeEnd": {
+      "beats": {
+        "param": "previewBeats",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": {
+          "ms": {
+            "param": "windows.lateCaptureMs",
+          },
+        },
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "afterPromptMs": {
+            "param": "windows.minResponseMs",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": {
+        "param": "leadBeats",
+      },
+    },
+  },
+  "tempo": 80,
+  "view": "lane",
+}
+`;
+
+exports[`keeps rhythm-offbeats as it is 1`] = `
+{
+  "figures": [
+    {
+      "figure": {
+        "bars": 1,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "offbeats-1",
+    },
+    {
+      "figure": {
+        "bars": 2,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/8",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "offbeats-2",
+    },
+  ],
+  "flow": {
+    "antiBlocking": true,
+    "briefing": "first-encounter",
+  },
+  "howTo": {
+    "en": "Play the offbeats: one attack on the “and” of each beat, plus the first beat of the bar. First one bar on a loop, without adding or dropping a single beat; then two bars whose second does not land on the 1.",
+    "fr": "Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.",
+  },
+  "id": "rhythm-offbeats",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "tempo": 70,
+      },
+    },
+    {
+      "params": {
+        "thresholds.holdDrift": 100,
+        "thresholds.holdOffset": 200,
+        "thresholds.regularity": 80,
+      },
+    },
+    {
+      "params": {
+        "cycleBars": 2,
+      },
+    },
+    {
+      "params": {
+        "cycleBars": 2,
+        "tempo": 90,
+      },
+    },
+    {
+      "params": {
+        "cursor": false,
+        "cycleBars": 2,
+        "tempo": 100,
+      },
+    },
+  ],
+  "params": {
+    "accompaniment": {
+      "bars": [
+        "on",
+      ],
+      "figure": {
+        "bars": 1,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": "click-accent",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+            ],
+            "id": "click",
+          },
+        ],
+      },
+    },
+    "cursor": true,
+    "cycleBars": 1,
+    "feedback": "every-cycle",
+    "listen": "free",
+    "pacing": {
+      "breathMinMs": 4000,
+      "listenInBars": 2,
+      "roundsPerBreath": 4,
+    },
+    "thresholds": {
+      "holdDrift": 25,
+      "holdOffset": 60,
+      "precision": 60,
+      "regularity": 40,
+    },
+    "window": {
+      "ms": 80,
+    },
+  },
+  "pick": "loop",
+  "practices": "figure-independence",
+  "round": {
+    "accompaniment": {
+      "param": "accompaniment",
+    },
+    "expectations": [
+      {
+        "at": {
+          "bars": 0,
+        },
+        "content": null,
+        "figure": {
+          "item": "figure",
+        },
+        "sensor": "attack",
+        "window": {
+          "param": "window",
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "bars": {
+        "param": "cycleBars",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+  },
+  "tempo": 80,
+  "title": {
+    "en": "Offbeats",
+    "fr": "Contretemps",
+  },
+  "view": "figure",
+}
+`;
+
+exports[`keeps rhythm-silent-bars as it is 1`] = `
+{
+  "figures": [
+    {
+      "figure": {
+        "bars": 1,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "eighths",
+    },
+  ],
+  "flow": {
+    "antiBlocking": true,
+    "briefing": "first-encounter",
+  },
+  "howTo": {
+    "en": "Play steady eighth notes, one attack on every half beat. The click drops out on some bars: keep the same tempo as if it carried on, and meet it again when it returns. You hear the figure first, then play it in runs of four turns.",
+    "fr": "Joue des croches continues, une attaque sur chaque demi-temps. Le clic se tait sur certaines mesures : garde le même tempo, comme s’il continuait, et retrouve-le quand il revient. Tu entends la figure d’abord, puis tu la joues par séries de quatre tours.",
+  },
+  "id": "rhythm-silent-bars",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "on",
+            "on",
+            "on",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+      },
+    },
+    {
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "on",
+            "on",
+            "off",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+      },
+    },
+    {
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "on",
+            "off",
+            "off",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+      },
+    },
+    {
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "off",
+            "off",
+            "off",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+      },
+    },
+    {
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "on",
+            "on",
+            "off",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+        "cursor": false,
+        "tempo": 65,
+        "window": {
+          "ms": 50,
+        },
+      },
+    },
+    {
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "on",
+            "off",
+            "off",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+        "cursor": false,
+        "feedback": "summary",
+        "tempo": 65,
+        "window": {
+          "ms": 50,
+        },
+      },
+    },
+    {
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+            "off",
+            "off",
+            "off",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click-accent",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+        "cursor": false,
+        "feedback": "out-of-tolerance",
+        "tempo": 65,
+        "thresholds.holdDrift": 10,
+        "thresholds.holdOffset": 25,
+        "thresholds.precision": 30,
+        "thresholds.regularity": 20,
+        "window": {
+          "ms": 30,
+        },
+      },
+    },
+  ],
+  "params": {
+    "accompaniment": {
+      "bars": [
+        "on",
+        "on",
+        "on",
+        "off",
+      ],
+      "figure": {
+        "bars": 1,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": "click-accent",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+            ],
+            "id": "click",
+          },
+        ],
+      },
+    },
+    "cursor": true,
+    "cycleBars": 4,
+    "feedback": "every-cycle",
+    "listen": "free",
+    "pacing": {
+      "breathMinMs": 4000,
+      "listenInBars": 2,
+      "roundsPerBreath": 4,
+    },
+    "thresholds": {
+      "holdDrift": 25,
+      "holdOffset": 60,
+      "precision": 60,
+      "regularity": 40,
+    },
+    "window": {
+      "ms": 80,
+    },
+  },
+  "pick": "loop",
+  "practices": "inner-pulse",
+  "round": {
+    "accompaniment": {
+      "param": "accompaniment",
+    },
+    "expectations": [
+      {
+        "at": {
+          "bars": 0,
+        },
+        "content": null,
+        "figure": {
+          "item": "figure",
+        },
+        "sensor": "attack",
+        "window": {
+          "param": "window",
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "bars": {
+        "param": "cycleBars",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+  },
+  "tempo": 80,
+  "title": {
+    "en": "Silent bars",
+    "fr": "Mesures silencieuses",
+  },
+  "view": "figure",
+}
+`;
+
+exports[`keeps rhythm-two-four as it is 1`] = `
+{
+  "figures": [
+    {
+      "figure": {
+        "bars": 4,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "line-1",
+    },
+    {
+      "figure": {
+        "bars": 4,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "line-2",
+    },
+    {
+      "figure": {
+        "bars": 4,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "line-3",
+    },
+    {
+      "figure": {
+        "bars": 4,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "line-4",
+    },
+    {
+      "figure": {
+        "bars": 4,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "line-5",
+    },
+    {
+      "figure": {
+        "bars": 4,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/4",
+                "kind": "rest",
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/8",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/2",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "content": null,
+                "duration": "1/4",
+                "kind": "note",
+                "pitch": 48,
+              },
+              {
+                "duration": "1/4",
+                "kind": "rest",
+              },
+            ],
+            "id": "main",
+          },
+        ],
+      },
+      "id": "line-6",
+    },
+  ],
+  "flow": {
+    "antiBlocking": true,
+    "briefing": "first-encounter",
+  },
+  "howTo": {
+    "en": "Read the four-bar line and play it in one go. The click only marks beats 2 and 4: beats 1 and 3 are yours to carry. A new line comes each turn. You can listen to the line before you play it.",
+    "fr": "Lis la ligne de quatre mesures et joue-la d’un trait. Le clic ne marque que les temps 2 et 4 : le 1 et le 3, c’est à toi de les porter. Une nouvelle ligne vient à chaque tour. Tu peux réécouter la ligne avant de la jouer.",
+  },
+  "id": "rhythm-two-four",
+  "levels": [
+    {
+      "aid": true,
+      "params": {
+        "accompaniment": {
+          "bars": [
+            "on",
+          ],
+          "figure": {
+            "bars": 1,
+            "meter": {
+              "count": 4,
+              "grouping": [
+                1,
+                1,
+                1,
+                1,
+              ],
+              "unit": "1/4",
+            },
+            "schema": 2,
+            "voices": [
+              {
+                "elements": [
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                  {
+                    "content": "click",
+                    "duration": "1/4",
+                    "kind": "note",
+                  },
+                ],
+                "id": "click",
+              },
+            ],
+          },
+        },
+      },
+    },
+    {
+      "params": {},
+    },
+    {
+      "params": {
+        "tempo": 120,
+      },
+    },
+    {
+      "params": {
+        "cursor": false,
+        "tempo": 140,
+      },
+    },
+  ],
+  "params": {
+    "accompaniment": {
+      "bars": [
+        "on",
+      ],
+      "figure": {
+        "bars": 1,
+        "meter": {
+          "count": 4,
+          "grouping": [
+            1,
+            1,
+            1,
+            1,
+          ],
+          "unit": "1/4",
+        },
+        "schema": 2,
+        "voices": [
+          {
+            "elements": [
+              {
+                "duration": "1/4",
+                "kind": "rest",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+              {
+                "duration": "1/4",
+                "kind": "rest",
+              },
+              {
+                "content": "click",
+                "duration": "1/4",
+                "kind": "note",
+              },
+            ],
+            "id": "click",
+          },
+        ],
+      },
+    },
+    "cursor": true,
+    "cycleBars": 4,
+    "feedback": "every-cycle",
+    "listen": "aid",
+    "pacing": {
+      "breathMinMs": 4000,
+      "countIn": false,
+      "listenInBars": 2,
+      "roundsPerBreath": 1,
+    },
+    "thresholds": {
+      "holdDrift": 25,
+      "holdOffset": 60,
+      "precision": 60,
+      "regularity": 40,
+    },
+    "window": {
+      "ms": 80,
+    },
+  },
+  "pick": "next",
+  "practices": "displaced-pulse",
+  "round": {
+    "accompaniment": {
+      "param": "accompaniment",
+    },
+    "expectations": [
+      {
+        "at": {
+          "bars": 0,
+        },
+        "content": null,
+        "figure": {
+          "item": "figure",
+        },
+        "sensor": "attack",
+        "window": {
+          "param": "window",
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "bars": {
+        "param": "cycleBars",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+  },
+  "tempo": 100,
+  "title": {
+    "en": "Click on 2 and 4",
+    "fr": "Métronome sur 2 et 4",
+  },
+  "view": "figure",
+}
+`;
+
+exports[`keeps the grid blues-f as it is 1`] = `
+{
+  "bars": 12,
+  "beatsPerBar": 4,
+  "chords": [
+    {
+      "bar": 1,
+      "beat": 1,
+      "symbol": "F7",
+    },
+    {
+      "bar": 2,
+      "beat": 1,
+      "symbol": "Bb7",
+    },
+    {
+      "bar": 3,
+      "beat": 1,
+      "symbol": "F7",
+    },
+    {
+      "bar": 4,
+      "beat": 1,
+      "symbol": "F7",
+    },
+    {
+      "bar": 5,
+      "beat": 1,
+      "symbol": "Bb7",
+    },
+    {
+      "bar": 6,
+      "beat": 1,
+      "symbol": "Bb7",
+    },
+    {
+      "bar": 7,
+      "beat": 1,
+      "symbol": "F7",
+    },
+    {
+      "bar": 8,
+      "beat": 1,
+      "symbol": "F7",
+    },
+    {
+      "bar": 9,
+      "beat": 1,
+      "symbol": "C7",
+    },
+    {
+      "bar": 10,
+      "beat": 1,
+      "symbol": "Bb7",
+    },
+    {
+      "bar": 11,
+      "beat": 1,
+      "symbol": "F7",
+    },
+    {
+      "bar": 12,
+      "beat": 1,
+      "symbol": "C7",
+    },
+  ],
+  "id": "blues-f",
+  "title": "Blues F",
+}
+`;
+
+exports[`keeps the grid iohefy-a as it is 1`] = `
+{
+  "bars": 8,
+  "beatsPerBar": 4,
+  "chords": [
+    {
+      "bar": 1,
+      "beat": 1,
+      "symbol": "Dm7",
+    },
+    {
+      "bar": 2,
+      "beat": 1,
+      "symbol": "G7",
+    },
+    {
+      "bar": 3,
+      "beat": 1,
+      "symbol": "Dm7",
+    },
+    {
+      "bar": 4,
+      "beat": 1,
+      "symbol": "G7",
+    },
+    {
+      "bar": 5,
+      "beat": 1,
+      "symbol": "Cmaj7",
+    },
+    {
+      "bar": 6,
+      "beat": 1,
+      "symbol": "Cmaj7",
+    },
+    {
+      "bar": 6,
+      "beat": 3,
+      "symbol": "F7",
+    },
+    {
+      "bar": 7,
+      "beat": 1,
+      "symbol": "Em7",
+    },
+    {
+      "bar": 8,
+      "beat": 1,
+      "symbol": "Ebm7",
+    },
+    {
+      "bar": 8,
+      "beat": 3,
+      "symbol": "Ab7",
+    },
+  ],
+  "id": "iohefy-a",
+  "title": "I Only Have Eyes for You",
+}
+`;
+
+exports[`keeps the routine changes as it is 1`] = `
+{
+  "exercises": [
+    "inversion-run",
+    "grid-in-direction",
+    "grid-in-zone",
+    "grid-reading",
+  ],
+  "howTo": {
+    "en": "Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers.",
+    "fr": "Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.",
+  },
+  "id": "changes",
+  "title": {
+    "en": "Changes",
+    "fr": "Changements",
+  },
+}
+`;
+
+exports[`keeps the routine chords as it is 1`] = `
+{
+  "exercises": [
+    "chord-anchor",
+  ],
+  "howTo": {
+    "en": "“C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. The click comes from the computer speakers.",
+    "fr": "« C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. Le clic sort des enceintes de l’ordinateur.",
+  },
+  "id": "chords",
+  "title": {
+    "en": "Triads",
+    "fr": "Triades",
+  },
+}
+`;
+
+exports[`keeps the routine chords-zone as it is 1`] = `
+{
+  "exercises": [
+    "chord-zone",
+  ],
+  "howTo": {
+    "en": "“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers.",
+    "fr": "« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.",
+  },
+  "id": "chords-zone",
+  "opens": {
+    "acquired": {
+      "atLeast": 6,
+      "skill": "chord-anchor",
+    },
+  },
+  "title": {
+    "en": "Triads around a fret",
+    "fr": "Triades vers une case",
+  },
+}
+`;
+
+exports[`keeps the routine notes as it is 1`] = `
+{
+  "exercises": [
+    "identify-note",
+    "locate-note-string",
+  ],
+  "howTo": {
+    "en": "The note travels along the lane. Play it, on the string shown, when its tile reaches the line. The click comes from the computer speakers.",
+    "fr": "La note défile dans la piste. Joue-la, sur la corde indiquée, quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.",
+  },
+  "id": "notes",
+  "title": {
+    "en": "Learn",
+    "fr": "Apprentissage",
+  },
+}
+`;

@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	closeTriadVoicings,
 	parseSpelledNote,
+	parseVoicingKey,
 	qualityById,
 	voicingOccurrences,
 	type VoicingOccurrence
 } from '$lib/domain/music';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
-import { triadParams, triadVoicings } from './items';
 import { cueFrets, occurrencePosition } from './position';
+import { TRIAD_ORDER } from '$lib/testing/catalog';
 
 function occurrence(root: string, quality: string, frets: string): VoicingOccurrence {
 	const chord = { root: parseSpelledNote(root), quality: qualityById(quality) };
@@ -49,7 +49,7 @@ describe('cueFrets', () => {
 
 	it('never names a fret that two shapes of one chord on one string set share', () => {
 		const byChord = new Map<string, number[]>();
-		for (const voicing of triadVoicings(triadParams(TRIADS_ANCHOR))) {
+		for (const voicing of TRIAD_ORDER.map(parseVoicingKey)) {
 			const { root, quality } = voicing.chord;
 			const strings = voicing.strings.map(({ string }) => string).join();
 			const chord = `${root.letter}${root.accidental}|${quality.id}|${strings}`;

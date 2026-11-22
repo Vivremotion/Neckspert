@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PlannedItem } from '$lib/domain/types';
 import { ObservationSpan } from './observationSpan';
 
-const planned = { mechanic: 'locate' } as unknown as PlannedItem;
+const planned = { skill: 'locate-note-string' } as unknown as PlannedItem;
 const heard = (time: number, payload: unknown = { midi: 60 }) => ({
 	time,
 	payload,

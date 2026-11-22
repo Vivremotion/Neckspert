@@ -59,4 +59,32 @@ describe('NeckMapScreen', () => {
 		expect(slots[0].textContent?.trim()).toBe('');
 		expect(slots[1].textContent).toMatch(/1,20 s/);
 	});
+
+	it('draws a place a string does not hold blank, without text, the grid kept', () => {
+		const open = { ...buildCells()[0], string: 1 as const, fret: 0 };
+		render(NeckMapScreen, { props: { cells: [...buildCells(), open], onhome: () => {} } });
+		expect(screen.getAllByRole('row')).toHaveLength(6);
+		expect(screen.getAllByRole('gridcell')).toHaveLength(72);
+		const blank = screen.getByRole('gridcell', { name: 'Corde 6, case 0' });
+		expect(blank.textContent?.trim()).toBe('');
+		expect(screen.getByRole('gridcell', { name: /^corde 1, case 0\./i }).textContent).toMatch(/E/);
+	});
+
+	it('draws a partial list alone in the shape of the grid', () => {
+		const partial = buildCells().filter((c) => c.string === 2 && c.fret <= 2);
+		render(NeckMapScreen, { props: { cells: partial, onhome: () => {} } });
+		expect(screen.getAllByRole('row')).toHaveLength(6);
+		expect(screen.getAllByRole('gridcell')).toHaveLength(12);
+		expect(screen.getByRole('gridcell', { name: /^corde 2, case 1\./i })).toBeTruthy();
+	});
+
+	it('says there is nothing to show for an empty list', () => {
+		render(NeckMapScreen, { props: { cells: [], onhome: () => {} } });
+		expect(screen.queryByRole('grid')).toBeNull();
+		expect(screen.getByText(/Aucune case à montrer/)).toBeTruthy();
+		cleanup();
+		i18n.locale = 'en';
+		render(NeckMapScreen, { props: { cells: [], onhome: () => {} } });
+		expect(screen.getByText(/No place to show/)).toBeTruthy();
+	});
 });

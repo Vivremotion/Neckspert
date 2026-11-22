@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from '../exercise/catalog';
 import * as constants from '../progress/constants';
-import { DEFAULT_ITEM_LEARNING, DEFAULT_SET_LEARNING, itemLearningOf } from './params';
+import {
+	DEFAULT_ITEM_LEARNING,
+	DEFAULT_SET_LEARNING,
+	exerciseLearningOf,
+	itemLearningOf
+} from './params';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 describe('the learning procedure’s settings', () => {
 	it('keeps no constant of the procedure outside its defaults', () => {
@@ -27,9 +32,7 @@ describe('the learning procedure’s settings', () => {
 			'MASTERY_ACCURACY',
 			'MASTERY_MIN_GAP_MS',
 			'MASTERY_SESSIONS',
-			'MIN_COLD_DELAY_MS',
-			'TREND_RATIO',
-			'TREND_WINDOW_MS'
+			'MIN_COLD_DELAY_MS'
 		]);
 	});
 
@@ -38,5 +41,28 @@ describe('the learning procedure’s settings', () => {
 		expect(
 			itemLearningOf({ ...LOCATE_NECK, params: { learning: { retestGaps: [1, 3] } } })
 		).toEqual({ ...DEFAULT_ITEM_LEARNING, retestGaps: [1, 3] });
+	});
+
+	it('reads an exercise’s learning over the defaults, entry and draw only when written', () => {
+		expect(exerciseLearningOf({ ...LOCATE_NECK, params: {} })).toEqual({
+			...DEFAULT_ITEM_LEARNING,
+			presentAtOnce: true
+		});
+		const enter = { acquired: { skill: 'locate-note-string', item: 'same-place' } };
+		const asks = { family: 'chord-shapes', where: [{ other: 'previous' }] };
+		expect(
+			exerciseLearningOf({
+				...LOCATE_NECK,
+				params: {
+					learning: { enter, asks, presentAtOnce: false, retestGaps: [1, 3] }
+				}
+			})
+		).toEqual({
+			...DEFAULT_ITEM_LEARNING,
+			retestGaps: [1, 3],
+			presentAtOnce: false,
+			enter,
+			asks
+		});
 	});
 });

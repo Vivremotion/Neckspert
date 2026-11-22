@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
-import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { Attempt, CardState } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
 import { MIN_COLD_DELAY_MS } from './constants';
-import { keyed, neckExerciseId } from './neck';
+import { keyed, neckExerciseId, neckCardKey, type NeckCard } from '$lib/testing/neck';
 import { lastAttemptByCard, nextReviewAt, reviewableAt, reviewableCards } from './review';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');
-const G: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'G' } };
-const A: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
-const I: NeckCard = { mechanic: 'identify', item: { string: 6, fret: 3 } };
+const G: NeckCard = { skill: 'locate-note-string', item: { string: 6, pitch: 'G' } };
+const A: NeckCard = { skill: 'locate-note-string', item: { string: 6, pitch: 'A' } };
+const I: NeckCard = { skill: 'identify-note', item: { string: 6, fret: 3 } };
 
 function introduced(card: NeckCard, now: number): CardState {
 	return introduceCard(keyed(card), now, 's0');
@@ -25,8 +24,8 @@ function learned(card: NeckCard, due: number): CardState {
 function attemptOn(card: NeckCard, promptedAt: number, phase: Attempt['phase']): Attempt {
 	return responseAttempt({
 		sessionId: 's-free',
-		exerciseId: neckExerciseId(card.mechanic),
-		mechanic: card.mechanic,
+		exerciseId: neckExerciseId(card.skill),
+		skill: card.skill,
 		cardKey: neckCardKey(card),
 		phase,
 		temperature: 'hot',
@@ -80,9 +79,9 @@ describe('reviewableCards', () => {
 	it('sorts by due time, then locate before identify, then key', () => {
 		const cards = [learned(I, NOW - 500), learned(A, NOW - 500), learned(G, NOW - 900)];
 		expect(reviewableCards(cards, new Map(), NOW).map((card) => card.key)).toEqual([
-			'locate:6:G',
-			'locate:6:A',
-			'identify:6:3'
+			'locate-note-string:6:G',
+			'locate-note-string:6:A',
+			'identify-note:6:3'
 		]);
 	});
 });

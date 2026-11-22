@@ -13,12 +13,7 @@ const PUBLIC_FUNCTIONS = [
 	'fretLabel',
 	'classifyNoteConfusion',
 	'classifyNameConfusion',
-	'practiceCards',
-	'locateItems',
-	'isMirrorPair',
-	'mirrorItems',
-	'neckCardKey',
-	'asNeckCard',
+	'openPitch',
 	'pitchOfMidi',
 	'parseSpelledNote',
 	'formatSpelledNote',
@@ -45,8 +40,7 @@ describe('music index', () => {
 	});
 
 	it('works end to end through the index', () => {
-		const target = music.locateItems().find((t) => t.string === 2 && t.pitch === 'F');
-		if (!target) throw new Error('F on string 2 is missing from the locate items');
+		const target = music.parseLocateItem('2:F');
 		expect(music.acceptableMidis(target)).toEqual([65, 77]);
 		expect(music.classifyNoteConfusion(target, 66)).toEqual({ kind: 'semitone', delta: 1 });
 		expect(music.formatNote(music.spellPitch('F#', () => 0.5))).toBe('Gb');

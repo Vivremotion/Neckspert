@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseById, IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise';
+import { exerciseById } from '$lib/domain/exercise';
 import { DEFAULT_PREVIEW_BEATS } from '$lib/domain/exercise/pacing';
 import { compileRound } from '$lib/domain/exercise/round';
 import { Fraction, METER_4_4, type Meter } from '$lib/domain/time';
@@ -14,6 +14,7 @@ import {
 	timedStart,
 	type PlacementContext
 } from './placement';
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
 const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS, fromRunStart: null };
@@ -23,7 +24,7 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 		LOCATE_NECK,
 		{
 			exerciseId: LOCATE_NECK.id,
-			mechanic: 'locate',
+			skill: 'locate-note-string',
 			exerciseLevel: 0,
 			item: { string: 3, pitch: 'C' },
 			phase: 'learning',
@@ -35,12 +36,12 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 		resolved
 	);
 const change = (meter: Meter) =>
-	compileRound(exerciseById('gesture-jam'), gridChange(0), meter, resolved);
+	compileRound(exerciseById('grid-reading'), gridChange(0), meter, resolved);
 const free = compileRound(
 	IDENTIFY_NECK,
 	{
 		exerciseId: IDENTIFY_NECK.id,
-		mechanic: 'identify',
+		skill: 'identify-note',
 		exerciseLevel: 0,
 		item: { string: 3, fret: 5 },
 		phase: 'learning',

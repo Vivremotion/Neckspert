@@ -1,34 +1,38 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { ITEM_FIELDS } from './itemFields';
 
+registerTestSkills();
+
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 
-/** One item of each mechanic that offers fields. */
+/** One item of each set that offers fields. */
 const SAMPLES: Record<string, unknown> = {
-	locate: { string: 2, pitch: 'F' },
-	identify: { string: 3, fret: 8 },
-	'triad-anchor': { voicingKey: D_ON_B },
-	'triad-zone': { voicingKey: D_ON_B, position: 2, fret: 3 },
-	'voicing-figure': { voicing: D_ON_B, occurrence: 0, beats: 4 },
-	'form-figure': { form: 'maj7', first: 'd', beats: 4 }
+	'note-on-string': { string: 2, pitch: 'F' },
+	'placed-note': { string: 3, fret: 8 },
+	'voicing-on-strings': { voicingKey: D_ON_B, position: 2, fret: 3 },
+	'placed-voicing': { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 },
+	'placed-shape': { shape: 'maj7', first: 'd', beats: 4 },
+	change: { grid: 'iohefy-a', index: 0 }
 };
 
 describe('ITEM_FIELDS', () => {
 	it('names exactly the fields it writes for an item', () => {
 		expect(Object.keys(ITEM_FIELDS).sort()).toEqual(Object.keys(SAMPLES).sort());
-		for (const [mechanic, offered] of Object.entries(ITEM_FIELDS)) {
+		for (const [set, offered] of Object.entries(ITEM_FIELDS)) {
 			for (const locale of ['fr', 'en'] as const) {
-				const written = offered.fields(SAMPLES[mechanic], locale, () => 0, FORM_EXERCISE);
-				expect(Object.keys(written).sort(), mechanic).toEqual([...offered.names].sort());
+				const written = offered.fields(SAMPLES[set], locale, () => 0, FORM_EXERCISE);
+				expect(Object.keys(written).sort(), set).toEqual([...offered.names].sort());
 			}
 		}
 	});
 });
 
 describe('the fields of a triad', () => {
-	const anchor = ITEM_FIELDS['triad-anchor'];
-	const zone = ITEM_FIELDS['triad-zone'];
+	// The anchor's and the zone's: one set, its items with a position or without.
+	const anchor = ITEM_FIELDS['voicing-on-strings'];
+	const zone = ITEM_FIELDS['voicing-on-strings'];
 
 	it('spells Eb, Ab and Bb with a flat', () => {
 		expect(
@@ -52,6 +56,10 @@ describe('the fields of a triad', () => {
 		).toBe('vers la case 2');
 	});
 
+	it('says nothing around an item without a position', () => {
+		expect(anchor.fields({ voicingKey: D_ON_B }, 'fr', () => 0, FORM_EXERCISE).around).toBe('');
+	});
+
 	it('calls a shape on open strings open', () => {
 		const open = { voicingKey: 'E|min|3:b3,2:5,1:1', position: 'open' };
 		expect(zone.fields(open, 'fr', () => 0, FORM_EXERCISE)).toMatchObject({
@@ -63,32 +71,34 @@ describe('the fields of a triad', () => {
 });
 
 describe('the fields of a voicing figure', () => {
-	const figure = ITEM_FIELDS['voicing-figure'];
+	const figure = ITEM_FIELDS['placed-voicing'];
 
 	it('names the chord and the strings, in either language', () => {
-		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', occurrence: 0 };
+		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', frets: [10, 12, 12, 12] };
 		expect(figure.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({
 			chord: 'Cmaj7',
-			strings: 'ré‑sol‑si‑mi'
+			strings: 'ré‑sol‑si‑mi',
+			quality: 'maj7'
 		});
-		expect(figure.fields({ voicing: D_ON_B, occurrence: 0 }, 'fr', () => 0, FORM_EXERCISE)).toEqual(
-			{
-				chord: 'D',
-				strings: 'sol‑si‑mi'
-			}
-		);
 		expect(
-			figure.fields({ voicing: D_ON_B, occurrence: 0 }, 'en', () => 0, FORM_EXERCISE).strings
+			figure.fields({ voicing: D_ON_B, frets: [2, 3, 2] }, 'fr', () => 0, FORM_EXERCISE)
+		).toEqual({
+			chord: 'D',
+			strings: 'sol‑si‑mi',
+			quality: 'majeur'
+		});
+		expect(
+			figure.fields({ voicing: D_ON_B, frets: [2, 3, 2] }, 'en', () => 0, FORM_EXERCISE).strings
 		).toBe('G‑B‑E');
 	});
 });
 
 describe('the fields of a form figure', () => {
-	const form = ITEM_FIELDS['form-figure'];
+	const shape = ITEM_FIELDS['placed-shape'];
 	const chord = (first: string) =>
-		form.fields({ form: 'maj7', first }, 'fr', () => 0, FORM_EXERCISE).chord;
+		shape.fields({ shape: 'maj7', first }, 'fr', () => 0, FORM_EXERCISE).chord;
 
-	it("names the chord from the first note as written, then the form's symbol", () => {
+	it("names the chord from the first note as written, then the shape's symbol", () => {
 		expect(chord('bes')).toBe('Bbmaj7');
 		expect(chord('as')).toBe('Abmaj7');
 		expect(chord('es')).toBe('Ebmaj7');
@@ -102,11 +112,38 @@ describe('the fields of a form figure', () => {
 		expect(chord('g,')).toBe('Gmaj7');
 	});
 
-	it('names the note alone on a form the exercise does not write', () => {
-		const item = { form: 'nowhere', first: 'bes' };
-		expect(form.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({ chord: 'Bb' });
-		expect(form.fields(item, 'fr', () => 0, { ...FORM_EXERCISE, forms: undefined })).toEqual({
+	it('names the note alone on a shape the exercise does not write', () => {
+		const item = { shape: 'nowhere', first: 'bes' };
+		expect(shape.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({ chord: 'Bb' });
+		expect(shape.fields(item, 'fr', () => 0, { ...FORM_EXERCISE, shapes: undefined })).toEqual({
 			chord: 'Bb'
 		});
+	});
+});
+
+describe('the fields of a change', () => {
+	const change = ITEM_FIELDS.change;
+
+	it('names its chord as its grid writes it, and the title of its grid', () => {
+		expect(change.fields({ grid: 'iohefy-a', index: 1 }, 'fr', () => 0, FORM_EXERCISE)).toEqual({
+			symbol: 'G7',
+			title: 'I Only Have Eyes for You'
+		});
+		expect(change.fields({ grid: 'blues-f', index: 1 }, 'en', () => 0, FORM_EXERCISE)).toEqual({
+			symbol: 'Bb7',
+			title: 'Blues F'
+		});
+	});
+});
+
+describe('the fields of a placed voicing', () => {
+	const placed = ITEM_FIELDS['placed-voicing'];
+
+	it('names the quality of its chord, in each language', () => {
+		const major = { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 };
+		const minor = { voicing: 'D|min|3:5,2:1,1:b3', frets: [2, 3, 1], beats: 4 };
+		expect(placed.fields(major, 'fr', () => 0, FORM_EXERCISE).quality).toBe('majeur');
+		expect(placed.fields(minor, 'fr', () => 0, FORM_EXERCISE).quality).toBe('mineur');
+		expect(placed.fields(minor, 'en', () => 0, FORM_EXERCISE).quality).toBe('minor');
 	});
 });

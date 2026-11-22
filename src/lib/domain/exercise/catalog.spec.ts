@@ -1,62 +1,56 @@
 import { describe, expect, it } from 'vitest';
-import {
-	EXERCISES,
-	IDENTIFY_NECK,
-	LOCATE_NECK,
-	TRIADS_ANCHOR,
-	TRIADS_ZONE,
-	exerciseById,
-	exerciseSessionExercises
-} from './catalog';
-import { RHYTHM_EXERCISES } from './rhythmCatalog';
-import { gridById, gridChanges } from '$lib/domain/grid';
-import { GESTURE_EXERCISES } from '$lib/domain/gesture';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import { allExercises, exerciseById, exerciseSessionExercises } from './registry';
+import { passageIndices, passageMembers } from './passage/indices';
+import { firstEach, passageRound } from './passage/round';
+import { passageDerivation } from '$lib/domain/families';
 import { Fraction, METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
+import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import { compileRound } from './round';
 import { freeTime, gridChange, onTheBeat, pointAt } from './round/testing/plans';
 import type { ExerciseDefinition } from './types';
+import {
+	IDENTIFY_NECK,
+	LOCATE_NECK,
+	TRIADS_ANCHOR,
+	TRIADS_ZONE,
+	RHYTHM_EXERCISES,
+	GESTURE_EXERCISES
+} from '$lib/testing/catalog';
 
 describe('exercise catalog', () => {
 	it('describes the two neck exercises', () => {
 		expect(LOCATE_NECK).toEqual({
-			id: 'locate-neck',
-			version: 1,
-			mechanic: 'locate',
+			id: 'locate-note-string',
+			practices: 'locate-note-string',
 			view: 'lane',
 			tempo: 80,
 			round: LOCATE_NECK.round,
 			presentation: LOCATE_NECK.presentation,
-			params: { recallThresholdMs: 1500, ladder: ladderOf(LOCATE_NECK) }
+			items: LOCATE_NECK.items,
+			params: { ladder: ladderOf(LOCATE_NECK) }
 		});
 		expect(IDENTIFY_NECK).toEqual({
-			id: 'identify-neck',
-			version: 1,
-			mechanic: 'identify',
+			id: 'identify-note',
+			practices: 'identify-note',
 			view: 'answer-keys',
 			round: IDENTIFY_NECK.round,
 			presentation: IDENTIFY_NECK.presentation,
-			params: { recallThresholdMs: 3000, ladder: ladderOf(IDENTIFY_NECK) }
+			items: IDENTIFY_NECK.items,
+			params: { ladder: ladderOf(IDENTIFY_NECK), learning: IDENTIFY_NECK.params.learning }
 		});
 	});
 
 	it('finds an exercise by id and throws on an unknown one', () => {
-		expect(exerciseById('identify-neck')).toBe(IDENTIFY_NECK);
+		expect(exerciseById('identify-note')).toBe(IDENTIFY_NECK);
 		expect(() => exerciseById('nope')).toThrow(/nope/);
 	});
 
 	it('describes the two triads exercises of the memory track, each with its rhythm, on the lane', () => {
 		const params = {
-			stringSets: [
-				[3, 2, 1],
-				[4, 3, 2]
-			],
-			qualities: ['maj', 'min'],
 			pacing: { respirationBars: 1 },
-			recallThresholdMs: 1500,
 			ladder: [
 				{ params: { leadBeats: 8, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
 				{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 }, drop: { failures: 1 } },
@@ -69,26 +63,26 @@ describe('exercise catalog', () => {
 			]
 		};
 		expect(TRIADS_ANCHOR).toEqual({
-			id: 'triads-anchor',
-			version: 1,
-			mechanic: 'triad-anchor',
+			id: 'chord-anchor',
+			practices: 'chord-anchor',
 			view: 'lane',
 			tempo: 80,
 			round: TRIADS_ANCHOR.round,
 			presentation: TRIADS_ANCHOR.presentation,
-			params
+			items: TRIADS_ANCHOR.items,
+			params: { ...params, learning: TRIADS_ANCHOR.params.learning }
 		});
 		expect(TRIADS_ZONE).toEqual({
-			id: 'triads-zone',
-			version: 1,
-			mechanic: 'triad-zone',
+			id: 'chord-zone',
+			practices: 'chord-zone',
 			view: 'lane',
 			tempo: 80,
 			round: TRIADS_ZONE.round,
 			presentation: TRIADS_ZONE.presentation,
-			params
+			items: TRIADS_ZONE.items,
+			params: { ...params, learning: TRIADS_ZONE.params.learning }
 		});
-		expect(exerciseById('triads-zone')).toBe(TRIADS_ZONE);
+		expect(exerciseById('chord-zone')).toBe(TRIADS_ZONE);
 		expect(pacingOf(TRIADS_ANCHOR)).toEqual(params.pacing);
 		expect(TRIADS_ANCHOR.params).not.toBe(TRIADS_ZONE.params);
 	});
@@ -98,9 +92,9 @@ describe('exercise catalog', () => {
 		// the catalog looks like one.
 		const fractionsBack = (_key: string, value: unknown) =>
 			typeof value === 'string' && /^-?\d+(\/\d+)?$/.test(value) ? Fraction.parse(value) : value;
-		expect(JSON.parse(JSON.stringify(EXERCISES), fractionsBack)).toEqual(EXERCISES);
+		expect(JSON.parse(JSON.stringify(allExercises()), fractionsBack)).toEqual(allExercises());
 		// A round template holds no fraction object: it goes through JSON as it is.
-		const rounds = EXERCISES.filter((exercise) => exercise.round);
+		const rounds = allExercises().filter((exercise) => exercise.round);
 		expect(rounds).toHaveLength(11);
 		for (const { round } of rounds) expect(JSON.parse(JSON.stringify(round))).toEqual(round);
 	});
@@ -114,7 +108,7 @@ describe('exercise catalog', () => {
 			leadBeats: number | null
 		): PlannedItem => ({
 			exerciseId: definition.id,
-			mechanic: definition.mechanic,
+			skill: definition.practices,
 			exerciseLevel: 0,
 			item,
 			phase: 'learning',
@@ -136,7 +130,12 @@ describe('exercise catalog', () => {
 		for (const lead of [8, 4, 2]) {
 			expect(compiled(LOCATE_NECK, note, lead)).toEqual({
 				prompt: Fraction.of(-lead, 4),
-				expectations: [pointAt('note', { kind: 'note', value: note })],
+				expectations: [
+					pointAt('note', {
+						kind: 'member',
+						value: { family: 'note-places', index: note, selection: { family: 'note-places' } }
+					})
+				],
 				length: Fraction.of(1),
 				listenUntil: Fraction.of(1, 2),
 				mutedBars: [],
@@ -161,11 +160,25 @@ describe('exercise catalog', () => {
 			expect(compiled(TRIADS_ANCHOR, { voicingKey: key }, lead)).toEqual({
 				prompt: Fraction.of(-lead, 4),
 				expectations: [
-					pointAt('note', { kind: 'note', value: { string: 2, pitch: 'D' } }),
+					pointAt('note', {
+						kind: 'member',
+						value: {
+							family: 'note-places',
+							index: { pitch: 'D', string: 2 },
+							selection: { family: 'note-places' }
+						}
+					}),
 					{
 						...pointAt(
 							'chord',
-							{ kind: 'chord-voicing', value: { voicingKey: key, position: null } },
+							{
+								kind: 'member',
+								value: {
+									family: 'chord-shapes',
+									index: GUITAR_DERIVATIONS.voicing.index({ voicingKey: key }),
+									selection: { family: 'chord-shapes' }
+								}
+							},
 							Fraction.of(1, 4)
 						),
 						span: { until: Fraction.of(1) }
@@ -177,33 +190,40 @@ describe('exercise catalog', () => {
 			});
 		}
 
-		// The zone: a beat plan heard by the chord sensor.
-		const voicing = { voicingKey: key, position: 7 };
+		// The zone: a beat plan heard by the chord sensor, the shape that covers the fret named.
+		const voicing = { voicingKey: key, position: 7, fret: 8 };
 		expect(compiled(TRIADS_ZONE, voicing, 4)).toEqual({
 			prompt: Fraction.of(-1),
-			expectations: [pointAt('chord', { kind: 'chord-voicing', value: voicing })],
+			expectations: [
+				pointAt('chord', {
+					kind: 'member',
+					value: {
+						family: 'chord-shapes',
+						index: GUITAR_DERIVATIONS.voicing.index(voicing),
+						selection: { family: 'chord-shapes', where: [{ at: 8 }] }
+					}
+				})
+			],
 			length: Fraction.of(1),
 			mutedBars: [],
 			policy: onTheBeat(false)
 		});
 
-		// The gesture: a change of a grid, whichever exercise plays it.
-		const changes = gridChanges(gridById('iohefy-a'));
-		const change: ChordGridItem = {
-			rule: 'jam',
-			element: 'jam:iohefy-a',
-			passageId: 's:0',
-			index: 1,
-			changes,
-			symbol: changes[1].symbol,
-			chord: 'D|min',
-			sets: [[3, 2, 1]],
-			previous: null
-		};
+		// The changes: the second round of the first passage of each, a bar long, its chord's shapes.
 		for (const exercise of GESTURE_EXERCISES) {
-			expect(compiled(exercise, change, null)).toEqual({
+			const [index] = passageIndices(exercise);
+			const each = firstEach(exercise);
+			const derivation = passageDerivation(exercise.passages!.members.family)!;
+			const items = passageMembers(exercise, index, each).map((m) => derivation.itemOf(m));
+			const round = passageRound(exercise, index, each, items[1], 1, items.length);
+			expect(compileRound(exercise, round, meter, { previewBeats, fromRunStart: null })).toEqual({
 				prompt: Fraction.of(-1, 4),
-				expectations: [pointAt('chord', { kind: 'chord-grid', value: change })],
+				expectations: [
+					pointAt('chord', {
+						kind: 'member',
+						value: expect.objectContaining({ family: 'chord-shapes', previous: null })
+					})
+				],
 				length: Fraction.of(1),
 				handover: Fraction.of(1),
 				mutedBars: [],

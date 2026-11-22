@@ -1,24 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import {
-	DEFAULT_SETTINGS,
 	type Attempt,
 	type CardState,
+	type SessionOrigin,
 	type SessionRecord
 } from '$lib/domain/types';
-import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
-import { MIN_COLD_DELAY_MS, TREND_WINDOW_MS } from './constants';
+import { MIN_COLD_DELAY_MS } from './constants';
 import { introduceCard, markLearned } from './cards';
-import { keyed, neckExerciseId } from './neck';
-import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
+import { keyed, neckExerciseId, neckCardKey, type NeckCard } from '$lib/testing/neck';
+import { buildNeckMap, summarizeSession } from './stats';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 
-const L1: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'E' } };
-const L2: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F' } };
-const L3: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F#' } };
-const I0: NeckCard = { mechanic: 'identify', item: { string: 1, fret: 0 } };
+const L1: NeckCard = { skill: 'locate-note-string', item: { string: 1, pitch: 'E' } };
+const L2: NeckCard = { skill: 'locate-note-string', item: { string: 1, pitch: 'F' } };
+const L3: NeckCard = { skill: 'locate-note-string', item: { string: 1, pitch: 'F#' } };
+const I0: NeckCard = { skill: 'identify-note', item: { string: 1, fret: 0 } };
 
 function introduced(card: NeckCard, now: number, sessionId: string): CardState {
 	return introduceCard(keyed(card), now, sessionId);
@@ -28,13 +27,13 @@ function learnedAt(state: CardState, now: number): CardState {
 	return markLearned(state, now);
 }
 
-/** The attempt fields of `card`: exercise, mechanic, key and data (no answer). */
+/** The attempt fields of `card`: exercise, skill, key and data (no answer). */
 function on(card: NeckCard): AttemptOverrides {
 	return {
-		exerciseId: neckExerciseId(card.mechanic),
-		mechanic: card.mechanic,
+		exerciseId: neckExerciseId(card.skill),
+		skill: card.skill,
 		cardKey: neckCardKey(card),
-		tempoBpm: card.mechanic === 'locate' ? 80 : null,
+		tempoBpm: card.skill === 'locate-note-string' ? 80 : null,
 		data: { item: card.item, answer: null, confusion: null }
 	};
 }
@@ -43,8 +42,8 @@ function on(card: NeckCard): AttemptOverrides {
 function coldAttempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
-		exerciseId: 'locate-neck',
-		mechanic: 'locate',
+		exerciseId: 'locate-note-string',
+		skill: 'locate-note-string',
 		cardKey: neckCardKey(L1),
 		phase: 'review',
 		temperature: 'cold',
@@ -63,103 +62,16 @@ function coldAttempt(overrides: AttemptOverrides): Attempt {
 }
 
 const RECORD_EXECUTIONS: SessionRecord['executions'] = [
-	{ exerciseId: 'locate-neck', tempoBpm: 80 },
-	{ exerciseId: 'identify-neck', tempoBpm: null }
+	{ exerciseId: 'locate-note-string', tempoBpm: 80 },
+	{ exerciseId: 'identify-note', tempoBpm: null }
 ];
 
-describe('computeHomeStats', () => {
-	it('has nothing due and no next review on a fresh install', () => {
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.dueCount).toBe(0);
-		expect(stats.nextReviewAt).toBeNull();
-	});
-
-	it('counts due reviews but not a card played in free play ten minutes ago', () => {
-		const learnedDue = (target: NeckCard, due: number): CardState => {
-			const card = learnedAt(
-				introduced(target, NOW - 3 * MIN_COLD_DELAY_MS, 's0'),
-				NOW - 2 * MIN_COLD_DELAY_MS
-			);
-			return { ...card, scheduling: { ...card.scheduling, due } };
-		};
-		const recent = NOW - 10 * 60 * 1000;
-		const stats = computeHomeStats({
-			cards: [learnedDue(L1, NOW - 5), learnedDue(L2, NOW - 1)],
-			attempts: [
-				coldAttempt({
-					...on(L2),
-					phase: 'free',
-					temperature: 'hot',
-					promptedAt: recent
-				})
-			],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.dueCount).toBe(1);
-		expect(stats.nextReviewAt).toBe(NOW - 5);
-	});
-
-	it('tells when the next review comes when nothing is due', () => {
-		const card = learnedAt(introduced(L1, NOW - 3 * MIN_COLD_DELAY_MS, 's0'), NOW);
-		const stats = computeHomeStats({
-			cards: [{ ...card, scheduling: { ...card.scheduling, due: NOW + 10_000 } }],
-			attempts: [],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.dueCount).toBe(0);
-		expect(stats.nextReviewAt).toBe(NOW + 10_000);
-	});
-
-	it('scores cold correct locate notes by distance to the beat', () => {
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [
-				coldAttempt({ reactionMs: 6000, timingOffsetMs: 20 }),
-				coldAttempt({ reactionMs: 6000, timingOffsetMs: -40 }),
-				coldAttempt({
-					correct: false,
-					verdict: 'wrong',
-					reactionMs: 100,
-					timingOffsetMs: 500
-				}),
-				coldAttempt({
-					...on(I0),
-					leadBeats: null,
-					timingOffsetMs: null,
-					reactionMs: 400
-				})
-			],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.medianColdOffsetMs).toBe(30);
-	});
-
-	it('leaves off-beat answers out of the distance to the beat', () => {
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [
-				coldAttempt({ timingOffsetMs: 20 }),
-				coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })
-			],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.medianColdOffsetMs).toBe(20);
-	});
-
+describe('summarizeSession of off-beat answers', () => {
 	it('counts an off-beat cold review as a miss in the session accuracy', () => {
 		const summary = summarizeSession({
 			record: {
 				id: 's1',
-				kind: 'learn',
+				routine: 'notes',
 				startedAt: NOW - 60_000,
 				endedAt: NOW,
 				fatigueDetected: false,
@@ -172,43 +84,6 @@ describe('computeHomeStats', () => {
 			now: NOW
 		});
 		expect(summary).toMatchObject({ attemptCount: 2, correctCount: 1, medianOffsetMs: 0 });
-	});
-
-	it('trends toward a smaller distance to the beat over 7 days', () => {
-		const recent = [
-			coldAttempt({ promptedAt: NOW - 1000, timingOffsetMs: 10, reactionMs: 6000 }),
-			coldAttempt({ promptedAt: NOW - 2000, timingOffsetMs: -30, reactionMs: 6000 })
-		];
-		const previous = [
-			coldAttempt({
-				promptedAt: NOW - TREND_WINDOW_MS - 1000,
-				timingOffsetMs: 80,
-				reactionMs: 1500
-			}),
-			coldAttempt({
-				promptedAt: NOW - TREND_WINDOW_MS - 2000,
-				timingOffsetMs: 120,
-				reactionMs: 1500
-			})
-		];
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [...previous, ...recent],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.medianColdOffsetMs).toBe(55);
-		expect(stats.trend).toBe('improving');
-	});
-
-	it('returns a null trend when either window is empty', () => {
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [coldAttempt({ promptedAt: NOW - 1000, reactionMs: 900 })],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.trend).toBeNull();
 	});
 });
 
@@ -266,9 +141,9 @@ describe('summarizeSession', () => {
 		temperature: 'hot',
 		promptedAt: NOW - 40_000
 	});
-	const record = (kind: SessionRecord['kind']): SessionRecord => ({
+	const record = (origin: SessionOrigin): SessionRecord => ({
 		id: 'sess',
-		kind,
+		...origin,
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: true,
@@ -279,7 +154,7 @@ describe('summarizeSession', () => {
 	it('summarizes cold accuracy, notes learned, notes pending and the next review', () => {
 		const sessionAttempts = [...attempts, pending];
 		const summary = summarizeSession({
-			record: record('learn'),
+			record: record({ routine: 'notes' }),
 			attempts: sessionAttempts,
 			allAttempts: sessionAttempts,
 			cards,
@@ -299,14 +174,20 @@ describe('summarizeSession', () => {
 			nextReviewAt: NOW + 1000,
 			grade: null,
 			tempoBpm: 80,
-			kind: 'learn'
+			chords: false,
+			memory: true,
+			exercises: [
+				expect.objectContaining({ exerciseId: 'locate-note-string', rounds: 4, passed: 3 }),
+				expect.objectContaining({ exerciseId: 'identify-note', rounds: 1, tempo: null })
+			],
+			misses: []
 		});
 	});
 
 	it('gives the tempo the locate exercise was played at', () => {
 		const summarize = (executions: SessionRecord['executions']) =>
 			summarizeSession({
-				record: { ...record('learn'), executions },
+				record: { ...record({ routine: 'notes' }), executions },
 				attempts: [],
 				allAttempts: [],
 				cards: [],
@@ -314,11 +195,11 @@ describe('summarizeSession', () => {
 			}).tempoBpm;
 		expect(
 			summarize([
-				{ exerciseId: 'identify-neck', tempoBpm: null },
-				{ exerciseId: 'locate-neck', tempoBpm: 95 }
+				{ exerciseId: 'identify-note', tempoBpm: null },
+				{ exerciseId: 'locate-note-string', tempoBpm: 95 }
 			])
 		).toBe(95);
-		expect(summarize([{ exerciseId: 'identify-neck', tempoBpm: null }])).toBeNull();
+		expect(summarize([{ exerciseId: 'identify-note', tempoBpm: null }])).toBeNull();
 	});
 
 	it('keeps probes out of cold accuracy and counts the ones passed as already known', () => {
@@ -330,7 +211,7 @@ describe('summarizeSession', () => {
 			coldAttempt({ sessionId: 'sess', correct: false, verdict: 'wrong', timingOffsetMs: 90 })
 		];
 		const summary = summarizeSession({
-			record: record('learn'),
+			record: record({ routine: 'notes' }),
 			attempts: sessionAttempts,
 			allAttempts: sessionAttempts,
 			cards,
@@ -347,7 +228,7 @@ describe('summarizeSession', () => {
 			coldAttempt({ sessionId: 'sess', phase: 'probe', correct: true, timingOffsetMs: 3 })
 		];
 		const summary = summarizeSession({
-			record: record('learn'),
+			record: record({ routine: 'notes' }),
 			attempts: only,
 			allAttempts: only,
 			cards,
@@ -360,7 +241,7 @@ describe('summarizeSession', () => {
 
 	it('scores a free session across cold and hot attempts', () => {
 		const summary = summarizeSession({
-			record: record('free'),
+			record: record({ routine: 'notes', free: true }),
 			attempts,
 			allAttempts: attempts,
 			cards,
@@ -376,7 +257,7 @@ describe('summarizeSession', () => {
 
 	it('leaves an empty free session ungraded', () => {
 		const summary = summarizeSession({
-			record: record('free'),
+			record: record({ routine: 'notes', free: true }),
 			attempts: [],
 			allAttempts: [],
 			cards: [],
@@ -391,7 +272,7 @@ describe('summarizeSession', () => {
 
 describe('buildNeckMap', () => {
 	it('leaves a missed probe out of cold accuracy', () => {
-		const target: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const target: NeckCard = { skill: 'locate-note-string', item: { string: 2, pitch: 'C' } };
 		const card = { ...introduced(target, NOW, 's0'), acquiredAt: NOW };
 		const attempts = [
 			coldAttempt({
@@ -411,8 +292,8 @@ describe('buildNeckMap', () => {
 	});
 
 	it('builds 72 cells with injected pitches and per-sense status', () => {
-		const C_ON_B: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
-		const FRET_1: NeckCard = { mechanic: 'identify', item: { string: 2, fret: 1 } };
+		const C_ON_B: NeckCard = { skill: 'locate-note-string', item: { string: 2, pitch: 'C' } };
+		const FRET_1: NeckCard = { skill: 'identify-note', item: { string: 2, fret: 1 } };
 		const locate = {
 			...introduced(C_ON_B, NOW, 's0'),
 			acquiredAt: NOW,
@@ -478,7 +359,7 @@ describe('buildNeckMap', () => {
 	});
 
 	describe('last cold recall of a locate card', () => {
-		const C_ON_B: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const C_ON_B: NeckCard = { skill: 'locate-note-string', item: { string: 2, pitch: 'C' } };
 		const card = { ...introduced(C_ON_B, NOW, 'intro'), leadBeats: 4 as const };
 		/** Each session's attempts carry its tempo; 'old' is from before tempos were recorded. */
 		const tempos: Record<string, number | null> = { slow: 80, fast: 115, old: null };
@@ -551,7 +432,11 @@ describe('buildNeckMap', () => {
 	});
 
 	it('reads the tempo of the attempt, without a list of sessions', () => {
-		const card = introduced({ mechanic: 'locate', item: { string: 2, pitch: 'C' } }, NOW, 's0');
+		const card = introduced(
+			{ skill: 'locate-note-string', item: { string: 2, pitch: 'C' } },
+			NOW,
+			's0'
+		);
 		const cells = buildNeckMap({
 			cards: [card],
 			attempts: [coldAttempt({ cardKey: card.key, leadBeats: 4, tempoBpm: 120 })],
@@ -567,21 +452,21 @@ describe('summarizeSession of a triads session', () => {
 		coldAttempt({
 			id: 1,
 			sessionId: 'tri',
-			exerciseId: 'triads-anchor',
-			mechanic: 'triad-anchor',
-			cardKey: `triad-anchor:${KEY}`,
+			exerciseId: 'chord-anchor',
+			skill: 'chord-anchor',
+			cardKey: `chord-anchor:${KEY}`,
 			data: { item: { voicingKey: KEY }, answer: null, confusion: null },
 			...overrides
 		});
 	const record: SessionRecord = {
 		id: 'tri',
-		kind: 'triads',
+		routine: 'chords',
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: false,
 		executions: [
-			{ exerciseId: 'triads-anchor', tempoBpm: 90 },
-			{ exerciseId: 'triads-zone', tempoBpm: 85 }
+			{ exerciseId: 'chord-anchor', tempoBpm: 90 },
+			{ exerciseId: 'chord-zone', tempoBpm: 85 }
 		],
 		latencyMs: 0
 	};
@@ -610,9 +495,9 @@ describe('summarizeSession of a triads session', () => {
 		}),
 		triad({
 			id: 4,
-			exerciseId: 'triads-zone',
-			mechanic: 'triad-zone',
-			cardKey: `triad-zone:${KEY}`,
+			exerciseId: 'chord-zone',
+			skill: 'chord-zone',
+			cardKey: `chord-zone:${KEY}`,
 			correct: false,
 			verdict: 'wrong',
 			data: {
@@ -642,7 +527,7 @@ describe('summarizeSession of a triads session', () => {
 	});
 
 	it('says it was a triads session, and lists no refused chords: they are contested in play', () => {
-		expect(summary.kind).toBe('triads');
+		expect(summary.chords).toBe(true);
 		expect('triads' in summary).toBe(false);
 	});
 
@@ -650,47 +535,47 @@ describe('summarizeSession of a triads session', () => {
 		const zone = summarizeSession({
 			record: {
 				...record,
-				kind: 'triads-zone',
-				executions: [{ exerciseId: 'triads-zone', tempoBpm: 85 }]
+				routine: 'chords-zone',
+				executions: [{ exerciseId: 'chord-zone', tempoBpm: 85 }]
 			},
 			attempts: [],
 			allAttempts: [],
 			cards: [],
 			now: NOW
 		});
-		expect(zone).toMatchObject({ kind: 'triads-zone', tempoBpm: 85 });
+		expect(zone).toMatchObject({ chords: true, tempoBpm: 85 });
 	});
 
 	it('says a notes session is one', () => {
 		expect(
 			summarizeSession({
-				record: { ...record, kind: 'learn' },
+				record: { ...record, routine: 'notes' },
 				attempts: [],
 				allAttempts: [],
 				cards: [],
 				now: NOW
-			}).kind
-		).toBe('learn');
+			}).chords
+		).toBe(false);
 	});
 });
 
 describe('summarizeSession of a gesture session', () => {
-	const record = (kind: 'gesture' | 'learn') => ({
+	const record = (origin: SessionOrigin): SessionRecord => ({
 		id: 's1',
-		kind,
+		...origin,
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: false,
-		executions: [{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
+		executions: [{ exerciseId: 'grid-reading', tempoBpm: 80 }],
 		latencyMs: 0
 	});
 
-	it('sums the passages up by exercise, and only for a gesture session', () => {
+	it('sums the passages up by exercise, a session of changes not one of memory', () => {
 		const attempts = [0, 1].map((index) =>
 			coldAttempt({
-				exerciseId: 'gesture-jam',
-				mechanic: 'chord-grid',
-				cardKey: `chord-grid:jam:blues-f#${index}`,
+				exerciseId: 'grid-reading',
+				skill: 'grid-reading',
+				cardKey: `grid-reading:jam:blues-f#${index}`,
 				temperature: 'hot',
 				phase: 'free',
 				data: {
@@ -714,19 +599,23 @@ describe('summarizeSession of a gesture session', () => {
 			})
 		);
 		const input = { attempts, allAttempts: [], cards: [], now: NOW };
-		expect(summarizeSession({ ...input, record: record('gesture') }).gesture).toEqual({
-			exercises: [
-				{
-					exerciseId: 'gesture-jam',
-					passagesPlayed: 1,
-					passagesSucceeded: 1,
-					changeSuccessRate: 1,
-					tempoBpm: 80,
-					lastTempoBpm: 80
-				}
-			],
-			misses: []
-		});
-		expect(summarizeSession({ ...input, record: record('learn') }).gesture).toBeUndefined();
+		const changes = summarizeSession({ ...input, record: record({ routine: 'changes' }) });
+		expect(changes.memory).toBe(false);
+		expect(changes.exercises).toEqual([
+			{
+				exerciseId: 'grid-reading',
+				rounds: 2,
+				passed: 2,
+				aided: 0,
+				level: null,
+				tempo: { first: 80, last: 80 },
+				inPassages: true,
+				passages: { played: 1, passed: 1 },
+				changedAir: false
+			}
+		]);
+		expect(changes.misses).toEqual([]);
+		// A session of the notes is one of memory: its lines are data the screen does not show.
+		expect(summarizeSession({ ...input, record: record({ routine: 'notes' }) }).memory).toBe(true);
 	});
 });

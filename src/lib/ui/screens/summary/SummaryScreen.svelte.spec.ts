@@ -1,8 +1,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SessionSummary } from '$lib/domain/types';
+import type { PlayedExercise, SessionSummary } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
+import { allExercises, clearExercises, registerExercise } from '$lib/domain/exercise';
+import { skillById } from '$lib/domain/skill/registry';
+import { RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 import SummaryScreen from './SummaryScreen.svelte';
+
+const catalog = allExercises();
 
 afterEach(() => {
 	cleanup();
@@ -23,8 +28,39 @@ const summary: SessionSummary = {
 	nextReviewAt: 2 * 60 * 60 * 1000,
 	grade: null,
 	tempoBpm: 92,
-	kind: 'learn'
+	chords: false,
+	memory: true,
+	exercises: [
+		// A session of memory exercises keeps its lines in its data: the screen shows none.
+		{
+			exerciseId: 'locate-note-string',
+			rounds: 10,
+			passed: 8,
+			aided: 0,
+			level: null,
+			tempo: { first: 92, last: 92 },
+			inPassages: false,
+			passages: null,
+			changedAir: false
+		}
+	],
+	misses: []
 };
+
+/** A line of the summary, with no field but its counts. */
+const played = (
+	fields: Partial<PlayedExercise> & Pick<PlayedExercise, 'exerciseId'>
+): PlayedExercise => ({
+	rounds: 0,
+	passed: 0,
+	aided: 0,
+	level: null,
+	tempo: null,
+	inPassages: false,
+	passages: null,
+	changedAir: false,
+	...fields
+});
 
 describe('SummaryScreen', () => {
 	it('shows cold accuracy, median, learned, fatigue and next time', () => {
@@ -136,7 +172,7 @@ describe('SummaryScreen', () => {
 			identifyMedianReactionMs: null,
 			learnedCount: 1,
 			knownCount: 2,
-			kind: 'triads'
+			chords: true
 		};
 
 		it('counts triads, not notes, and leaves naming out', () => {
@@ -161,30 +197,76 @@ describe('SummaryScreen', () => {
 describe('SummaryScreen of a gesture session', () => {
 	const gesture: SessionSummary = {
 		...summary,
-		kind: 'gesture',
-		gesture: {
-			exercises: [
-				{
-					exerciseId: 'gesture-link',
-					passagesPlayed: 4,
-					passagesSucceeded: 3,
-					changeSuccessRate: 0.86,
-					tempoBpm: 80,
-					lastTempoBpm: 85
-				}
-			],
-			misses: [
-				{
-					attemptId: 12,
-					exerciseId: 'gesture-link',
-					symbol: 'D',
-					heard: '2-3-2',
-					expected: '7-7-5',
-					contested: false
-				}
-			]
-		}
+		chords: false,
+		memory: false,
+		exercises: [
+			played({
+				exerciseId: 'inversion-run',
+				rounds: 50,
+				passed: 43,
+				tempo: { first: 80, last: 85 },
+				inPassages: true,
+				passages: { played: 4, passed: 3 }
+			})
+		],
+		misses: [
+			{
+				attemptId: 12,
+				exerciseId: 'inversion-run',
+				symbol: 'D',
+				heard: '2-3-2',
+				expected: '7-7-5',
+				contested: false
+			}
+		]
 	};
+
+	it('says « On change d’air » with every exercise that left the session, its grid named, in order', () => {
+		render(SummaryScreen, {
+			props: {
+				summary: {
+					...gesture,
+					exercises: [
+						{ ...gesture.exercises[0], changedAir: true },
+						played({
+							exerciseId: 'grid-in-direction',
+							scope: 'iohefy-a',
+							rounds: 3,
+							inPassages: true,
+							passages: { played: 1, passed: 0 },
+							changedAir: true
+						}),
+						played({
+							exerciseId: 'grid-reading',
+							scope: 'iohefy-a',
+							rounds: 9,
+							passed: 9,
+							inPassages: true,
+							passages: { played: 1, passed: 1 }
+						})
+					]
+				},
+				now: 0,
+				onhome: () => {},
+				onmap: () => {}
+			}
+		});
+		const lines = document.querySelectorAll('.change-of-air');
+		expect(lines).toHaveLength(1);
+		const line = lines[0];
+		expect(line.textContent).toContain('On change d’air');
+		expect([...line.querySelectorAll('span')].map((span) => span.textContent)).toEqual([
+			'Relier les formes',
+			'Contrainte de déplacement · I Only Have Eyes for You'
+		]);
+	});
+
+	it('says nothing of a change of air when no exercise left', () => {
+		render(SummaryScreen, {
+			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(document.querySelector('.change-of-air')).toBeNull();
+	});
 
 	it('shows each exercise played, its passages, its changes and its tempos, and nothing of the notes', () => {
 		render(SummaryScreen, {
@@ -201,10 +283,7 @@ describe('SummaryScreen of a gesture session', () => {
 	it('tells one tempo alone when the first and the last are the same, in French and English', () => {
 		const steady: SessionSummary = {
 			...gesture,
-			gesture: {
-				...gesture.gesture!,
-				exercises: [{ ...gesture.gesture!.exercises[0], tempoBpm: 80, lastTempoBpm: 80 }]
-			}
+			exercises: [{ ...gesture.exercises[0], tempo: { first: 80, last: 80 } }]
 		};
 		render(SummaryScreen, {
 			props: { summary: steady, now: 0, onhome: () => {}, onmap: () => {} }
@@ -241,18 +320,18 @@ describe('SummaryScreen of a gesture session', () => {
 	it('names the grid of each line, one line per exercise and grid', () => {
 		const climbs: SessionSummary = {
 			...gesture,
-			gesture: {
-				exercises: ['iohefy-a', 'blues-f'].map((scope) => ({
-					exerciseId: 'gesture-climb',
+			exercises: ['iohefy-a', 'blues-f'].map((scope) =>
+				played({
+					exerciseId: 'grid-in-direction',
 					scope,
-					passagesPlayed: 1,
-					passagesSucceeded: 1,
-					changeSuccessRate: 1,
-					tempoBpm: 80,
-					lastTempoBpm: 80
-				})),
-				misses: []
-			}
+					rounds: 9,
+					passed: 9,
+					tempo: { first: 80, last: 80 },
+					inPassages: true,
+					passages: { played: 1, passed: 1 }
+				})
+			),
+			misses: []
 		};
 		render(SummaryScreen, {
 			props: { summary: climbs, now: 0, onhome: () => {}, onmap: () => {} }
@@ -265,14 +344,18 @@ describe('SummaryScreen of a gesture session', () => {
 describe('SummaryScreen of a rhythm session', () => {
 	const rhythm: SessionSummary = {
 		...summary,
-		kind: 'exercise',
-		exercise: {
-			exerciseId: 'rhythm-offbeats',
-			levelReached: { shown: 3, of: 6, aid: false },
-			cycles: 14,
-			successes: 11,
-			aided: 2
-		}
+		chords: false,
+		memory: false,
+		exercises: [
+			played({
+				exerciseId: 'rhythm-offbeats',
+				level: { shown: 3, of: 6, aid: false },
+				rounds: 14,
+				passed: 11,
+				aided: 2,
+				tempo: { first: 80, last: 80 }
+			})
+		]
 	};
 
 	it('names the exercise, the level reached and the cycles that succeeded, and nothing of the notes', () => {
@@ -292,7 +375,7 @@ describe('SummaryScreen of a rhythm session', () => {
 		i18n.locale = 'en';
 		const unaided: SessionSummary = {
 			...rhythm,
-			exercise: { ...rhythm.exercise!, cycles: 1, successes: 1, aided: 0 }
+			exercises: [{ ...rhythm.exercises[0], rounds: 1, passed: 1, aided: 0 }]
 		};
 		render(SummaryScreen, {
 			props: { summary: unaided, now: 0, onhome: () => {}, onmap: () => {} }
@@ -315,7 +398,7 @@ describe('SummaryScreen of a rhythm session', () => {
 	it('names an aid level as the play header does, in French and in English', () => {
 		const aided: SessionSummary = {
 			...rhythm,
-			exercise: { ...rhythm.exercise!, levelReached: { shown: 0, of: 6, aid: true } }
+			exercises: [{ ...rhythm.exercises[0], level: { shown: 0, of: 6, aid: true } }]
 		};
 		render(SummaryScreen, {
 			props: { summary: aided, now: 0, onhome: () => {}, onmap: () => {} }
@@ -335,47 +418,49 @@ describe('SummaryScreen of a rhythm session', () => {
 describe('SummaryScreen of a series in memory', () => {
 	const base: SessionSummary = {
 		...summary,
-		kind: 'exercise',
-		exercise: {
+		chords: false,
+		memory: false,
+		exercises: [
+			played({
+				exerciseId: 'rhythm-offbeats',
+				level: { shown: 0, of: 4, aid: true },
+				rounds: 8,
+				passed: 3
+			})
+		],
+		replayable: [2],
+		series: {
 			exerciseId: 'rhythm-offbeats',
-			levelReached: { shown: 0, of: 4, aid: true },
-			cycles: 8,
+			ended: 'time',
+			breaking: null,
+			levels: [0, 1, -1],
+			rounds: 8,
 			successes: 3,
 			aided: 0,
-			replayable: [2],
-			series: {
-				exerciseId: 'rhythm-offbeats',
-				ended: 'time',
-				breaking: null,
-				levels: [0, 1, -1],
-				rounds: 8,
-				successes: 3,
-				aided: 0,
-				listens: 1,
-				playedShare: 0.62,
-				runs: [
-					{
-						id: 2,
-						exerciseId: 'rhythm-offbeats',
-						level: 0,
-						ended: 'done',
-						rounds: 4,
-						successes: 3,
-						measures: { regularity: { value: 24.4, unit: 'ms' } },
-						failed: [{ attemptId: 11, reasons: ['regularity', 'hold'] }]
-					},
-					{
-						id: 7,
-						exerciseId: 'rhythm-offbeats',
-						level: -1,
-						ended: 'interrupted',
-						rounds: 4,
-						successes: 0,
-						measures: {},
-						failed: []
-					}
-				]
-			}
+			listens: 1,
+			playedShare: 0.62,
+			runs: [
+				{
+					id: 2,
+					exerciseId: 'rhythm-offbeats',
+					level: 0,
+					ended: 'done',
+					rounds: 4,
+					successes: 3,
+					measures: { regularity: { value: 24.4, unit: 'ms' } },
+					failed: [{ attemptId: 11, reasons: ['regularity', 'hold'] }]
+				},
+				{
+					id: 7,
+					exerciseId: 'rhythm-offbeats',
+					level: -1,
+					ended: 'interrupted',
+					rounds: 4,
+					successes: 0,
+					measures: {},
+					failed: []
+				}
+			]
 		}
 	};
 
@@ -410,30 +495,65 @@ describe('SummaryScreen of a series in memory', () => {
 		expect(screen.getByText('62 % du temps joué')).toBeTruthy();
 	});
 
-	it('a change of air names what breaks and offers the other exercises', () => {
+	it('a change of air names what breaks and offers the other exercises, said once with the exercise', () => {
+		// As the service gives it: the series ended by a change of air, the exercise left it.
 		const blocked: SessionSummary = {
 			...base,
-			exercise: {
-				...base.exercise!,
-				series: { ...base.exercise!.series!, ended: 'change-of-air', breaking: 'hold' }
-			}
+			exercises: [{ ...base.exercises[0], changedAir: true }],
+			series: { ...base.series!, ended: 'change-of-air', breaking: 'hold' }
 		};
 		render(SummaryScreen, {
 			props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
 		});
-		expect(screen.getByText('On change d’air')).toBeTruthy();
+		expect(screen.getAllByText('On change d’air')).toHaveLength(1);
+		expect(document.querySelectorAll('.change-of-air')).toHaveLength(1);
+		expect(screen.getAllByText('Contretemps')).toHaveLength(2);
 		expect(screen.getByText('Ce qui casse :')).toBeTruthy();
 		expect(screen.getByText('tenue')).toBeTruthy();
 		const links = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
-		expect(links).toContain('/session?kind=exercise&exercise=rhythm-silent-bars');
-		expect(links).toContain('/session?kind=exercise&exercise=rhythm-two-four');
-		expect(links).not.toContain('/session?kind=exercise&exercise=rhythm-offbeats');
+		expect(links).toContain('/session?exercise=rhythm-silent-bars');
+		expect(links).toContain('/session?exercise=rhythm-two-four');
+		expect(links).not.toContain('/session?exercise=rhythm-offbeats');
+	});
+
+	it('names the exercises to try instead as everywhere else, its skill’s name for one without a title', () => {
+		const untitled = { ...RHYTHM_TWO_FOUR, id: 'untitled-two-four', title: undefined };
+		registerExercise(untitled, 'test');
+		try {
+			const blocked: SessionSummary = {
+				...base,
+				exercises: [{ ...base.exercises[0], changedAir: true }],
+				series: { ...base.series!, ended: 'change-of-air', breaking: 'hold' }
+			};
+			render(SummaryScreen, {
+				props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
+			});
+			const link = screen
+				.getAllByRole('link')
+				.find((a) => a.getAttribute('href') === '/session?exercise=untitled-two-four');
+			expect(link?.textContent).toBe(skillById(RHYTHM_TWO_FOUR.practices).name.fr);
+		} finally {
+			clearExercises();
+			for (const exercise of catalog) registerExercise(exercise, 'catalog');
+		}
+	});
+
+	it('draws no block for a series with no run', () => {
+		const empty: SessionSummary = {
+			...base,
+			series: { ...base.series!, levels: [], listens: 0, playedShare: 0, runs: [] },
+			replayable: []
+		};
+		render(SummaryScreen, { props: { summary: empty, now: 0, onhome: () => {}, onmap: () => {} } });
+		expect(document.querySelector('.series')).toBeNull();
+		expect(screen.queryByText('0 % du temps joué')).toBeNull();
 	});
 
 	it('without a series, the counts alone and no replay', () => {
 		const counts: SessionSummary = {
 			...base,
-			exercise: { ...base.exercise!, series: undefined, replayable: undefined }
+			series: undefined,
+			replayable: undefined
 		};
 		render(SummaryScreen, {
 			props: { summary: counts, now: 0, onhome: () => {}, onmap: () => {} }
@@ -460,5 +580,82 @@ describe('SummaryScreen of a series in memory', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'C’était en place · régularité' }));
 		expect(contested).toEqual([[11, 'regularity']]);
 		expect(screen.getByRole('button', { name: 'C’était en place · tenue' })).toBeTruthy();
+	});
+});
+
+describe('SummaryScreen: one list for any session', () => {
+	it('shows no line of a session of memory exercises: its memory block alone', () => {
+		render(SummaryScreen, { props: { summary, now: 0, onhome: () => {}, onmap: () => {} } });
+		expect(screen.getByText('Notes apprises')).toBeTruthy();
+		expect(screen.queryByText(/cycles? réussis?/)).toBeNull();
+		expect(screen.queryByText(/passages réussis/)).toBeNull();
+		expect(document.querySelector('li.exercise')).toBeNull();
+	});
+
+	it('gives each exercise and scope its line, every field told only when it has a value', () => {
+		const several: SessionSummary = {
+			...summary,
+			memory: false,
+			exercises: [
+				played({
+					exerciseId: 'grid-reading',
+					scope: 'iohefy-a',
+					rounds: 9,
+					passed: 9,
+					aided: 1,
+					tempo: { first: 80, last: 85 },
+					inPassages: true,
+					passages: { played: 1, passed: 1 }
+				}),
+				played({
+					exerciseId: 'grid-reading',
+					scope: 'blues-f',
+					rounds: 12,
+					passed: 6,
+					tempo: { first: 100, last: 100 },
+					inPassages: true,
+					passages: { played: 1, passed: 0 }
+				}),
+				played({
+					exerciseId: 'rhythm-offbeats',
+					rounds: 4,
+					passed: 3,
+					level: { shown: 2, of: 4, aid: false }
+				})
+			]
+		};
+		render(SummaryScreen, {
+			props: { summary: several, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		const lines = [...document.querySelectorAll('li.exercise')].map((li) =>
+			[...li.children].map((child) => child.textContent)
+		);
+		expect(lines).toEqual([
+			[
+				'Jam · I Only Have Eyes for You',
+				'1 / 1 passages réussis',
+				'100 % justes et à temps',
+				'dont 1 avec aide',
+				'♩ = 80 → 85'
+			],
+			['Jam · Blues F', '0 / 1 passages réussis', '50 % justes et à temps', '♩ = 100'],
+			['Contretemps', 'Niveau atteint : 2 sur 4', '3 cycles réussis sur 4']
+		]);
+		expect(screen.queryByText('Notes apprises')).toBeNull();
+	});
+
+	it('names an exercise no file defines by its id, with what its attempts say (D2)', () => {
+		const gone: SessionSummary = {
+			...summary,
+			memory: false,
+			exercises: [
+				played({ exerciseId: 'kazoo', rounds: 5, passed: 2, tempo: { first: 80, last: 80 } })
+			]
+		};
+		render(SummaryScreen, { props: { summary: gone, now: 0, onhome: () => {}, onmap: () => {} } });
+		expect(screen.getByText('kazoo')).toBeTruthy();
+		expect(screen.getByText('2 cycles réussis sur 5')).toBeTruthy();
+		expect(screen.getByText('♩ = 80')).toBeTruthy();
+		expect(screen.queryByText(/Niveau atteint/)).toBeNull();
 	});
 });

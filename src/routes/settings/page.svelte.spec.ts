@@ -58,7 +58,7 @@ describe('/settings page', () => {
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
 		render(TestHarness, { props: { services } });
 
-		await waitFor(() => expect(screen.getByRole('button', { name: /importer/i })).toBeTruthy());
+		await waitFor(() => expect(screen.getByRole('button', { name: /^importer$/i })).toBeTruthy());
 
 		const bad = new File(['{"app":"nope"}'], 'bad.json', { type: 'application/json' });
 		const hidden = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -87,12 +87,12 @@ describe('/settings page', () => {
 			{ type: 'application/json' }
 		);
 		await fireEvent.change(hidden, { target: { files: [good] } });
-		await waitFor(() => expect(screen.getByText(/remplac/i)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(/Remplacer les données/)).toBeTruthy());
 		await fireEvent.click(screen.getByRole('button', { name: /confirmer/i }));
 		await waitFor(async () => {
 			// The version 1 tempo went to a locate progression, which version 7 no longer keeps.
 			const file = await services.backup.exportAll();
-			expect(file.version).toBe(8);
+			expect(file.version).toBe(9);
 			expect(file.settings.locale).toBe('en');
 			expect(i18n.locale).toBe('en');
 		});
@@ -177,6 +177,169 @@ describe('/settings page', () => {
 			await fireEvent.click(screen.getByRole('button', { name: 'Effacer' }));
 			await waitFor(() => expect(screen.getByText('0 Mo sur 300')).toBeTruthy());
 			expect(services.diagnostics.clears).toBe(1);
+		});
+	});
+
+	describe('imported files', () => {
+		async function open() {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			render(TestHarness, { props: { services } });
+			await waitFor(() => expect(document.querySelector('#imported-files input')).toBeTruthy());
+			return services;
+		}
+		async function choose(...files: File[]) {
+			const input = document.querySelector('#imported-files input') as HTMLInputElement;
+			await fireEvent.change(input, { target: { files } });
+		}
+
+		it('lists a file whose text cannot be read as not imported', async () => {
+			await open();
+			const file = new File(['{}'], 'broken.json');
+			file.text = () => Promise.reject(new Error('nope'));
+			await choose(file);
+			await waitFor(() =>
+				expect(
+					screen.getByText('broken.json n’a pas été importé : the file could not be read')
+				).toBeTruthy()
+			);
+		});
+
+		it('refuses a file far too long before reading its text', async () => {
+			await open();
+			const file = new File(['{}'], 'huge.json');
+			Object.defineProperty(file, 'size', { value: 3_000_001 });
+			const text = vi.spyOn(file, 'text');
+			await choose(file);
+			await waitFor(() =>
+				expect(
+					screen.getByText(
+						'huge.json n’a pas été importé : the file is longer than 1000000 characters'
+					)
+				).toBeTruthy()
+			);
+			expect(text).not.toHaveBeenCalled();
+		});
+
+		it('shows a failed import as text and reads the list again', async () => {
+			const services = await open();
+			const files = vi.spyOn(services.definitions, 'files');
+			services.definitions.import = () => Promise.reject(new Error('storage is full'));
+			await choose(new File(['{}'], 'a.json'));
+			await waitFor(() => expect(screen.getByText('storage is full')).toBeTruthy());
+			expect(files).toHaveBeenCalled();
+		});
+
+		it('shows a failed removal as text and reads the list again', async () => {
+			const services = await open();
+			await choose(new File(['{}'], 'a.json'));
+			await waitFor(() => expect(screen.getByText('a.json')).toBeTruthy());
+			const files = vi.spyOn(services.definitions, 'files');
+			services.definitions.remove = () => Promise.reject(new Error('cannot remove'));
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer a.json' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+			await waitFor(() => expect(screen.getByText('cannot remove')).toBeTruthy());
+			expect(files).toHaveBeenCalled();
+		});
+
+		it('clears the not-imported lines at the next import and lists a stored file', async () => {
+			await open();
+			const big = new File(['x'.repeat(2_000_000)], 'big.json');
+			await choose(big);
+			await waitFor(() => expect(screen.getByText(/big\.json n’a pas été importé/)).toBeTruthy());
+			await choose(new File(['{}'], 'ok.json'));
+			await waitFor(() => expect(screen.getByText('ok.json')).toBeTruthy());
+			expect(screen.queryByText(/big\.json n’a pas été importé/)).toBeNull();
+		});
+
+		it('shows a failed read of the list at load without losing the rest of the page', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			services.definitions.files = () => Promise.reject(new Error('list unreadable'));
+			render(TestHarness, { props: { services } });
+			await waitFor(() => expect(screen.getByText('list unreadable')).toBeTruthy());
+			expect(screen.getByRole('button', { name: 'EN' })).toBeTruthy();
+		});
+
+		it('keeps a newer import list when a late load finishes', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			let release: () => void = () => {};
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const real = services.definitions.files.bind(services.definitions);
+			let first = true;
+			services.definitions.files = async () => {
+				if (first) {
+					first = false;
+					await gate;
+					return [];
+				}
+				return real();
+			};
+			render(TestHarness, { props: { services } });
+			await waitFor(() => expect(document.querySelector('#imported-files input')).toBeTruthy());
+			const input = document.querySelector('#imported-files input') as HTMLInputElement;
+			await fireEvent.change(input, { target: { files: [new File(['{}'], 'new.json')] } });
+			await waitFor(() => expect(screen.getByText('new.json')).toBeTruthy());
+			release();
+			await new Promise((r) => setTimeout(r, 20));
+			expect(screen.getByText('new.json')).toBeTruthy();
+		});
+
+		it('shows what kept the files from loading even when a stored file bears that name', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			const unfinished = {
+				file: 'imported files',
+				kind: 'file' as const,
+				id: null,
+				reason: 'the last load of the imported files did not finish'
+			};
+			services.definitions.refusals = () => [unfinished];
+			await services.definitions.import([{ name: 'imported files', text: '{}' }]);
+			render(TestHarness, { props: { services } });
+			await waitFor(() =>
+				expect(
+					screen.getByText('imported files : the last load of the imported files did not finish')
+				).toBeTruthy()
+			);
+		});
+
+		it('shows what kept the imported files from loading, and reads it again after a removal', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			const unread = {
+				file: 'imported files',
+				kind: 'file' as const,
+				id: null,
+				reason: 'the imported files could not be read: blocked'
+			};
+			const ofFile = { file: 'a.json', kind: 'file' as const, id: null, reason: 'not JSON' };
+			let refusals = [unread, ofFile];
+			services.definitions.refusals = () => refusals;
+			await services.definitions.import([{ name: 'a.json', text: '{}' }]);
+			// As the service does: a stored file carries the refusals of its name.
+			const files = services.definitions.files.bind(services.definitions);
+			services.definitions.files = async () =>
+				(await files()).map((file) => ({
+					...file,
+					refusals: refusals.filter((refusal) => refusal.file === file.name)
+				}));
+			render(TestHarness, { props: { services } });
+			await waitFor(() =>
+				expect(
+					screen.getByText('imported files : the imported files could not be read: blocked')
+				).toBeTruthy()
+			);
+			// A refusal of a stored file is told under it, not above the list.
+			expect(screen.queryByText(/a\.json : not JSON/)).toBeNull();
+
+			refusals = [];
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer a.json' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+			await waitFor(() =>
+				expect(screen.queryByText(/the imported files could not be read/)).toBeNull()
+			);
 		});
 	});
 });

@@ -11,8 +11,8 @@ import type {
 	SoundSchedulerPort,
 	TakeBufferPort
 } from '$lib/application/ports';
-import type { MechanicPresenter, SensorKind } from '$lib/application/mechanics/types';
-import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
+import type { SetPresenter, SensorKind } from '$lib/application/sets/types';
+import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import type { Locale } from '$lib/domain/types';
 import type { SensorFactory } from './sensors';
 
@@ -27,11 +27,13 @@ export interface SessionDeps {
 	now: () => number;
 	random: () => number;
 	newId: () => string;
-	/** How each mechanic shows and is answered, by mechanic id. */
-	mechanics: Record<MechanicId, MechanicPresenter>;
+	/** How the items of each set show and are answered, by set id. */
+	presenters: Readonly<Record<string, SetPresenter>>;
+	/** The presenters found by the view of an exercise before its set's (the changes', D6). */
+	views: Readonly<Record<string, SetPresenter>>;
 	/** The observation sources a series opens, by sensor kind. */
 	sensors: Record<SensorKind, SensorFactory>;
-	/** The definition of an exercise, for its pacing; the catalog's when omitted. */
+	/** The definition of an exercise, for its pacing; the registry's when omitted. */
 	exercise?: (id: ExerciseId) => ExerciseDefinition;
 	/** The one path every sound takes. */
 	sounds: SoundSchedulerPort;
@@ -45,7 +47,7 @@ export interface SessionDeps {
 
 /**
  * What the session controller needs: the one path every sound takes, the
- * sensors and presenters of its mechanics, where it writes (its attempts, its sessions, and where
+ * sensors and presenters of the exercises it plays, where it writes (its attempts, its sessions, and where
  * each exercise stands in its levels), the input of its runs kept to be heard again and where it
  * leaves its trace, and whether the development tools (« Joué juste ») show.
  */
@@ -55,7 +57,10 @@ export interface SessionControllerDeps {
 	/** The guitar input, opened at start with the device and the built-in gain of the settings. */
 	detector: NoteDetectorPort;
 	sensors: SessionDeps['sensors'];
-	mechanics: SessionDeps['mechanics'];
+	presenters: SessionDeps['presenters'];
+	views: SessionDeps['views'];
+	/** The exercises the session plays: it opens the sensors of their presenters. */
+	plays: readonly ExerciseId[];
 	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings'>;
 	/** Each exercise's level, by scope: read at the start of a series, written at each round. */
 	levels: LevelStateRepositoryPort;

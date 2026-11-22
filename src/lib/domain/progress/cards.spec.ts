@@ -4,7 +4,7 @@ import type { Attempt, CardState } from '$lib/domain/types';
 import { State } from 'ts-fsrs';
 import { MIN_COLD_DELAY_MS } from './constants';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
-import { directRecallOf } from '$lib/domain/learning/recall';
+import { directRecallWithin } from '$lib/domain/learning/recall';
 import {
 	applyColdAttempt,
 	cardStatus,
@@ -18,17 +18,21 @@ import {
 
 const NOW = Date.parse('2026-04-01T10:00:00.000Z');
 const TEMPO = 80;
-const LOCATE = { key: 'locate:6:G', mechanic: 'locate', item: { string: 6, pitch: 'G' } };
-const IDENTIFY = { key: 'identify:6:3', mechanic: 'identify', item: { string: 6, fret: 3 } };
-const recall = directRecallOf(RECALL_THRESHOLD_MS);
-const naming = directRecallOf(IDENTIFY_RECALL_THRESHOLD_MS);
+const LOCATE = {
+	key: 'locate-note-string:6:G',
+	skill: 'locate-note-string',
+	item: { string: 6, pitch: 'G' }
+};
+const IDENTIFY = { key: 'identify-note:6:3', skill: 'identify-note', item: { string: 6, fret: 3 } };
+const recall = directRecallWithin(RECALL_THRESHOLD_MS);
+const naming = directRecallWithin(IDENTIFY_RECALL_THRESHOLD_MS);
 
 /** A cold locate review, played at TEMPO. */
 function attempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's-review',
-		exerciseId: 'locate-neck',
-		mechanic: 'locate',
+		exerciseId: 'locate-note-string',
+		skill: 'locate-note-string',
 		cardKey: LOCATE.key,
 		phase: 'review',
 		temperature: 'cold',
@@ -49,7 +53,7 @@ function attempt(overrides: AttemptOverrides): Attempt {
 describe('introduceCard', () => {
 	it('creates a New locate card due after the cold delay', () => {
 		const card = introduceCard(LOCATE, NOW, 's-learn');
-		expect(card.key).toBe('locate:6:G');
+		expect(card.key).toBe('locate-note-string:6:G');
 		expect(card.introducedAt).toBe(NOW);
 		expect(card.introducedInSession).toBe('s-learn');
 		expect(card.scheduling.state).toBe(State.New);
@@ -97,8 +101,8 @@ describe('probeCard', () => {
 	it('creates an identify card on a name tapped within the naming threshold', () => {
 		const tapped = (reactionMs: number) =>
 			attempt({
-				exerciseId: 'identify-neck',
-				mechanic: 'identify',
+				exerciseId: 'identify-note',
+				skill: 'identify-note',
 				cardKey: IDENTIFY.key,
 				tempoBpm: null,
 				leadBeats: null,
@@ -107,7 +111,7 @@ describe('probeCard', () => {
 				reactionMs
 			});
 		const card = probeCard(IDENTIFY, tapped(3000), NOW, 's-p', naming);
-		expect(card?.key).toBe('identify:6:3');
+		expect(card?.key).toBe('identify-note:6:3');
 		expect(card?.acquiredAt).toBe(NOW);
 		expect(probeCard(IDENTIFY, tapped(3001), NOW, 's-p', naming)).toBeNull();
 	});

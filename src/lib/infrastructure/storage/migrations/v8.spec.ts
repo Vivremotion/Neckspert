@@ -3,15 +3,25 @@ import Dexie from 'dexie';
 import { describe, expect, it } from 'vitest';
 import v3Export from '../fixtures/backup-v3.json';
 import { createDatabase } from '../db';
-import { makeAttempt } from '../testing/fixtures';
+import { makeAttemptV12 } from '../testing/fixtures';
 import { validateBackup } from '../validateBackup';
 import { V7_RELATIONS, attemptToV8, backupV3ToV4, relationOfMechanic, settingsToV8 } from './v8';
 import { TRIAD_LADDER_V10 } from './v10';
 import { attemptToV11 } from './v11';
+import { EXERCISE_IDS_V13, SKILL_OF_EXERCISE_V12, attemptToV13, cardToV13 } from './v13';
+import { GESTURE_EXERCISE_IDS } from '$lib/testing/catalogIds';
 
 type Row = Record<string, unknown>;
 
 const TRIAD_EXERCISES: Record<string, string> = TRIAD_LADDER_V10.exercises;
+
+/** The exercise of each skill of version 13, the inverse of its frozen table, by its new id. */
+const EXERCISE_OF_SKILL: Record<string, string> = Object.fromEntries(
+	Object.entries(SKILL_OF_EXERCISE_V12).map(([exercise, skill]) => [
+		skill,
+		EXERCISE_IDS_V13[exercise] ?? exercise
+	])
+);
 
 /** A fresh copy of the version 3 export made by the application before this model. */
 function exportV3(): Row & { attempts: Row[]; settings: Row } {
@@ -126,7 +136,7 @@ describe('attemptToV8', () => {
 	});
 
 	it('leaves an attempt already at the target model as it is, and never wraps twice', () => {
-		const target = makeAttempt({ id: 3, success: false, aids: ['string-aid'] }) as unknown as Row;
+		const target = makeAttemptV12({ id: 3, success: false, aids: ['string-aid'] });
 		expect(attemptToV8(target, relationOfMechanic)).toEqual(target);
 		const once = attemptToV8(oldAttempt(), relationOfMechanic);
 		expect(attemptToV8(once, relationOfMechanic)).toEqual(once);
@@ -209,19 +219,19 @@ describe('a version 3 export of the application before this model', () => {
 		expect(file.attempts.every((attempt) => typeof attempt.verdict === 'string')).toBe(true);
 
 		const v4 = validateBackup(file);
-		expect(v4.version).toBe(8);
+		expect(v4.version).toBe(9);
 		// Version 5 adds the level of each neck card, version 6 of each triad card, version 7 of each
 		// gesture progression read (the link, the climb of a grid); the exercises' own states start
 		// empty.
 		expect(v4.levelStates.map((state) => state.exerciseId)).toEqual([
 			...v4.cards
-				.filter((card) => ['locate', 'identify'].includes(card.mechanic))
-				.map((card) => `${card.mechanic}-neck`),
+				.filter((card) => ['locate-note-string', 'identify-note'].includes(card.skill))
+				.map((card) => EXERCISE_OF_SKILL[card.skill]),
 			...v4.cards
-				.filter((card) => ['triad-anchor', 'triad-zone'].includes(card.mechanic))
-				.map((card) => TRIAD_EXERCISES[card.mechanic]),
-			'gesture-link',
-			'gesture-climb'
+				.filter((card) => ['chord-anchor', 'chord-zone'].includes(card.skill))
+				.map((card) => EXERCISE_OF_SKILL[card.skill]),
+			'inversion-run',
+			'grid-in-direction'
 		]);
 		expect(v4.attempts).toHaveLength(file.attempts.length);
 		for (const [index, attempt] of v4.attempts.entries()) {
@@ -248,16 +258,20 @@ describe('a version 3 export of the application before this model', () => {
 		const v4 = validateBackup(exportV3());
 		const relations = new Set(v4.attempts.map((attempt) => attempt.verdict.relation));
 		expect([...relations].sort()).toEqual(['anchor', 'beat', 'free', 'grid-change']);
-		const find = (mechanic: string, value: string) =>
-			v4.attempts.find((a) => a.mechanic === mechanic && a.verdict.value === value);
-		expect(find('locate', 'offbeat')).toMatchObject({ correct: true, success: false });
-		expect(find('identify', 'late')).toMatchObject({ correct: true, success: true });
-		expect(find('triad-anchor', 'corrected')).toMatchObject({
+		// Version 13 names an attempt by the skill of its exercise, and eight exercises after it.
+		const find = (exerciseIds: string[], value: string) =>
+			v4.attempts.find((a) => exerciseIds.includes(a.exerciseId) && a.verdict.value === value);
+		expect(find(['locate-note-string'], 'offbeat')).toMatchObject({
+			correct: true,
+			success: false
+		});
+		expect(find(['identify-note'], 'late')).toMatchObject({ correct: true, success: true });
+		expect(find(['chord-anchor'], 'corrected')).toMatchObject({
 			correct: false,
 			success: false,
 			contested: true
 		});
-		expect(find('chord-grid', 'wrong')?.verdict.relation).toBe('grid-change');
+		expect(find([...GESTURE_EXERCISE_IDS], 'wrong')?.verdict.relation).toBe('grid-change');
 		expect(v4.attempts.some((attempt) => attempt.aids.includes('show-position'))).toBe(true);
 		// Version 7 renamed the tempo scope of an attempt its scope.
 		expect(v4.attempts.some((attempt) => attempt.scope !== undefined)).toBe(true);
@@ -292,7 +306,7 @@ describe('a version 7 database opened at version 8', () => {
 		const old = versionSeven(name);
 		await old.open();
 		await old.table('attempts').bulkAdd(file.attempts);
-		const target = makeAttempt({ promptedAt: 9_999_999_999_999, aids: ['string-aid'] });
+		const target = makeAttemptV12({ promptedAt: 9_999_999_999_999, aids: ['string-aid'] });
 		const targetId = await old.table('attempts').add(target);
 		await old.table('cards').bulkAdd(file.cards as Row[]);
 		await old.table('sessions').bulkAdd(file.sessions as Row[]);
@@ -305,14 +319,16 @@ describe('a version 7 database opened at version 8', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const attempts = await db.attempts.orderBy('id').toArray();
 		expect(attempts).toHaveLength(file.attempts.length + 1);
 		expect(attempts.slice(0, -1)).toEqual(
-			// Version 11 then renamed their tempo scope.
-			file.attempts.map((row) => attemptToV11(attemptToV8(row, relationOfMechanic)))
+			// Version 11 then renamed their tempo scope, version 13 named them by their skill.
+			file.attempts.map((row) =>
+				attemptToV13(attemptToV11(attemptToV8(row, relationOfMechanic)) as Row)
+			)
 		);
-		expect(attempts.at(-1)).toEqual({ ...target, id: targetId });
+		expect(attempts.at(-1)).toEqual(attemptToV13({ ...target, id: targetId }));
 		expect(await db.settings.get('settings')).toEqual({
 			id: 'settings',
 			locale: 'en',
@@ -325,8 +341,8 @@ describe('a version 7 database opened at version 8', () => {
 		// Version 10 then took the lead off every card.
 		expect(await db.cards.toArray()).toEqual(
 			[...(file.cards as Row[])]
+				.map(({ leadBeats: _lead, ...card }) => cardToV13(card))
 				.sort((a, b) => String(a.key).localeCompare(String(b.key)))
-				.map(({ leadBeats: _lead, ...card }) => card)
 		);
 		expect(await db.sessions.count()).toBe((file.sessions as Row[]).length);
 		// Version 9 then gave each neck card its level, version 10 each triad card, version 11 each
@@ -336,11 +352,13 @@ describe('a version 7 database opened at version 8', () => {
 			identify: 'identify-neck',
 			...TRIAD_EXERCISES
 		};
+		// Version 13 then renamed their exercises.
 		expect((await db.levelStates.toArray()).map((state) => state.exerciseId).sort()).toEqual(
 			(file.cards as Row[])
 				.map((card) => exerciseOf[String(card.mechanic)])
 				.filter((exerciseId) => exerciseId !== undefined)
 				.concat(['gesture-link', 'gesture-climb'])
+				.map((exerciseId) => EXERCISE_IDS_V13[exerciseId])
 				.sort()
 		);
 		// The indexes still answer.

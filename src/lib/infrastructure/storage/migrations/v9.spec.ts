@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
+import { EXERCISE_IDS_V13 } from './v13';
 import { ladderOf } from '$lib/domain/exercise/ladder';
-import { recallThresholdOf } from '$lib/domain/exercise/recall';
+import { skillById } from '$lib/domain/skill/registry';
 import { NECK_LADDER_V9, backupV4ToV5, levelStatesV9, neckLevelOfCard } from './v9';
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
 type Row = Record<string, unknown>;
 
@@ -73,14 +74,17 @@ describe('NECK_LADDER_V9', () => {
 	// Tripwire, as for V7_RELATIONS: the migration never reads the catalog, but a divergence must
 	// be noticed, then decided (the frozen ladders stay as they are).
 	it('keeps the frozen ladders equal to the catalog', () => {
-		expect(NECK_LADDER_V9.locate.exerciseId).toBe(LOCATE_NECK.id);
+		// Version 13 renamed the exercises the frozen table names (`EXERCISE_IDS_V13`).
+		expect(EXERCISE_IDS_V13[NECK_LADDER_V9.locate.exerciseId]).toBe(LOCATE_NECK.id);
 		const locate = ladderOf(LOCATE_NECK);
 		expect([...NECK_LADDER_V9.locate.leadSteps]).toEqual(
 			locate.map((level) => level.params.leadBeats)
 		);
 		expect(NECK_LADDER_V9.locate.learnedAfter).toBe(locate[locate.length - 1].pass?.successes);
-		expect(NECK_LADDER_V9.locate.recallThresholdMs).toBe(recallThresholdOf(LOCATE_NECK));
-		expect(NECK_LADDER_V9.identify.exerciseId).toBe(IDENTIFY_NECK.id);
+		expect(NECK_LADDER_V9.locate.recallThresholdMs).toBe(
+			skillById(LOCATE_NECK.practices).directRecall?.withinMs
+		);
+		expect(EXERCISE_IDS_V13[NECK_LADDER_V9.identify.exerciseId]).toBe(IDENTIFY_NECK.id);
 		const identify = ladderOf(IDENTIFY_NECK);
 		expect(NECK_LADDER_V9.identify.learnedAfter).toBe(
 			identify[identify.length - 1].pass?.successes

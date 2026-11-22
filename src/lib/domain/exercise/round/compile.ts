@@ -1,8 +1,8 @@
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
-import { PITCH_CONTENT } from '../../judges';
-import { mechanicRules } from '../../mechanics';
+import { MEMBER_CONTENT, PITCH_CONTENT } from '../../judges';
+import { exerciseItemSet, exerciseSetId } from '../../sets';
 import { landingBar, mutedBarsFrom, type Accompaniment } from '../../time/accompaniment';
-import type { Figure, FigureNote } from '../../time/figure';
+import { attackNotes, type Figure, type FigureNote } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
 import { BEAT_RESOLUTION, barLength, beatsOf, sameMeter, type Meter } from '../../time/meter';
 import {
@@ -17,6 +17,8 @@ import {
 import type { PlannedItem } from '../../types';
 import { resolvedParamsOf } from '../levels';
 import type { ExerciseDefinition } from '../types';
+import { compileSelection, SelectionCompileError } from '../selection/compile';
+import { isSelectionTemplate, type SelectionTemplate } from '../selection/types';
 import {
 	FIGURE_CONTENT,
 	isFigureEntry,
@@ -28,25 +30,67 @@ import {
 	type RoundTemplate,
 	type WindowTemplate
 } from './types';
+import { MAX_FIGURE_ROUND_NOTES, MAX_ROUND_BARS } from './validate';
+
+/**
+ * What a caller compiling many rounds of one exercise keeps between them: the params resolved at
+ * a level and the accompaniment of an exercise level depend on the level only, so they are
+ * resolved once. Held by the caller for as long as the exercise does not change.
+ */
+export type ResolutionCache = Map<string, unknown>;
+
+function memo<T>(cache: ResolutionCache | undefined, key: string, make: () => T): T {
+	if (cache === undefined) return make();
+	if (!cache.has(key)) cache.set(key, make());
+	return cache.get(key) as T;
+}
+
+/** The params a round gives its template beside the resolved ones (`roundParamsOf`). */
+export const ROUND_GIVEN_PARAMS: readonly string[] = ['leadBeats', 'previewBeats'];
 
 /**
  * The params a template reads: the item's resolved params (`resolvedParamsOf`: the exercise's, its
- * exercise level's, its item level's), the item's lead and the preview.
+ * exercise level's, its item level's), the item's lead and the preview, then its passage params
+ * (`PlannedItem.passage.each`, a name the load lets no other source give). Only the level's part
+ * is cached: the rest belongs to the item.
  */
 export function roundParamsOf(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
-	resolved: { previewBeats: number }
+	resolved: { previewBeats: number; cache?: ResolutionCache }
 ): Readonly<Record<string, unknown>> {
+	const at = { exerciseLevel: item.exerciseLevel, itemLevel: item.level ?? null };
 	return {
-		...resolvedParamsOf(definition, {
-			exerciseLevel: item.exerciseLevel,
-			itemLevel: item.level ?? null,
-			mechanic: item.mechanic
-		}),
+		...memo(resolved.cache, `p:${at.exerciseLevel}:${at.itemLevel}`, () =>
+			resolvedParamsOf(definition, at)
+		),
 		leadBeats: item.leadBeats,
-		previewBeats: resolved.previewBeats
+		previewBeats: resolved.previewBeats,
+		...item.passage?.each
 	};
+}
+
+/** A round that cannot be compiled from its data: its message names the exercise and the field. */
+export class RoundCompileError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'RoundCompileError';
+	}
+}
+
+/**
+ * A figure entry that would expand past what the check compiling it may still spend
+ * (`maxExpectations`): `cost` is what the round's figure entries would have spent up to it,
+ * those before it included, so the check can charge it and pass its budget.
+ */
+export class RoundCheckExceeded extends RoundCompileError {
+	constructor(
+		message: string,
+		readonly cost: number
+	) {
+		super(message);
+		this.name = 'RoundCheckExceeded';
+	}
 }
 
 /** What a compilation reads, and how it names a failure. */
@@ -55,18 +99,24 @@ interface Context {
 	item: PlannedItem;
 	meter: Meter;
 	params: Readonly<Record<string, unknown>>;
+	/**
+	 * What the round's figure entries may still expand to, counted down entry by entry: the notes
+	 * (and bars) a round may hold (`MAX_FIGURE_ROUND_NOTES`), and what a check may still compile
+	 * (`maxExpectations`, at load; null without one).
+	 */
+	room: { notes: number; check: number | null; taken: number };
 }
 
-function itemKeyOf(item: PlannedItem): string {
+function itemKeyOf(context: Context): string {
 	try {
-		return mechanicRules(item.mechanic).itemKey(item.item);
+		return exerciseItemSet(context.definition).itemKey(context.item.item);
 	} catch {
-		return JSON.stringify(item.item);
+		return JSON.stringify(context.item.item);
 	}
 }
 
 function fail(context: Context, field: string, problem: string): never {
-	throw new Error(`${context.definition.id}: round.${field} ${problem}`);
+	throw new RoundCompileError(`${context.definition.id}: round.${field} ${problem}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -86,12 +136,9 @@ function readsFrom(
 	reads: readonly string[],
 	what: string
 ): void {
-	if (!reads.includes(context.item.mechanic)) {
-		fail(
-			context,
-			field,
-			`${what} "${name}" which reads ${reads.join(', ')}, not ${context.item.mechanic}`
-		);
+	const set = exerciseSetId(context.definition);
+	if (!reads.includes(set)) {
+		fail(context, field, `${what} "${name}" which reads ${reads.join(', ')}, not ${set}`);
 	}
 }
 
@@ -110,7 +157,7 @@ function num(context: Context, field: string, value: Num): number {
 			fail(
 				context,
 				field,
-				`reads param "${value.param}", absent for ${context.item.mechanic} item ${itemKeyOf(context.item)}`
+				`reads param "${value.param}", absent for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
 			);
 		}
 		return found;
@@ -118,7 +165,19 @@ function num(context: Context, field: string, value: Num): number {
 	const measure = Object.hasOwn(ITEM_NUMBERS, value.item) ? ITEM_NUMBERS[value.item] : undefined;
 	if (!measure) fail(context, field, `measures unknown item number "${value.item}"`);
 	readsFrom(context, field, value.item, measure.reads, 'measures');
-	return measure.measure(context.item.item);
+	try {
+		return measure.measure(context.item.item);
+	} catch (error) {
+		// A measure tells what its item lacks with an Error or a RangeError; anything else, a
+		// TypeError above all, is a bug and goes through.
+		const proto = Object.getPrototypeOf(error);
+		if (proto !== Error.prototype && proto !== RangeError.prototype) throw error;
+		return fail(
+			context,
+			field,
+			`measures item number "${value.item}": ${(error as Error).message}`
+		);
+	}
 }
 
 /** A count of whole units (beats or bars) as an exact fraction of that unit. */
@@ -179,7 +238,7 @@ function windowOf(context: Context, field: string, window: WindowTemplate): Expe
 	return fail(
 		context,
 		field,
-		`reads param "${window.param}", which gives no window ({ ms } or { ofGap }) for ${context.item.mechanic} item ${itemKeyOf(context.item)}`
+		`reads param "${window.param}", which gives no window ({ ms } or { ofGap }) for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
 	);
 }
 
@@ -199,7 +258,7 @@ function derive(context: Context, field: string, from: string): { kind: string; 
 		return fail(
 			context,
 			field,
-			`derives "${from}" for ${context.item.mechanic} item ${itemKeyOf(context.item)}: ${(error as Error).message}`
+			`derives "${from}" for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}: ${(error as Error).message}`
 		);
 	}
 }
@@ -209,6 +268,23 @@ function contentOf(context: Context, field: string, from: string): ExpectedConte
 		fail(context, field, `derives "${from}", a list, which only a figure spreads over its notes`);
 	}
 	return derive(context, field, from);
+}
+
+/** A selection compiled for the item, its failures named under the content's field. */
+function selectionOf(
+	context: Context,
+	field: string,
+	template: SelectionTemplate
+): ExpectedContent {
+	try {
+		return {
+			kind: MEMBER_CONTENT,
+			value: compileSelection(context.definition, context.item, template, context.params)
+		};
+	} catch (error) {
+		if (!(error instanceof SelectionCompileError)) throw error;
+		return fail(context, error.field === '' ? field : `${field}.${error.field}`, error.text);
+	}
 }
 
 function expectationOf(
@@ -222,7 +298,11 @@ function expectationOf(
 		span: template.until ? { until: position(context, `${field}.until`, template.until) } : 'point',
 		role: template.role ?? 'target',
 		sensor: template.sensor,
-		content: template.content && contentOf(context, `${field}.content`, template.content.from),
+		content:
+			template.content &&
+			(isSelectionTemplate(template.content)
+				? selectionOf(context, `${field}.content`, template.content)
+				: contentOf(context, `${field}.content`, template.content.from)),
 		window: windowOf(context, `${field}.window`, template.window),
 		bar: template.bar ?? 0
 	};
@@ -239,7 +319,7 @@ function figureOf(context: Context, field: string, ref: FigureRef): { id: string
 			fail(
 				context,
 				field,
-				`reads param "${ref.param}", which names no figure for ${context.item.mechanic} item ${itemKeyOf(context.item)}`
+				`reads param "${ref.param}", which names no figure for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
 			);
 		}
 		id = found;
@@ -274,6 +354,9 @@ function figureContentOf(
 	figureId: string
 ): NoteContent {
 	if (content === null) return () => null;
+	if (isSelectionTemplate(content)) {
+		fail(context, field, 'a figure entry takes its content from a derivation');
+	}
 	if (content.from === FIGURE_CONTENT) {
 		if (content.pattern !== undefined) {
 			fail(
@@ -303,7 +386,7 @@ function figureContentOf(
 		);
 	}
 	const { kind, value } = derive(context, field, content.from);
-	const what = `"${content.from}" for ${context.item.mechanic} item ${itemKeyOf(context.item)}`;
+	const what = `"${content.from}" for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`;
 	if (!Array.isArray(value) || value.length === 0) {
 		fail(context, field, `derives no element from ${what}`);
 	}
@@ -339,6 +422,42 @@ function figureEntryOf(
 	const at = position(context, `${field}.at`, template.at);
 	const content = figureContentOf(context, `${field}.content`, template.content, id);
 	const window = windowOf(context, `${field}.window`, template.window);
+	// Counted before the work: each bar of the span is visited, and gives at most what a whole
+	// loop gives over its bars (each loop every note) and what its densest bar gives in each.
+	const span = length.sub(at);
+	const bar = barLength(figure.meter);
+	const bars = Math.max(0, Math.ceil(span.div(bar).toNumber()));
+	const attacks = attackNotes(figure);
+	const perBar = new Map<number, number>();
+	let densest = 0;
+	for (const attack of attacks) {
+		const index = Math.floor(attack.at.div(bar).toNumber());
+		const count = (perBar.get(index) ?? 0) + 1;
+		perBar.set(index, count);
+		densest = Math.max(densest, count);
+	}
+	const notes = Math.min(Math.ceil(bars / figure.bars) * attacks.length, bars * densest);
+	const { room } = context;
+	const expands = `would give ${notes} notes over ${bars} ${bars === 1 ? 'bar' : 'bars'}`;
+	if (room.check !== null && room.check < room.notes && Math.max(bars, notes) > room.check) {
+		// The round's whole estimate so far: what the check would have spent on its entries.
+		throw new RoundCheckExceeded(
+			`${context.definition.id}: round.${field}.figure ${expands}, more than the ${room.check} a check may still compile`,
+			room.taken + Math.max(bars, notes)
+		);
+	}
+	if (Math.max(bars, notes) > room.notes) {
+		fail(
+			context,
+			`${field}.figure`,
+			room.notes === MAX_FIGURE_ROUND_NOTES
+				? `${expands}, more than the ${MAX_FIGURE_ROUND_NOTES} notes a figure round may hold`
+				: `${expands}, more than the ${room.notes} notes its round may still hold (at most ${MAX_FIGURE_ROUND_NOTES})`
+		);
+	}
+	room.notes -= notes;
+	room.taken += notes;
+	if (room.check !== null) room.check -= notes;
 	try {
 		return figureExpectations({
 			figure,
@@ -377,7 +496,7 @@ export function roundAccompanimentOf(
 		written.param
 	);
 	if (!isAccompaniment(found)) {
-		throw new Error(
+		throw new RoundCompileError(
 			`${definition.id}: round.accompaniment reads param "${written.param}", which gives no accompaniment at exercise level ${exerciseLevel}`
 		);
 	}
@@ -389,9 +508,15 @@ function contextOf(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number }
+	resolved: { previewBeats: number; cache?: ResolutionCache; maxExpectations?: number }
 ): Context {
-	return { definition, item, meter, params: roundParamsOf(definition, item, resolved) };
+	return {
+		definition,
+		item,
+		meter,
+		params: roundParamsOf(definition, item, resolved),
+		room: { notes: MAX_FIGURE_ROUND_NOTES, check: resolved.maxExpectations ?? null, taken: 0 }
+	};
 }
 
 /** The round's first figure entry and its index; null when it writes none. */
@@ -435,7 +560,7 @@ export function figureItemsAt(
 	const name = first.entry.figure.item;
 	const reader = Object.hasOwn(ITEM_FIGURES, name) ? ITEM_FIGURES[name] : undefined;
 	if (!reader) {
-		throw new Error(
+		throw new RoundCompileError(
 			`${definition.id}: round.expectations[${first.i}].figure reads unknown item figure "${name}"`
 		);
 	}
@@ -444,7 +569,7 @@ export function figureItemsAt(
 		const item = reader.itemOf(id, exerciseLevel);
 		const planned: PlannedItem = {
 			exerciseId: definition.id,
-			mechanic: definition.mechanic,
+			skill: definition.practices,
 			exerciseLevel,
 			item,
 			phase: 'free',
@@ -461,6 +586,15 @@ export function figureItemsAt(
 	});
 	const longest = Math.max(0, ...fitting.map(({ figure }) => figure.bars));
 	return fitting.filter(({ figure }) => figure.bars === longest);
+}
+
+/** The muted bars the template writes, each a bar of the round (from 0 to `bars`, excluded). */
+function writtenMutedBars(context: Context, written: readonly number[], bars: number): number[] {
+	const beyond = written.find((bar) => bar >= bars);
+	if (beyond !== undefined) {
+		fail(context, 'mutedBars', `writes bar ${beyond}, past the round's ${bars} bars`);
+	}
+	return [...written];
 }
 
 function lengthOf(context: Context, template: RoundTemplate['length']): Fraction {
@@ -494,10 +628,21 @@ export function compileRound(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number; fromRunStart: number | null }
+	resolved: {
+		previewBeats: number;
+		fromRunStart: number | null;
+		cache?: ResolutionCache;
+		/**
+		 * At load: what the check may still compile, the most notes (and bars) the round's figure
+		 * entries may expand to beside `MAX_FIGURE_ROUND_NOTES`, the smaller applying; both
+		 * checked before they expand.
+		 */
+		maxExpectations?: number;
+	}
 ): RoundPlan {
 	const template = definition.round;
-	if (!template) throw new Error(`${definition.id}: the exercise has no round template`);
+	if (!template)
+		throw new RoundCompileError(`${definition.id}: the exercise has no round template`);
 	const context = contextOf(definition, item, meter, resolved);
 	let prompt: Fraction | null = null;
 	if (template.prompt) {
@@ -509,7 +654,18 @@ export function compileRound(
 		}
 	}
 	const length = lengthOf(context, template.length);
-	const accompaniment = roundAccompanimentOf(definition, item.exerciseLevel);
+	// Before anything loops over its bars: muted bars, accompaniment, figures.
+	const spanned = Math.ceil(length.div(barLength(meter)).toNumber());
+	if (spanned > MAX_ROUND_BARS) {
+		fail(
+			context,
+			'length',
+			`spans ${spanned} bars, more than the ${MAX_ROUND_BARS} a round may span`
+		);
+	}
+	const accompaniment = memo(resolved.cache, `a:${item.exerciseLevel}`, () =>
+		roundAccompanimentOf(definition, item.exerciseLevel)
+	);
 	// Where the round starts in the loops of its figures and its accompaniment.
 	const startBar = resolved.fromRunStart ?? landingBar(accompaniment);
 	const bars = Math.ceil(length.div(barLength(meter)).toNumber());
@@ -522,7 +678,7 @@ export function compileRound(
 		),
 		length,
 		mutedBars: template.mutedBars
-			? [...template.mutedBars]
+			? writtenMutedBars(context, template.mutedBars, bars)
 			: accompaniment
 				? mutedBarsFrom(accompaniment.bars, startBar, bars)
 				: [],
@@ -541,6 +697,6 @@ export function compileRound(
 		plan.barOffset = fractionOf(context, 'barOffset', template.barOffset);
 	if (template.countEndsOn) plan.countEndsOn = template.countEndsOn;
 	const problem = validateRoundPlan(plan);
-	if (problem) throw new Error(`${definition.id}: round plan is invalid: ${problem}`);
+	if (problem) throw new RoundCompileError(`${definition.id}: round plan is invalid: ${problem}`);
 	return plan;
 }

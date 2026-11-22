@@ -1,12 +1,14 @@
-import { identifyPresenter } from '$lib/application/mechanics/identify';
+import { placedNotePresenter } from '$lib/application/sets/placedNote';
 import { CONTENT_VIEWS, presentPrompt, type PromptStageModel } from '$lib/application/presentation';
 import type {
 	PlaySessionController,
 	PlayTimeline,
-	PlayView
+	PlayView,
+	PlayOrigin
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM, IDENTIFY_NECK } from '$lib/domain/exercise';
-import { recallThresholdOf } from '$lib/domain/exercise/recall';
+import { DEFAULT_TEMPO_BPM, type ExerciseDefinition } from '$lib/domain/exercise';
+import { exercisesOnSet, NAMED_NOTES } from '$lib/domain/progress/neck';
+import { skillById } from '$lib/domain/skill/registry';
 import { answerChoiceLabel, pitchOnString, type IdentifyItem } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
 import type { ResponseVerdict } from '$lib/domain/types';
@@ -24,8 +26,19 @@ export const DEMO_IDENTIFY_SCRIPT: readonly IdentifyItem[] = [
 /** How long the demo shows a verdict before the next prompt. */
 export const DEMO_VERDICT_MS = 1200;
 
-/** A name given within the exercise's recall threshold is perfect, later late. */
-const RECALL_THRESHOLD_MS = recallThresholdOf(IDENTIFY_NECK) ?? 0;
+/** The exercise the demo plays: the first registered one that names places; none without. */
+export function identifyDemoExercise(): ExerciseDefinition | undefined {
+	return exercisesOnSet(NAMED_NOTES)[0];
+}
+
+function demoExercise(): ExerciseDefinition {
+	const exercise = identifyDemoExercise();
+	if (!exercise) throw new Error('No exercise names places on the neck: nothing to demonstrate');
+	return exercise;
+}
+
+/** A name given within the direct recall of the exercise's skill is perfect, later late. */
+const recallThresholdMs = () => skillById(demoExercise().practices).directRecall?.withinMs ?? 0;
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
@@ -36,6 +49,8 @@ const noRandom = () => 0;
  */
 export class DemoIdentifySession implements PlaySessionController {
 	readonly sessionId = 'demo-identify';
+	/** What the demonstration is named as, given by its page; nothing by default. */
+	origin?: PlayOrigin;
 	view = $state<PlayView>({
 		status: 'idle',
 		tempoBpm: DEFAULT_TEMPO_BPM,
@@ -45,7 +60,8 @@ export class DemoIdentifySession implements PlaySessionController {
 		audioError: null,
 		stage: null,
 		briefing: null,
-		announcement: null
+		announcement: null,
+		leaving: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 
@@ -90,7 +106,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		const right = pitchOnString(target.string, target.fret);
 		const reactionMs = Date.now() - this.promptedAt;
 		const verdict: ResponseVerdict =
-			pitch !== right ? 'wrong' : reactionMs <= RECALL_THRESHOLD_MS ? 'perfect' : 'late';
+			pitch !== right ? 'wrong' : reactionMs <= recallThresholdMs() ? 'perfect' : 'late';
 		this.view.stage = {
 			view: 'answer-keys',
 			model: {
@@ -140,10 +156,10 @@ export class DemoIdentifySession implements PlaySessionController {
 			view: 'answer-keys',
 			model: {
 				prompt: presentPrompt(
-					IDENTIFY_NECK,
+					demoExercise(),
 					{
-						exerciseId: IDENTIFY_NECK.id,
-						mechanic: IDENTIFY_NECK.mechanic,
+						exerciseId: demoExercise().id,
+						skill: demoExercise().practices,
 						exerciseLevel: 0,
 						item: target,
 						phase: 'review',
@@ -161,7 +177,7 @@ export class DemoIdentifySession implements PlaySessionController {
 				beatsPerBar: 4,
 				verdict: null,
 				chordDiagram: 'strings',
-				choices: identifyPresenter.answerChoices!()
+				choices: placedNotePresenter.answerChoices!()
 			} satisfies PromptStageModel
 		};
 		this.promptedAt = Date.now();

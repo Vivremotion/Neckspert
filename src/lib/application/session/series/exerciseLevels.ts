@@ -28,6 +28,8 @@ interface Held {
 	series: SeriesState;
 	/** The level its rounds play at: the state's, once applied. */
 	played: number;
+	/** It changed air and left the series (`leave`): its end no longer ends the series. */
+	left?: true;
 }
 
 /**
@@ -129,7 +131,9 @@ export class ExerciseLevels {
 	 * the source has nothing more — what the policy decides (`next`), over the run under way, or
 	 * one started there. After a breath, a new run starts with the coming round, which comes after
 	 * a counted bar: `next` is that round's place in it. `look`: what it would decide, the state
-	 * left as it is (decided ahead of a breath, or of an instruction that stops play first).
+	 * left as it is (decided ahead of a breath, or of an instruction that stops play first). An end
+	 * decided on any (exercise, scope) — « On change d’air » — ends the series at this boundary,
+	 * whatever exercise the coming round belongs to, unless that (exercise, scope) has left (`leave`).
 	 */
 	boundary(
 		at: { exerciseId: ExerciseId; scope?: string },
@@ -138,6 +142,8 @@ export class ExerciseLevels {
 		coming: Coming | null,
 		options: { look?: boolean } = {}
 	): { breath: boolean; next: Next } {
+		const ended = this.ending();
+		if (ended) return { breath: false, next: { role: 'end', reason: ended.series.ending! } };
 		const held = this.heldOf(at.exerciseId, at.scope);
 		const rules = rulesOf(this.deps.exercise(at.exerciseId), budgetMs);
 		const running = (state: SeriesState) => (state.run ? state : startRun(state));
@@ -166,10 +172,31 @@ export class ExerciseLevels {
 		}
 	}
 
-	/** The measure that breaks, once the anti-blocking changed the air of an exercise; null otherwise. */
+	/**
+	 * The (exercise, scope) whose series decided its end (« On change d’air ») and has not left;
+	 * null otherwise.
+	 */
+	resting(): { exerciseId: ExerciseId; scope?: string } | null {
+		const ended = this.ending();
+		if (!ended) return null;
+		const { exerciseId, scope } = ended.series.levelState;
+		return { exerciseId, ...(scope !== '' && { scope }) };
+	}
+
+	/**
+	 * (exercise, scope) changed air and leaves the series, which goes on without it: its end is
+	 * consumed, its state (its rest) kept as the anti-blocking wrote it.
+	 */
+	leave(exerciseId: ExerciseId, scope?: string): void {
+		this.heldOf(exerciseId, scope).left = true;
+	}
+
+	/**
+	 * The measure that breaks, once the anti-blocking changed the air of an exercise that has not
+	 * left; null otherwise.
+	 */
 	breaking(): CycleFailure | null {
-		for (const held of this.held.values()) if (held.series.breaking) return held.series.breaking;
-		return null;
+		return this.ending()?.series.breaking ?? null;
 	}
 
 	/**
@@ -218,6 +245,11 @@ export class ExerciseLevels {
 	/** Once every level settled so far is written. */
 	settled(): Promise<void> {
 		return this.writes;
+	}
+
+	private ending(): Held | null {
+		for (const held of this.held.values()) if (held.series.ending && !held.left) return held;
+		return null;
 	}
 
 	private heldOf(exerciseId: ExerciseId, scope: string | undefined): Held {

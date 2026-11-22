@@ -3,17 +3,17 @@
 	import { page } from '$app/state';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
-	import { demoGestureSeries } from '$lib/ui/play/demo/demoGestureSeries';
+	import NothingToShow from '$lib/ui/play/demo/NothingToShow.svelte';
+	import { demoGestureSeries, gestureDemoExercise } from '$lib/ui/play/demo/demoGestureSeries';
 
 	// `?view=grid`: a climb on the scrolling grid; the link on its lane otherwise. The real
 	// session controller plays it, a scripted player strumming each change; « Rejouer » starts again.
-	const demo = demoGestureSeries(
-		page.url.searchParams.get('view') === 'grid' ? 'climb' : 'link',
-		() => i18n.locale
-	);
-	const controller = demo.controller;
+	const mode = page.url.searchParams.get('view') === 'grid' ? 'climb' : 'link';
+	const demo = gestureDemoExercise(mode) ? demoGestureSeries(mode, () => i18n.locale) : null;
 
 	onMount(() => {
+		if (!demo) return;
+		const { controller } = demo;
 		// The demo plays at once: nothing to hear, only the view to see.
 		void controller.start();
 		let raf = 0;
@@ -31,4 +31,8 @@
 	});
 </script>
 
-<PlayFrame {controller} kind="gesture" />
+{#if demo}
+	<PlayFrame controller={demo.controller} />
+{:else}
+	<NothingToShow text="No exercise plays passages on this view: nothing to show." />
+{/if}

@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GESTURE_LINK, summarizeGesture } from '$lib/domain/gesture';
-import { gridById, gridChanges } from '$lib/domain/grid';
+import { summarizePlayed, summaryMisses } from '$lib/domain/session';
 import { contentJudges } from '$lib/domain/judges';
-import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
-import type { StringNumber } from '$lib/domain/music';
+import { changeSet, type ChangeItem } from '$lib/domain/sets';
 import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
-import { figureParamsOf, RHYTHM_OFFBEATS } from '$lib/domain/exercise';
+import { figureParamsOf } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import {
 	Fraction,
@@ -20,12 +18,13 @@ import {
 } from '$lib/domain/time';
 import { cardKey, type Attempt, type Execution, type PlannedItem } from '$lib/domain/types';
 import { changePlan } from '$lib/testing/plans';
-import { chordGridPresenter } from '$lib/application/mechanics/chordGrid';
+import { changePresenter } from '$lib/application/sets/chordGrid';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository
 } from '$lib/testing/fakes';
+import { change as served, G_B_E, rightShape } from '$lib/testing/gestureSeries';
 import { shapeId } from '$lib/testing/shapes';
 import { AttemptRecorder } from '../AttemptRecorder';
 import { aidsOf } from '../aids';
@@ -36,41 +35,19 @@ import {
 	roundPlanRecord,
 	type FigureAttemptData
 } from './recordResponse';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
-const G_B_E: StringNumber[] = [3, 2, 1];
-const IOHEFY = gridChanges(gridById('iohefy-a'));
-const RIGHT = shapeId('D', 'min', G_B_E, '7-6-5');
+/** Change `index` of a jam's passage of iohefy-a (Dm7, G7, Dm7, G7…), in its scope. */
+const change = (index: number, passageId = 's:0'): PlannedItem =>
+	served(index, { passage: passageId });
+const plannedOf = (item: PlannedItem) => item;
+/** Right on the second change (G7): G on G-B-E; wrong: a D major. */
+const RIGHT = rightShape(change(1));
 const WRONG = shapeId('D', 'maj', G_B_E, '7-7-5');
+const keyOf = (item: PlannedItem) =>
+	cardKey('grid-reading', changeSet.itemKey(item.item as ChangeItem));
 
-function change(index: number, passageId = 's:0'): ChordGridItem {
-	return {
-		rule: 'jam',
-		element: 'jam:iohefy-a',
-		passageId,
-		index,
-		changes: IOHEFY,
-		symbol: IOHEFY[index].symbol,
-		chord: 'D|min',
-		sets: [G_B_E],
-		previous: null
-	};
-}
-
-function plannedOf(item: ChordGridItem): PlannedItem {
-	return {
-		exerciseId: 'gesture-jam',
-		mechanic: 'chord-grid',
-		exerciseLevel: 0,
-		item,
-		phase: 'free',
-		temperature: 'hot',
-		aid: 'none',
-		leadBeats: null,
-		scope: 'iohefy-a'
-	};
-}
-
-const RUN: Execution = { exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 };
+const RUN: Execution = { exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 120 };
 
 /** ♩ = 120 bpm from 0.1 s: a beat lasts 0.5 s; the change is on beat 4, at 2.1 s. */
 const ORIGIN_S = 0.1;
@@ -93,15 +70,14 @@ function makeRecorder() {
 		clock,
 		now: () => clock.toEpochMs(clock.now()),
 		selector: { next: () => null, record: () => null, cardChanged: () => {} },
-		sessionId: 'sess-1',
-		rules: () => chordGridRules
+		sessionId: 'sess-1'
 	});
 	return { recorder, attempts, clock };
 }
 
 /** A change played on the new path: its plan judged by a PlanRound, an attack `ms` after the change. */
-function newOutcome(item: ChordGridItem, decided: string | null, ms: number): RoundOutcome {
-	const plan = changePlan(item, METER_4_4, GESTURE_LINK);
+function newOutcome(item: PlannedItem, decided: string | null, ms: number): RoundOutcome {
+	const plan = changePlan(item, METER_4_4);
 	const map = createTempoMap(ORIGIN_S, [{ at: Fraction.ZERO, bpm: 120, unit: Fraction.of(1, 4) }]);
 	const round = new PlanRound({
 		plan,
@@ -124,19 +100,23 @@ function newOutcome(item: ChordGridItem, decided: string | null, ms: number): Ro
 	return outcome;
 }
 
-function newAttempt(item: ChordGridItem, decided: string | null, ms: number) {
+function newAttempt(item: PlannedItem, decided: string | null, ms: number) {
 	const { clock } = makeRecorder();
 	const outcome = newOutcome(item, decided, ms);
-	const plan = changePlan(item, METER_4_4, GESTURE_LINK);
+	const plan = changePlan(item, METER_4_4);
 	return recordedAttempt({
 		outcome,
 		item: plannedOf(item),
 		plan,
-		data: (value) => chordGridPresenter.attemptData!(item, value),
+		data: (value) =>
+			changePresenter.attemptData!(item.item as ChangeItem, value, {
+				passage: item.passage,
+				expectations: plan.expectations
+			}),
 		sessionId: 'sess-1',
 		execution: RUN,
 		promptedAt: clock.toEpochMs(PROMPT_S),
-		cardKey: cardKey('chord-grid', chordGridRules.itemKey(item)),
+		cardKey: keyOf(item),
 		startAudioS: CHANGE_S,
 		tempo: TEMPO,
 		thresholds: null
@@ -158,7 +138,12 @@ describe('recordedAttempt', () => {
 			temperature: 'hot',
 			phase: 'free',
 			measures: {},
-			data: { item, answer: { decided: RIGHT }, confusion: null }
+			data: {
+				item: { grid: 'iohefy-a', index: 1 },
+				passage: { id: 's:0', index: 'grid=iohefy-a', rank: 1, each: {} },
+				answer: { decided: RIGHT },
+				confusion: null
+			}
 		});
 		expect(attempt.verdict).toMatchObject({
 			relation: 'response',
@@ -168,7 +153,7 @@ describe('recordedAttempt', () => {
 
 		const plan = JSON.parse(JSON.stringify(attempt.plan));
 		expect(plan).toEqual({
-			...roundPlanRecord(changePlan(item, METER_4_4, GESTURE_LINK)),
+			...roundPlanRecord(changePlan(item, METER_4_4)),
 			startAudioS: CHANGE_S,
 			tempo: { at: '0', bpm: 120, unit: '1/4' }
 		});
@@ -185,7 +170,7 @@ describe('recordedAttempt', () => {
 					span: 'point',
 					role: 'target',
 					sensor: 'chord',
-					content: { kind: 'chord-grid', value: { element: 'jam:iohefy-a', index: 1 } },
+					content: { kind: 'member', value: { family: 'chord-shapes', previous: null } },
 					window: { ms: expect.any(Number) },
 					bar: 0
 				}
@@ -195,7 +180,7 @@ describe('recordedAttempt', () => {
 
 	it('keeps where a plan places its target in its bar', () => {
 		const plan = {
-			...changePlan(change(1), METER_4_4, GESTURE_LINK),
+			...changePlan(change(1), METER_4_4),
 			barOffset: Fraction.of(1, 2)
 		};
 		expect(roundPlanRecord(plan)).toMatchObject({ countEndsOn: 'target', barOffset: '1/2' });
@@ -214,12 +199,12 @@ describe('recordedAttempt', () => {
 		expect((attempt.verdict.value as ResponseValue).verdict).toBe('offbeat');
 	});
 
-	it('lets the gesture summary read the new attempts', () => {
+	it('lets the summary read the new attempts of a change', () => {
 		const played: [number, string | null, number][] = [
-			[0, RIGHT, 0],
+			[0, rightShape(change(0)), 0],
 			[1, WRONG, 10],
-			[2, RIGHT, DEFAULT_RESPONSE_WINDOWS.lateMs + 100],
-			[3, RIGHT, -40]
+			[2, rightShape(change(2)), DEFAULT_RESPONSE_WINDOWS.lateMs + 100],
+			[3, rightShape(change(3)), -40]
 		];
 		const withIds = (attempts: Omit<Attempt, 'id'>[]) =>
 			attempts.map((attempt, id) => ({ ...attempt, id }));
@@ -230,9 +215,10 @@ describe('recordedAttempt', () => {
 					played.map(([index, decided, ms]) => newAttempt(change(index, passage), decided, ms))
 				)
 			);
-		const fresh = summarizeGesture([RUN], make());
-		expect(fresh.exercises[0]).toMatchObject({ passagesPlayed: 2, changeSuccessRate: 0.5 });
-		expect(fresh.misses).toHaveLength(2);
+		const attempts = make();
+		const [line] = summarizePlayed({ executions: [RUN], attempts, aided: () => false });
+		expect(line).toMatchObject({ passages: { played: 2, passed: 0 }, rounds: 8, passed: 4 });
+		expect(summaryMisses(attempts)).toHaveLength(2);
 	});
 	it('keeps the lead the item was played at', () => {
 		const item = change(1);
@@ -241,12 +227,12 @@ describe('recordedAttempt', () => {
 		const attempt = recordedAttempt({
 			outcome,
 			item: { ...plannedOf(item), leadBeats: 4 },
-			plan: changePlan(item, METER_4_4, GESTURE_LINK),
+			plan: changePlan(item, METER_4_4),
 			data: () => null,
 			sessionId: 'sess-1',
 			execution: RUN,
 			promptedAt: clock.toEpochMs(PROMPT_S),
-			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item)),
+			cardKey: keyOf(item),
 			startAudioS: CHANGE_S,
 			tempo: TEMPO,
 			thresholds: null
@@ -260,12 +246,12 @@ describe('recordedAttempt', () => {
 		const attempt = recordedAttempt({
 			outcome: newOutcome(item, RIGHT, 0),
 			item: plannedOf(item),
-			plan: changePlan(item, METER_4_4, GESTURE_LINK),
+			plan: changePlan(item, METER_4_4),
 			data: () => null,
 			sessionId: 'sess-1',
-			execution: { exerciseId: 'gesture-jam', tempoBpm: 120 },
+			execution: { exerciseId: 'grid-reading', tempoBpm: 120 },
 			promptedAt: clock.toEpochMs(PROMPT_S),
-			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item)),
+			cardKey: keyOf(item),
 			startAudioS: CHANGE_S,
 			tempo: TEMPO,
 			thresholds: null
@@ -279,7 +265,7 @@ function offbeatsCycle(exact: boolean) {
 	const [offbeats] = RHYTHM_OFFBEATS.figures ?? [];
 	const item: PlannedItem = {
 		exerciseId: RHYTHM_OFFBEATS.id,
-		mechanic: 'figure',
+		skill: 'inner-pulse',
 		exerciseLevel: 0,
 		item: { figureId: offbeats.id, level: 0 },
 		phase: 'free',
@@ -316,7 +302,7 @@ function offbeatsCycle(exact: boolean) {
 		sessionId: 's1',
 		execution: { exerciseId: RHYTHM_OFFBEATS.id, tempoBpm: 80 },
 		promptedAt: 1234,
-		cardKey: 'figure:offbeats-1@0',
+		cardKey: 'figure-independence:offbeats-1@0',
 		startAudioS: 12.5,
 		tempo,
 		thresholds
@@ -330,8 +316,8 @@ describe('recordedAttempt, a cycle', () => {
 		expect(attempt).toMatchObject({
 			sessionId: 's1',
 			exerciseId: 'rhythm-offbeats',
-			mechanic: 'figure',
-			cardKey: 'figure:offbeats-1@0',
+			skill: 'inner-pulse',
+			cardKey: 'figure-independence:offbeats-1@0',
 			phase: 'free',
 			temperature: 'hot',
 			promptedAt: 1234,
@@ -388,7 +374,7 @@ describe('recordedAttempt, a cycle', () => {
 						expectations: report.expectations.map((e, k) => (k === 1 ? { ...e, verdict } : e))
 					}
 				},
-				item: { ...plannedOf(change(1)), exerciseId: rhythm.exerciseId, mechanic: 'figure' },
+				item: { ...plannedOf(change(1)), exerciseId: rhythm.exerciseId, skill: 'inner-pulse' },
 				plan: pitched,
 				data: () => null,
 				sessionId: 's1',
@@ -412,7 +398,7 @@ describe('recordedAttempt, a cycle', () => {
 describe('roundPlanFromRecord', () => {
 	it('reads back every field a plan record keeps', () => {
 		const plan: RoundPlan = {
-			...changePlan(change(1), METER_4_4, GESTURE_LINK),
+			...changePlan(change(1), METER_4_4),
 			barOffset: Fraction.of(1, 2),
 			listenUntil: Fraction.of(3, 4)
 		};

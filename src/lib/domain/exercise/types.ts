@@ -1,15 +1,16 @@
 import type { Figure, Level, Meter } from '$lib/domain/time';
 import type { LevelOverrides } from './levels';
 import type { RoundTemplate } from './round/types';
+import type { PassagesTemplate } from './passage/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
+import type { SkillId } from '$lib/domain/skill/types';
 
-export type MechanicId = string;
 export type ExerciseId = string;
 
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
 
-/** How a session plays an exercise's rounds; what it leaves out, its mechanic's presenter gives. */
+/** How a session plays an exercise's rounds; what it leaves out, its presenter gives. */
 export interface ExerciseFlow {
 	/** Where it is played: the guitar (the click is heard) or the screen (silence). */
 	scene?: Scene;
@@ -57,7 +58,7 @@ export type Slot = string | { fr: string; en: string };
 
 /**
  * What the screen says of a prompt, as data: each slot is text with `{field}` placeholders, the
- * fields being those its mechanic's items offer (`ITEM_FIELDS`). Pictures are named
+ * fields being those its set's items offer (`ITEM_FIELDS`). Pictures are named
  * (`PICTURES`). Read by `presentPrompt`.
  */
 export interface PromptPresentation {
@@ -78,21 +79,22 @@ export interface PromptPresentation {
 }
 
 /**
- * A suite of notes, each on its own string, written once and moved from chord to chord: plain
- * data, like the rest of a definition. `symbol` is what the chord's name adds to its first note.
+ * A shape: a suite of notes, each on its own string, written once and moved from chord to chord;
+ * plain data, like the rest of a definition. `symbol` is what the chord's name adds to its first
+ * note.
  */
-export interface ExerciseForm {
+export interface ExerciseShape {
 	id: string;
 	symbol: string;
-	/** As written: `name` spells the note, so the form keeps its spelling when it moves. */
+	/** As written: `name` spells the note, so the shape keeps its spelling when it moves. */
 	notes: { midi: number; string: number; name: string }[];
 }
 
-/** An exercise is data only: a mechanic plus its parameters. */
+/** An exercise is data only: the skill it practises plus its parameters. */
 export interface ExerciseDefinition {
 	id: ExerciseId;
-	version: number;
-	mechanic: MechanicId;
+	/** The skill it practises, a registered one. */
+	practices: SkillId;
 	params: Readonly<Record<string, unknown>>;
 	/**
 	 * Its tempo, in beats of its meter per minute, before any level; absent: `DEFAULT_TEMPO_BPM`.
@@ -103,13 +105,13 @@ export interface ExerciseDefinition {
 	chordDiagram?: ChordDiagramStyle;
 	/** The meter it is played in; absent: `METER_4_4`. */
 	meter?: Meter;
-	/** Its scene, preview and contest, over its mechanic presenter's defaults. */
+	/** Its scene, preview and contest, over its presenter's defaults. */
 	flow?: ExerciseFlow;
 	/** What a round of this exercise expects, as data; compiled to a plan per item (`compileRound`). */
 	round?: RoundTemplate;
 	/** What the screen says of one of its prompts; see `presentPrompt`. */
 	presentation?: PromptPresentation;
-	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
+	/** The play view that shows its presenter's screen model, when the presenter gives one. */
 	view?: string;
 	/**
 	 * What to do, told before the exercise's first prompt in a series: on the start screen when it
@@ -123,20 +125,29 @@ export interface ExerciseDefinition {
 	 * (`resolvedParamsOf`), the tempo included; absent: one level that changes nothing.
 	 */
 	levels?: readonly Level<LevelOverrides>[];
-	/** The figures it plays, written once in the catalog. */
+	/** The figures it plays, written once in the exercise. */
 	figures?: readonly { id: string; figure: Figure }[];
-	/** The forms its items move, written once (`form-figure`). */
-	forms?: readonly ExerciseForm[];
+	/** The shapes its items move, written once (the set `placed-shape`). */
+	shapes?: readonly ExerciseShape[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';
 	/**
 	 * The items an exercise session serves, in order and again from the first: keys of its
-	 * mechanic's items (`parseItem`); absent: its figures, one per turn (`pick`).
+	 * set's items (`parseItem`), each alone or with the length of its turn; absent: its
+	 * figures, one per turn (`pick`).
 	 */
-	items?: readonly string[];
+	items?: readonly ItemEntry[];
+	/** The passages it plays, each member of a passage the item of a round; never with `items`. */
+	passages?: PassagesTemplate;
 }
 
-/** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
+/**
+ * An item an exercise lists: its key, or its key and the length in beats of its turn (read by a
+ * round as `{ item: 'beats' }`), which the key never holds.
+ */
+export type ItemEntry = string | { readonly item: string; readonly beats: number };
+
+/** One run of an exercise (or of one scope of it); a null tempo means its rounds have none (free time). */
 export interface Execution {
 	exerciseId: ExerciseId;
 	/** The scope of its exercise level (a grid); its prompts carry it as `PlannedItem.scope`. */
