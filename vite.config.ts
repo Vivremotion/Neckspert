@@ -2,6 +2,11 @@ import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+/** Whether a CI runner runs this (GitHub Actions sets `CI`). Read off the global: the app's types do not declare `process`. */
+const ON_CI = Boolean(
+	(globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.CI
+);
+
 export default defineConfig({
 	plugins: [
 		sveltekit({
@@ -15,6 +20,11 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
+		// A shared CI runner takes several times longer than a developer's machine for the same
+		// work (5.3 s there for a test of 1.7 s here): a test gets more time on it before it is
+		// called timed out. The limits tests hold on measured time are widened likewise
+		// (`wallClockMs`, `src/lib/testing/wallClock.ts`).
+		testTimeout: ON_CI ? 30_000 : 5_000,
 		projects: [
 			{
 				extends: './vite.config.ts',
