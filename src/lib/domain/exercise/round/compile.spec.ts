@@ -31,6 +31,7 @@ import {
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
 import { MAX_FIGURE_ROUND_NOTES, MAX_ROUND_BARS } from './validate';
+import { wallClockMs } from '$lib/testing/wallClock';
 
 /** A skill on each set, for a spec that draws an exercise of a set. */
 export const SKILL_OF_SET: Readonly<Record<string, SkillId>> = {
@@ -615,7 +616,7 @@ describe('compileRound, a figure entry', () => {
 					`test-figure: round.length spans ${bars} bars, more than the 1024 a round may span`
 				)
 			);
-			expect(performance.now() - start).toBeLessThan(50);
+			expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 		}
 		const most = figureExercise('figure', figureRound({}, { length: { bars: 1_024 } }), {
 			main: 'c1'
@@ -634,7 +635,7 @@ describe('compileRound, a figure entry', () => {
 				'test-figure: round.expectations[0].figure would give 3200 notes over 100 bars, more than the 1024 notes a figure round may hold'
 			)
 		);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 	});
 
 	it('refuses muted bars written past the round', () => {
@@ -691,7 +692,7 @@ describe('compileRound, a figure entry', () => {
 		expect(() => compileFigure(many, { figureId: 'main' })).toThrow(
 			'round.expectations[8].figure would give 128 notes over 16 bars, more than the 0 notes its round may still hold (at most 1024)'
 		);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 	});
 
 	it('bounds a short round of a long figure by its own bars, not by the whole figure', () => {

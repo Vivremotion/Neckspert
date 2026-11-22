@@ -24,6 +24,7 @@ import {
 import { triadCards } from '$lib/testing/shapes';
 import { createPassageSource, MAX_PASSAGE_TRIES, passageOf } from './passageSource';
 import { SESSION_MS } from './policy';
+import { wallClockMs } from '$lib/testing/wallClock';
 
 const NOW = Date.parse('2026-11-19T10:00:00.000Z');
 const G_B_E = [3, 2, 1] as const;
@@ -688,7 +689,7 @@ describe('createPassageSource', () => {
 				const passage = 256 * cost;
 				expect(counted.rounds() * cost).toBeLessThanOrEqual(2 * (MAX_PASSAGE_TRIES + passage));
 				// Measured 28 to 47 ms here (Apple M3 Pro): a tripwire at about three times that.
-				expect(ms).toBeLessThan(150);
+				expect(ms).toBeLessThan(wallClockMs(150));
 				const clock = { now: NOW };
 				for (let rank = 1; rank < served.passage!.length; rank++) s.next(at(clock.now));
 				const exercises = Array.from({ length: 3 }, () => playPassage(s, clock)[0].exerciseId);

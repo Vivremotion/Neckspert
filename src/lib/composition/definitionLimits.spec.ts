@@ -50,6 +50,7 @@ import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions } from './definitions';
+import { wallClockMs } from '$lib/testing/wallClock';
 
 /**
  * What a file just under a limit may take to load, or one over the check budget to be refused;
@@ -57,15 +58,15 @@ import { loadDefinitions } from './definitions';
  * the budget accepts, then one more refused) takes about 1.6 s here; before the limits, files took
  * 2 to 17 s, and before the budget up to 28 s.
  */
-const BUDGET_MS = 5_000;
+const BUDGET_MS = wallClockMs(5_000);
 /** What a file over a limit may take to be refused. */
-const REFUSED_MS = 500;
+const REFUSED_MS = wallClockMs(500);
 /**
  * What the slowest file the check budget accepts may take to load, a tripwire about three times
  * what it takes here (Apple M3 Pro): 0.85 s for a file of exercises of the lightest rounds on a
  * grid of the most changes, 0.5 s for the levels at the most params the budget accepts.
  */
-const WORST_ACCEPTED_MS = 3_600;
+const WORST_ACCEPTED_MS = wallClockMs(3_600);
 
 /**
  * What checking each file cost, read on the budget each exercise's check was given, and what the
@@ -703,7 +704,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 				{ previewBeats: 0, fromRunStart: null }
 			)
 		).toThrow(RoundCompileError);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(50));
 	});
 
 	it('loads a long figure read one bar at a time by its listed items, each round of one bar', () => {
@@ -780,7 +781,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			alignContext(plan, map, Fraction.ZERO)
 		);
 		// Measured 0.35 to 0.48 s here (Apple M3 Pro): a tripwire at about three times that.
-		expect(performance.now() - start).toBeLessThan(1_500);
+		expect(performance.now() - start).toBeLessThan(wallClockMs(1_500));
 		expect(alignment.pairs).toHaveLength(bars * 16);
 		expect(alignment.missed).toEqual([]);
 	});
