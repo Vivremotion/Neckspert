@@ -29,24 +29,21 @@ function barList(bars: readonly number[], more: boolean, and: string): string {
 }
 
 const FR = {
-	header: (label: string, level: string, tempo: string) => `${label} · ${level} · ${tempo}`,
 	level: (shown: number, of: number) => `niveau ${shown} sur ${of}`,
 	aidLevel: 'niveau d’aide',
-	tempo: (unit: string, bpm: number) => `${unit} = ${bpm} bpm`,
+	/** The tempo with the unit of its beat, as the info line writes it: « ♩ = 80 », « ♪ = 90 ». */
+	tempo: (unit: string, bpm: number) => `${unit} = ${bpm}`,
 	bar: (bar: number, of: number) => `mesure ${bar} / ${of}`,
-	click: 'clic',
 	silence: 'silence',
-	phase: {
+	/** The figure goes by without the player: the accompaniment alone, or a figure heard. */
+	heard: {
 		'listen-in': 'Écoute le clic',
-		'count-in': 'On compte',
-		play: '',
-		listening: 'On écoute la figure',
-		breath: 'Respiration'
+		listening: 'On écoute la figure'
 	},
 	listen: 'Écouter la figure',
 	notationFailed: 'La partition n’a pas pu se charger : recharge la page.',
+	/** The run played, named for assistive technology. */
 	played: 'Joué',
-	toPlay: 'À jouer',
 	cycle: (n: number) => `cycle ${n}`,
 	passed: 'réussi',
 	failed: 'raté',
@@ -107,24 +104,18 @@ const FR = {
 };
 
 const EN: typeof FR = {
-	header: (label, level, tempo) => `${label} · ${level} · ${tempo}`,
 	level: (shown, of) => `level ${shown} of ${of}`,
 	aidLevel: 'aid level',
-	tempo: (unit, bpm) => `${unit} = ${bpm} bpm`,
+	tempo: (unit, bpm) => `${unit} = ${bpm}`,
 	bar: (bar, of) => `bar ${bar} / ${of}`,
-	click: 'click',
 	silence: 'silence',
-	phase: {
+	heard: {
 		'listen-in': 'Listen to the click',
-		'count-in': 'Counting in',
-		play: '',
-		listening: 'Listening to the figure',
-		breath: 'Breathe'
+		listening: 'Listening to the figure'
 	},
 	listen: 'Listen to the figure',
 	notationFailed: 'The score could not load: reload the page.',
 	played: 'Played',
-	toPlay: 'To play',
 	cycle: (n) => `cycle ${n}`,
 	passed: 'passed',
 	failed: 'failed',

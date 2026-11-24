@@ -50,7 +50,7 @@ Le format v1 (après la traduction complète du corpus de test et d’un second 
 
 ## À côté du cœur
 
-- **Le visuel, plan 3** : le cadre de séance et les vues de jeu passent au monde « Près du silence » (la figure et le geste sont encore dans l’ancien monde pixel), la respiration d’une séquence est redessinée, puis l’ancien monde disparaît. Les retours de la séance de l’auteur du 2026-10-28 y sont rattachés.
+- **Le visuel, plan 3** : le cadre de séance et les vues de jeu passent au monde « Près du silence » (la figure y est passée avec #4 ; le geste est encore dans l’ancien monde pixel), la respiration d’une séquence est redessinée, puis l’ancien monde disparaît. Les retours de la séance de l’auteur du 2026-10-28 y sont rattachés.
 - **Les capteurs** : la reconnaissance des accords, à mesurer d’abord sur un export audio connu et le journal de diagnostic de vraies séances ; la vérification de hauteur et les attaques legato pour les notes rapides, si le jeu le demande ; la plage grave du juge d’accords (pour le chantier 3).
 - **La mise en ligne** : la v2 sur GitHub Pages et le domaine.
 

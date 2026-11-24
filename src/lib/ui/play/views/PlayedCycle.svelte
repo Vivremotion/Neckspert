@@ -261,7 +261,7 @@
 
 	/* The strips the words are not about step back, so the one they are about stands out. */
 	.strip.dim {
-		opacity: 0.5;
+		opacity: 0.65;
 	}
 
 	.mark {

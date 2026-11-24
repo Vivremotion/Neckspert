@@ -77,18 +77,22 @@
 		...(inPlay ? [t.bar(m.barInCycle + 1, m.cycleBars)] : []),
 		...(inPlay && m.muted ? [t.silence] : [])
 	]);
+	/** The tempo with the unit of its beat (« ♪ = 90 »): the frame alone would write a quarter. */
+	const tempoText = $derived(t.tempo(m.tempo.unit, m.tempo.bpm));
 	const info = useInfoLine();
 	$effect(() => {
 		if (!info) return;
 		info.parts = parts;
+		info.tempo = tempoText;
 		return () => {
 			info.parts = [];
+			info.tempo = null;
 		};
 	});
 
 	/** The figure goes by without the player: the accompaniment alone, or a figure heard. */
 	const phaseText = $derived(
-		m.phase === 'listen-in' || m.phase === 'listening' ? t.phase[m.phase] : null
+		m.phase === 'listen-in' || m.phase === 'listening' ? t.heard[m.phase] : null
 	);
 	const told = $derived(breathing ? toldCycle(m.settled) : null);
 	const line = $derived(
@@ -205,7 +209,7 @@
 <div class="figure-view" data-phase={m.phase} bind:this={root}>
 	{#if !info}
 		<!-- Without a frame to carry the info line (a test, a demo): the view says its parts itself. -->
-		<p class="meta" data-testid="figure-header">{parts.join(' · ')}</p>
+		<p class="meta" data-testid="figure-header">{[...parts, tempoText].join(' · ')}</p>
 	{/if}
 
 	<!-- Always in the flow, at the height of a prompt line: the figure never moves when the prompt,
@@ -248,7 +252,7 @@
 	<div
 		class="score"
 		data-testid="figure-score"
-		data-shows={breathing ? 'next' : 'played'}
+		data-shows={breathing && m.next ? 'next' : 'played'}
 		bind:this={scoreHost}
 	>
 		<div class="engraving large" bind:this={figureHost}></div>
@@ -360,6 +364,7 @@
 		--neck-ink: var(--np-on-field);
 		--neck-ground: var(--np-text);
 		--neck-muted: var(--np-cell-band);
+		--neck-fret: var(--np-on-field);
 		--neck-next: var(--np-cell-band);
 		--neck-next-text: var(--np-text);
 		--term-ground: var(--np-on-field);
@@ -373,10 +378,10 @@
 		box-sizing: border-box;
 		width: 100%;
 		min-width: 0;
-		/* The frame lays a level reached over the top of the field (`PlayFrame`, `.told`: a prompt
-		   line with its padding): the view starts under that band, so the figure to play is never
-		   covered, and never moves when the announcement comes or goes. */
-		padding-block-start: calc(var(--np-size-prompt) * 1.1 + 2 * var(--np-step-2));
+		/* The frame lays a level reached over the top of the field (`PlayFrame`, `.told`, whose
+		   height the stage declares): the view starts under that band, so the figure to play is
+		   never covered, and never moves when the announcement comes or goes. */
+		padding-block-start: var(--play-told-band, 0px);
 		color: var(--np-on-field);
 		font-family: var(--np-font-text);
 		font-weight: 400;

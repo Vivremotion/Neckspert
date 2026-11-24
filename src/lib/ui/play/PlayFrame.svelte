@@ -59,12 +59,13 @@
 	});
 	/**
 	 * The info line: what plays, what its view adds (a part the name already says is not said
-	 * twice), the tempo.
+	 * twice), the tempo (the view's, written with its beat's unit, when it gives one).
 	 */
 	const infoParts = $derived.by(() => {
 		const added = infoLine.parts.filter((part) => !named.includes(part));
 		const parts = [...named, ...added];
-		return view.tempoBpm > 0 ? [...parts, t.tempo(view.tempoBpm)] : parts;
+		const tempo = infoLine.tempo ?? (view.tempoBpm > 0 ? t.tempo(view.tempoBpm) : null);
+		return tempo === null ? parts : [...parts, tempo];
 	});
 	/**
 	 * Before the start: the first exercise's instruction, else the routine's, else the general
@@ -369,6 +370,12 @@
 		display: flex;
 		justify-content: center;
 		pointer-events: none;
+	}
+
+	/* The band's height is declared once, on the stage: a view whose content starts at the top
+	   keeps it free (`--play-told-band`). */
+	.quiet-stage {
+		--play-told-band: calc(var(--np-size-prompt) * 1.1 + 2 * var(--np-step-2));
 	}
 
 	.quiet-stage .told {

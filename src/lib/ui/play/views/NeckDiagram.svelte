@@ -62,7 +62,7 @@
 </div>
 
 <style>
-	/* Themed by its view through --neck-* (tile, size, gap, ink, ground, muted, next, next-text);
+	/* Themed by its view through --neck-* (tile, size, gap, ink, ground, muted, fret, next, next-text);
 	   unset, the Game Boy tones of the gesture's views, which still draw it. */
 	.neck {
 		--row: calc(var(--neck-tile, var(--np-tile)) * 6);
@@ -86,7 +86,7 @@
 	}
 
 	.fret {
-		color: var(--neck-muted, var(--np-shade));
+		color: var(--neck-fret, var(--neck-muted, var(--np-shade)));
 		padding-block-start: 4px;
 	}
 

@@ -8,6 +8,7 @@ import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import type { PlannedItem } from '$lib/domain/types';
 import { figureStage } from '$lib/application/session/series/figureStage';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { playOriginOf } from '$lib/application/session/playOrigin';
 import { PLAY_VIEWS, VIEW_WORLDS } from './index';
 import FigureView from './FigureView.svelte';
 import PlayFrame from '../PlayFrame.svelte';
@@ -158,23 +159,45 @@ describe('FigureView', () => {
 		expect(VIEW_WORLDS['figure']).toBe('quiet');
 	});
 
-	it('without a frame, says its parts itself: the exercise, its level, the bar played', () => {
+	it('without a frame, says its parts itself: the exercise, its level, the bar played, the tempo with its unit', () => {
 		render(FigureView, { props: { controller: running(), model: model() } });
 		expect(screen.getByTestId('figure-header').textContent?.trim()).toBe(
-			'Contretemps · niveau 3 sur 6 · mesure 1 / 1'
+			'Contretemps · niveau 3 sur 6 · mesure 1 / 1 · ♩ = 90'
 		);
 	});
 
-	it('in its frame, adds its parts to the info line, before the tempo, and says nothing twice', () => {
+	/** The frame's info line, as text. */
+	function infoLine(container: HTMLElement): string {
+		return container.querySelector('.info-line')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+	}
+
+	it('in its frame, adds its parts to the info line, before the tempo written with its beat’s unit', () => {
 		const controller = running();
 		controller.view.tempoBpm = 90;
-		controller.view.stage = { view: 'figure', model: model({ barInCycle: 1, cycleBars: 4 }) };
+		controller.view.stage = {
+			view: 'figure',
+			model: model({ barInCycle: 1, cycleBars: 4, tempo: { bpm: 90, unit: '♪' } })
+		};
 		const { container } = render(PlayFrame, { props: { controller } });
 		expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
-		expect(container.querySelector('.info-line')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'Contretemps · niveau 3 sur 6 · mesure 2 / 4 · ♩ = 90 Pause Quitter'
+		// The frame alone would write a quarter: the view knows the beat is an eighth.
+		expect(infoLine(container)).toBe(
+			'Contretemps · niveau 3 sur 6 · mesure 2 / 4 · ♪ = 90 Pause Quitter'
 		);
 		expect(screen.queryByTestId('figure-header')).toBeNull();
+	});
+
+	it('says nothing twice in the info line: an exercise played alone is named once', () => {
+		const controller = Object.assign(running(), {
+			origin: playOriginOf({ exercise: RHYTHM_OFFBEATS.id })
+		});
+		controller.view.tempoBpm = 90;
+		controller.view.stage = { view: 'figure', model: model() };
+		const { container } = render(PlayFrame, { props: { controller } });
+		expect(RHYTHM_OFFBEATS.title?.fr).toBe('Contretemps');
+		expect(infoLine(container)).toBe(
+			'Contretemps · niveau 3 sur 6 · mesure 1 / 1 · ♩ = 90 Pause Quitter'
+		);
 	});
 
 	it('keeps the prompt’s row in the flow when it has nothing to say: the figure never moves', () => {
