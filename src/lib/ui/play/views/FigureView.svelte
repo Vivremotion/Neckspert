@@ -208,8 +208,10 @@
 		<p class="meta" data-testid="figure-header">{parts.join(' · ')}</p>
 	{/if}
 
-	{#if m.prompt || view.countdown !== null || phaseText}
-		<div class="top">
+	<!-- Always in the flow, at the height of a prompt line: the figure never moves when the prompt,
+	     the count or the state come or go. -->
+	<div class="top">
+		{#if m.prompt || view.countdown !== null || phaseText}
 			{#if m.prompt}
 				<p class="prompt" data-testid="figure-prompt">
 					<span class="primary">{m.prompt.primary}</span>
@@ -229,8 +231,8 @@
 			{:else if phaseText}
 				<p class="phase">{phaseText}</p>
 			{/if}
-		</div>
-	{/if}
+		{/if}
+	</div>
 
 	{#if m.neck}
 		{@const Neck = PICTURE_VIEWS[m.neck.kind]}
