@@ -71,14 +71,22 @@
 	let reports = $state<ChordReport[]>([]);
 
 	const strings = $derived(STRING_SETS[stringSetIndex].strings);
-	/** The root may be on any string of the set; another set moves it to the same rank. */
 	const rootChoices = $derived(strings.map((string) => ({ string, label: STRING_NAMES[string] })));
-	const rootStringOnSet = $derived(strings.includes(rootString) ? rootString : strings[1]);
-	const occurrences = $derived(benchOccurrences(chordRoot, chordQuality, strings, rootStringOnSet));
+	const occurrences = $derived(benchOccurrences(chordRoot, chordQuality, strings, rootString));
+	/** The place listened for: the one chosen, or the last one when the list got shorter. */
+	const placeIndex = $derived(Math.min(occurrenceIndex, occurrences.length - 1));
+
+	/** Another set of strings keeps the root on the string of the same rank, and starts low. */
+	function chooseStrings(index: number) {
+		const rank = Math.max(0, strings.indexOf(rootString));
+		stringSetIndex = index;
+		rootString = STRING_SETS[index].strings[rank];
+		occurrenceIndex = 0;
+	}
 
 	function listen() {
 		if (!verifier || !context) return;
-		const occurrence = occurrences[Math.min(occurrenceIndex, occurrences.length - 1)];
+		const occurrence = occurrences[placeIndex];
 		const { expectation, label } = benchExpectation(
 			chordRoot,
 			chordQuality,
@@ -180,7 +188,11 @@
 	<section>
 		<h2>Accords</h2>
 		<div class="row">
-			<select bind:value={stringSetIndex} aria-label="Cordes">
+			<select
+				value={stringSetIndex}
+				onchange={(e) => chooseStrings(Number(e.currentTarget.value))}
+				aria-label="Cordes"
+			>
 				{#each STRING_SETS as set, i (set.label)}
 					<option value={i}>cordes {set.label}</option>
 				{/each}
@@ -196,12 +208,14 @@
 			</select>
 			<select bind:value={rootString} aria-label="Corde de la fondamentale">
 				{#each rootChoices as choice (choice.string)}
-					<option value={choice.string} selected={choice.string === rootStringOnSet}>
-						fondamentale sur {choice.label}
-					</option>
+					<option value={choice.string}>fondamentale sur {choice.label}</option>
 				{/each}
 			</select>
-			<select bind:value={occurrenceIndex} aria-label="Position">
+			<select
+				value={placeIndex}
+				onchange={(e) => (occurrenceIndex = Number(e.currentTarget.value))}
+				aria-label="Position"
+			>
 				{#each occurrences as occurrence, i (fretsOf(occurrence))}
 					<option value={i}>cases {fretsOf(occurrence)}</option>
 				{/each}

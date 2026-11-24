@@ -86,12 +86,12 @@ describe('judgeWindow in the bass', () => {
 	});
 
 	it('retains a triad from B1, the seventh string, against its minor and its octave', () => {
-		// The judge reads only the pitches: strings and frets are those of a seven-string guitar,
-		// which the domain does not know yet, written here as string 6 below fret 0.
+		// The judge reads only the pitches: the strings and frets of a seven-string guitar, which
+		// the domain does not know yet, are written as a placeholder.
 		const sevenString = (id: string, midis: number[]) => ({
 			id,
 			kind: 'other',
-			notes: midis.map((midi) => ({ string: 6 as const, fret: midi - 40, midi }))
+			notes: midis.map((midi) => ({ string: 6 as const, fret: 0, midi }))
 		});
 		const candidates = [
 			sevenString('B', [35, 39, 42]),

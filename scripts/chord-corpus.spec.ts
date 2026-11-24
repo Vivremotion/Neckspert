@@ -1,5 +1,6 @@
 // Measures the chord verifier on the triad detection corpus (format neckspert-triads-corpus v1,
-// local only, see .gitignore): every well-played chord of every take is judged as a round would,
+// recorded on the spike's /dev/corpus page, kept outside git: `/corpus` is ignored, the takes
+// live in the author's main checkout): every well-played chord of every take is judged as a round would,
 // and the share recognized is printed by input and style. A measuring run, not a test: it only
 // runs when TRIAD_CORPUS names the corpus folder, and compares nothing by itself.
 //
