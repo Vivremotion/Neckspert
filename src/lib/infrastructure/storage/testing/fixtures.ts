@@ -17,7 +17,7 @@ import {
 	type SkillId
 } from '$lib/domain/types';
 import type { LevelState } from '$lib/domain/time';
-import type { BackupV7, ProgressionV10 } from '../migrations/v11';
+import type { BackupV7, LevelStateV11, ProgressionV10 } from '../migrations/v11';
 import { RHYTHM_FIGURE_MECHANIC_V11, type CyclePlanRecordV11 } from '../migrations/v12';
 import { MECHANICS_V12 } from '../migrations/v13';
 
@@ -55,7 +55,6 @@ export function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
 		cardKey: overrides.cardKey ?? keyOf(skill, finalData.item),
 		phase: 'review',
 		temperature: 'cold',
-		aids: [],
 		promptedAt: 1000,
 		tempoBpm: identify ? null : 80,
 		leadBeats: identify ? null : 2,
@@ -177,7 +176,7 @@ export function makeProgressionV6(overrides: Partial<ProgressionV10> = {}): Prog
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 9,
+		version: 10,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
 		cards: [makeCard()],
@@ -187,6 +186,11 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 		definitionFiles: [],
 		...overrides
 	};
+}
+
+/** A version 9 export: its level states may rest (`resumeAfter`), its levels count aid levels. */
+export function makeBackupV9(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return { ...makeBackup(), version: 9, ...overrides };
 }
 
 /**
@@ -257,6 +261,11 @@ export function makeBackupV2(overrides: Record<string, unknown> = {}): Record<st
 	};
 }
 
+/** A level state as backups 4 to 9 hold it: with its `resumeAfter`, null by default. */
+export function makeLevelStateV9(overrides: Partial<LevelStateV11> = {}): LevelStateV11 {
+	return { ...makeLevelState(), resumeAfter: null, ...overrides };
+}
+
 /** The level state of a rhythm exercise: no scope, no item, at level 1. */
 export function makeLevelState(overrides: Partial<LevelState> = {}): LevelState {
 	return {
@@ -266,7 +275,6 @@ export function makeLevelState(overrides: Partial<LevelState> = {}): LevelState 
 		level: 0,
 		successes: 2,
 		failures: 0,
-		resumeAfter: null,
 		...overrides
 	};
 }

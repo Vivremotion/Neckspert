@@ -19,8 +19,7 @@ const level = (item: string, at: number): LevelState => ({
 	item,
 	level: at,
 	successes: 0,
-	failures: 0,
-	resumeAfter: null
+	failures: 0
 });
 
 /** A seeded random (mulberry32), so a draw can be compared draw for draw. */

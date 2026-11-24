@@ -16,7 +16,6 @@ const state = (over: Partial<LevelState>): LevelState => ({
 	level: 0,
 	successes: 0,
 	failures: 0,
-	resumeAfter: null,
 	...over
 });
 

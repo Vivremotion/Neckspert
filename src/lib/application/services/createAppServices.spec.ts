@@ -279,8 +279,7 @@ describe('createAppServices', () => {
 			item: '6:G',
 			level: 2,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		});
 		const controller = await services.startRoutine('notes');
 		await controller.start();
@@ -317,8 +316,7 @@ describe('createAppServices', () => {
 				item: neckCardKey(card).slice('locate-note-string:'.length),
 				level: 2,
 				successes: 0,
-				failures: 0,
-				resumeAfter: null
+				failures: 0
 			});
 		}
 		const controller = await services.startRoutine('notes', { free: true });
@@ -493,37 +491,6 @@ describe('createAppServices', () => {
 			nextReviewAt: later
 		});
 	});
-
-	it('marks no routine resting, whatever rest an older level state kept', async () => {
-		const { services, deps } = harness();
-		const now = deps.now();
-		await deps.levels.put({
-			exerciseId: 'grid-reading',
-			scope: 'iohefy-a',
-			item: '',
-			level: 0,
-			successes: 0,
-			failures: 0,
-			resumeAfter: now + 1
-		});
-		await deps.levels.put({
-			exerciseId: 'chord-anchor',
-			scope: '',
-			item: '',
-			level: 0,
-			successes: 0,
-			failures: 0,
-			resumeAfter: now - 1
-		});
-		const routines = await services.routines();
-		expect(routines.map((routine) => routine.id)).toEqual([
-			'notes',
-			'chords',
-			'chords-zone',
-			'changes'
-		]);
-		for (const routine of routines) expect(routine).not.toHaveProperty('resting');
-	});
 });
 
 describe('a routine that opens on a level', () => {
@@ -538,8 +505,7 @@ describe('a routine that opens on a level', () => {
 		item: '',
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	});
 
 	it('opens at the level written (index + 1), never below it, scope or no scope', async () => {
@@ -557,6 +523,9 @@ describe('a routine that opens on a level', () => {
 			const open = async () =>
 				(await services.routines()).find((r) => r.id === `on-level-${scope ?? 'none'}`)?.open;
 			expect(await open(), 'no level held').toBe(false);
+			// A level the migration could not move (its exercise unknown to it) opens nothing.
+			await deps.levels.put(held(-1, scope));
+			expect(await open(), 'a level below the first').toBe(false);
 			await deps.levels.put(held(0, scope));
 			expect(await open(), 'level 1').toBe(false);
 			// Another scope's level is not this one's.
@@ -754,8 +723,7 @@ describe('the gesture track', () => {
 			item: '',
 			level: 3,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		});
 		const controller = await services.startRoutine('changes');
 		await controller.start();
@@ -826,7 +794,6 @@ describe('the gesture track', () => {
 			['grid-in-direction', true, 9],
 			['grid-reading', false, 9]
 		]);
-		expect((await deps.levels.all()).every((level) => level.resumeAfter === null)).toBe(true);
 	});
 });
 
@@ -958,8 +925,7 @@ describe('the rhythm exercises', () => {
 		item: '',
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	});
 
 	it('sums a rhythm session up from its cycles and the level it ended on', async () => {
@@ -1188,8 +1154,7 @@ describe('a session by its routine or its exercise', () => {
 				item: neckCardKey(card).slice('locate-note-string:'.length),
 				level,
 				successes: 0,
-				failures: 0,
-				resumeAfter: null
+				failures: 0
 			});
 		}
 	};
@@ -1484,17 +1449,6 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 });
 
 describe('the library', () => {
-	/** A level state of `exerciseId` at level 1, in `scope`, resting until `resumeAfter`. */
-	const restingLevel = (exerciseId: string, resumeAfter: number, scope = '') => ({
-		exerciseId,
-		scope,
-		item: '',
-		level: 0,
-		successes: 0,
-		failures: 0,
-		resumeAfter
-	});
-
 	afterEach(() => {
 		loadDefinitions({ catalog: CATALOG_FILES });
 		vi.restoreAllMocks();
@@ -1610,17 +1564,6 @@ describe('the library', () => {
 		const entry = (await services.library()).find((e) => e.exerciseId === 'memory-with-figure');
 		expect(entry?.playable).toBe(false);
 		await expect(services.startExercise('memory-with-figure')).rejects.toThrow(/not played/);
-	});
-
-	it('marks no exercise resting, whatever rest an older level state kept', async () => {
-		const { services, deps } = harness();
-		const now = deps.now();
-		await deps.levels.put(restingLevel(RHYTHM_OFFBEATS.id, now + 1));
-		await deps.levels.put(restingLevel('grid-reading', now + 1, 'blues-f'));
-		await deps.levels.put(restingLevel(RHYTHM_TWO_FOUR.id, now - 1));
-		const library = await services.library();
-		expect(library.map((e) => e.exerciseId)).toContain(RHYTHM_OFFBEATS.id);
-		for (const entry of library) expect(entry).not.toHaveProperty('resting');
 	});
 
 	it('lists what is left of a catalog with a file refused, and nothing throws (Review Focus 4)', async () => {

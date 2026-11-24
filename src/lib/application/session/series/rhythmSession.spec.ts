@@ -814,8 +814,7 @@ const FIRST_STATE = {
 	item: '',
 	level: 0,
 	successes: 0,
-	failures: 0,
-	resumeAfter: null
+	failures: 0
 };
 
 describe('the rhythm on the series, the breath and the levels', () => {
@@ -1334,7 +1333,7 @@ describe('the rhythm on the series, failures in a row', () => {
 			expect(attempts.length).toBeGreaterThanOrEqual(6);
 			expect(attempts.every((a) => !a.success && a.aids === undefined)).toBe(true);
 			const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
-			expect(state).toMatchObject({ level: 0, resumeAfter: null });
+			expect(state).toMatchObject({ level: 0 });
 			expect(state?.failures).toBe(attempts.length);
 		}
 	);
@@ -2112,5 +2111,42 @@ describe('the rhythm on the series, hearing the last run again', () => {
 		await settled();
 		expect(takes.stops).toBeGreaterThan(0);
 		expect(controller.view.status).toBe('finished');
+	});
+});
+
+describe('the rhythm on the series, from a stored level out of its list', () => {
+	// A level the migration to database 14 could not move (-1), or one above the top (99): the
+	// series starts at the nearest level of the list, its rounds compiled and shown at it.
+	it.each([
+		[-1, 0],
+		[99, 4]
+	])('stored at %i: plays its first round at the level of index %i', async (stored, played) => {
+		const series = await rhythmSeries(RHYTHM_OFFBEATS, { level: stored, met: true });
+		const { controller, clock, advance } = series;
+		await controller.ready();
+		expect(stageOf(controller).level).toEqual({ shown: played + 1, of: 5 });
+		await controller.start();
+		let attempts = await series.stored();
+		while (attempts.length === 0 && clock.time < ORIGIN + 60) {
+			await advance(clock.time + 0.5);
+			attempts = await series.stored();
+		}
+		const [first] = attempts;
+		const data = first.data as FigureAttemptData;
+		expect(data.level).toBe(played);
+		const item: PlannedItem = {
+			exerciseId: RHYTHM_OFFBEATS.id,
+			skill: 'figure-independence',
+			exerciseLevel: played,
+			item: data.item,
+			phase: 'free',
+			temperature: 'hot',
+			leadBeats: null
+		};
+		expect(roundPlanFromRecord(first.plan as RoundPlanRecord)).toEqual(
+			compileRound(RHYTHM_OFFBEATS, item, METER_4_4, { previewBeats: 0, fromRunStart: 0 })
+		);
+		expect(stageOf(controller).level).toEqual({ shown: played + 1, of: 5 });
+		controller.quit();
 	});
 });

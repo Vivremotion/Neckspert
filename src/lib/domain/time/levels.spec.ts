@@ -18,7 +18,6 @@ function stateAt(level: number, extra: Partial<LevelState> = {}): LevelState {
 		level,
 		successes: 0,
 		failures: 0,
-		resumeAfter: null,
 		...extra
 	};
 }
@@ -124,15 +123,14 @@ describe('nextLevelState', () => {
 		expect(state).toMatchObject({ level: 0, failures: 4, successes: 0 });
 	});
 
-	it('keeps identity and resumeAfter, and does not mutate the input', () => {
-		const start = stateAt(0, { resumeAfter: 7, scope: 'blues', item: 'a' });
+	it('keeps identity, and does not mutate the input', () => {
+		const start = stateAt(0, { scope: 'blues', item: 'a' });
 		const frozen = Object.freeze({ ...start });
 		const next = nextLevelState(frozen, plain, ok);
 		expect(next.state).toMatchObject({
 			exerciseId: 'ex',
 			scope: 'blues',
-			item: 'a',
-			resumeAfter: 7
+			item: 'a'
 		});
 		expect(next.state).not.toBe(frozen);
 		expect(frozen.successes).toBe(0);
@@ -169,8 +167,7 @@ describe('generic levels', () => {
 			item: 'i',
 			level,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		});
 		const up = nextLevelState(at(0), ladder, { success: true });
 		expect(up.changed).toBe('up');

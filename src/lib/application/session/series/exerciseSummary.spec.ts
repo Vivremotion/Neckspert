@@ -22,8 +22,7 @@ function state(level: number): LevelState {
 		item: '',
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	};
 }
 

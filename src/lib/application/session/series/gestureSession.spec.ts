@@ -351,7 +351,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(second.every((a) => a.success)).toBe(true);
 		expect(
 			await app.deps.levels.get({ exerciseId: 'inversion-run', scope: '', item: '' })
-		).toMatchObject({ level: 1, failures: 0, successes: 0, resumeAfter: null });
+		).toMatchObject({ level: 1, failures: 0, successes: 0 });
 	});
 
 	it('plays a beginner’s tours at level 1 when nothing is right: nothing ends the session early', async () => {
@@ -368,7 +368,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(announced).toBeNull();
 		expect(
 			await app.deps.levels.get({ exerciseId: 'inversion-run', scope: '', item: '' })
-		).toMatchObject({ level: 0, resumeAfter: null });
+		).toMatchObject({ level: 0 });
 	});
 
 	it('links each of its 48 indices in the order written, a bar of silence before a new one', async () => {
@@ -1220,8 +1220,7 @@ describe('the exercise level moving in session (levels)', () => {
 		item: '',
 		level: 1,
 		successes,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	});
 	/** What the frame showed on each beat counted, and once the rounds were open. */
 	function frames(ctx: Ctx) {
@@ -1396,8 +1395,7 @@ describe('the first level of the changes (D12, Review Focus 4)', () => {
 		item: '',
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	});
 
 	it('a never-played jam starts at level 1: every shape of the chord drawn, three right take it to level 2', async () => {
@@ -1624,7 +1622,7 @@ describe('the first level of the changes (D12, Review Focus 4)', () => {
 		]);
 		expect(attempts.every((attempt) => !attempt.success && attempt.aids === undefined)).toBe(true);
 		expect(ctx.controller.view.announcement).toBeNull();
-		expect(await levelOf(ctx)).toMatchObject({ level: 0, resumeAfter: null });
-		expect(await levelOf(ctx, 'grid-reading')).toMatchObject({ level: 0, resumeAfter: null });
+		expect(await levelOf(ctx)).toMatchObject({ level: 0 });
+		expect(await levelOf(ctx, 'grid-reading')).toMatchObject({ level: 0 });
 	});
 });

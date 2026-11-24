@@ -41,7 +41,6 @@ export function earlier(exerciseId: string, skill = 'inner-pulse'): Attempt {
 		cardKey: `${skill}:old@0`,
 		phase: 'free',
 		temperature: 'hot',
-		aids: [],
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -171,8 +170,7 @@ export async function rhythmSeries(
 			item: '',
 			level: options.level,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		});
 	}
 	await settings.update({

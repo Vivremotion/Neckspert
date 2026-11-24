@@ -220,8 +220,7 @@ export class ExerciseLevels {
 			item: '',
 			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
 		const level = Math.min(highest, Math.max(0, state.level));
 		return level === state.level ? state : { ...state, level, successes: 0, failures: 0 };

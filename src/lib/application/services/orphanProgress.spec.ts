@@ -57,7 +57,7 @@ class RepositoryBackup implements BackupPort {
 		const { deps } = this;
 		return {
 			app: 'neckspert-play',
-			version: 9,
+			version: 10,
 			exportedAt: 0,
 			settings: await deps.settings.get(),
 			cards: await deps.cards.all(),
@@ -179,7 +179,6 @@ function levelState(fields: Partial<LevelState>): LevelState {
 		level: 2,
 		successes: 0,
 		failures: 0,
-		resumeAfter: null,
 		...fields
 	};
 }
@@ -227,7 +226,7 @@ async function seed(deps: SessionDeps): Promise<void> {
 	]) {
 		await deps.attempts.add(row);
 	}
-	await deps.levels.put(levelState({ resumeAfter: Number.MAX_SAFE_INTEGER }));
+	await deps.levels.put(levelState({}));
 	await deps.levels.put(levelState({ item: 'x', level: 1 }));
 	await deps.sessions.put(
 		session({

@@ -57,7 +57,7 @@ export function responseAttempt<D>(fields: ResponseAttemptFields<D>): Attempt<D>
 		...rest,
 		verdict: envelope,
 		success: decided,
-		aids: aids ?? [],
+		...(aids && { aids }),
 		measures: measures ?? {},
 		plan: plan ?? null
 	};

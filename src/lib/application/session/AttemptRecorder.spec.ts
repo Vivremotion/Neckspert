@@ -174,8 +174,7 @@ describe('AttemptRecorder', () => {
 			item: 'F@2',
 			level: 2,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
 		const moved = setupResponse({ record: () => ({ level }) });
 		const learning = item({ phase: 'learning', temperature: 'hot' });

@@ -178,8 +178,7 @@ class Procedure implements LearningProcedure {
 				item,
 				level: 0,
 				successes: 0,
-				failures: 0,
-				resumeAfter: null
+				failures: 0
 			}
 		);
 	}

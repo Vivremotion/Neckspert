@@ -59,8 +59,7 @@ function topOf(id: string, item: string): LevelState {
 		item,
 		level: ladderOf(LOCATE_NECK).length - 1,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	};
 }
 

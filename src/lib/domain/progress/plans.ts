@@ -36,8 +36,7 @@ export function freeLevelOf(input: {
 			item: key,
 			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
 		return ladderLevel(held, subject.ladder(card.skill)).level;
 	};

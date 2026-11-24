@@ -21,7 +21,7 @@ export class DexieBackup implements BackupPort {
 			[db.attempts, db.cards, db.sessions, db.settings, db.levelStates, db.definitionFiles],
 			async (): Promise<BackupFile> => ({
 				app: 'neckspert-play',
-				version: 9,
+				version: 10,
 				exportedAt: this.now(),
 				settings: await new DexieSettingsRepository(db).get(),
 				cards: await db.cards.toArray(),

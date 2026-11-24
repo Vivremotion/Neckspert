@@ -130,8 +130,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			item: '',
 			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		}
 	]);
 	const sources = new Map<string, ItemSource>();

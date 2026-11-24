@@ -194,7 +194,7 @@ export const BENCH_LEVELS: Level<LevelOverrides>[] = [120, 60].map((tempo) => ({
 export const BENCH_LEVEL_STATES: LevelState[] = [
 	{ exerciseId: 'grid-reading', scope: 'blues-f', level: 1 },
 	{ exerciseId: 'grid-in-zone', scope: 'iohefy-a', level: 1 }
-].map((key) => ({ ...key, item: '', successes: 0, failures: 0, resumeAfter: null }));
+].map((key) => ({ ...key, item: '', successes: 0, failures: 0 }));
 
 /**
  * An exercise of the changes (it writes passages), or one a spec draws from it, on the bench's

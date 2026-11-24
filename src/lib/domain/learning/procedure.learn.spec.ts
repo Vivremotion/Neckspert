@@ -66,8 +66,7 @@ function levelAt(item: number, level: number, skill: SkillId = FAKE): LevelState
 		item: String(item),
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	};
 }
 

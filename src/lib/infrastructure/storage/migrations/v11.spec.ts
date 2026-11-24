@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISE_IDS_V13 } from './v13';
 import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
-import type { LevelState } from '$lib/domain/time';
 import {
 	GESTURE_EXERCISES_V11,
 	GESTURE_GRID_EXERCISES_V11,
@@ -11,6 +10,7 @@ import {
 	gestureLevelOfTempo,
 	levelStatesV11,
 	type BackupV6,
+	type LevelStateV11,
 	type ProgressionV10
 } from './v11';
 import { GESTURE_EXERCISES } from '$lib/testing/catalog';
@@ -24,7 +24,7 @@ function progression(
 	return { exerciseId, mechanic, tempoBpm, updatedAt: 1, ...(scope !== undefined && { scope }) };
 }
 
-function level(exerciseId: string, scope: string, value: number): LevelState {
+function level(exerciseId: string, scope: string, value: number): LevelStateV11 {
 	return {
 		exerciseId,
 		scope,

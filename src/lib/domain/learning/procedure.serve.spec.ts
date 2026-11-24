@@ -72,8 +72,7 @@ const heldAt = (item: number, level: number): LevelState => ({
 	item: String(item),
 	level,
 	successes: 0,
-	failures: 0,
-	resumeAfter: null
+	failures: 0
 });
 /** The top of the fake's default ladder (8, 4, then 2 in direct recall). */
 const TOP = 2;
@@ -386,8 +385,7 @@ describe('createLearningProcedure next', () => {
 			item: '0',
 			level: 2,
 			successes: 1,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
 		const source = procedure({
 			subject: fakeSubject({ ladder: SHORT }),
@@ -404,8 +402,7 @@ describe('createLearningProcedure next', () => {
 			item: '3',
 			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		});
 		expect(procedure({ cards: [learning(0)] }).next(at(0))).toMatchObject({
 			phase: 'learning',

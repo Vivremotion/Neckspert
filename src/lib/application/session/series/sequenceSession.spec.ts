@@ -149,7 +149,6 @@ describe('a sequence of chord shapes on the series', () => {
 		expect(controller.view.status).not.toBe('ended');
 		const state = await levels.get({ exerciseId: ARPEGGIO_EXERCISE.id, scope: '', item: '' });
 		expect(state?.level ?? 0).toBe(0);
-		expect(state?.resumeAfter ?? null).toBeNull();
 		controller.quit();
 	});
 

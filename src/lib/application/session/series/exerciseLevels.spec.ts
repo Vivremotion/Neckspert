@@ -53,7 +53,7 @@ const CHAINS = { chains: true, countIn: false };
 const FOLLOWS = { chains: false, countIn: false };
 
 function stored(exerciseId: string, scope: string, level: number): LevelState {
-	return { exerciseId, scope, item: '', level, successes: 0, failures: 0, resumeAfter: null };
+	return { exerciseId, scope, item: '', level, successes: 0, failures: 0 };
 }
 
 async function setup(states: LevelState[] = []) {

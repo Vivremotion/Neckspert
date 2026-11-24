@@ -130,7 +130,6 @@ export function attemptOf(
 		cardKey: cardKey(planned.skill, String(planned.item)) as CardKey,
 		phase: planned.phase,
 		temperature: planned.temperature,
-		aids: [],
 		promptedAt: at ?? 0,
 		tempoBpm,
 		leadBeats,

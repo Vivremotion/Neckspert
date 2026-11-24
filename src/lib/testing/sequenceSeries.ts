@@ -154,8 +154,7 @@ export async function sequenceSeries(
 			item: '',
 			level: options.level,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		});
 	}
 	await settings.update({ latency: {}, clickBleed: options.clickBleed ?? false });

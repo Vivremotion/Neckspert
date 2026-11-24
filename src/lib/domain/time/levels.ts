@@ -46,7 +46,6 @@ export interface LevelState {
 	successes: number;
 	/** Failures in a row at this level. */
 	failures: number;
-	resumeAfter: number | null;
 }
 
 /**

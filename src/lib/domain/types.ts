@@ -467,7 +467,7 @@ export interface DefinitionFileRecord {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 9;
+	version: 10;
 	exportedAt: number;
 	settings: Settings;
 	cards: CardState[];
