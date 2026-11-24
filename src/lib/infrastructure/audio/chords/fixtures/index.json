@@ -147,7 +147,8 @@
 		"midi": [60, 63, 68],
 		"previous": null,
 		"beatSec": 0.4,
-		"expect": "recognized"
+		"expect": "frozen",
+		"frozenDecision": null
 	},
 	{
 		"file": "11-relier_D_plaque_di-2-3-2.wav",

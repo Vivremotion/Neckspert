@@ -8,8 +8,10 @@ import {
 	voicingOccurrences,
 	type StringNumber
 } from '$lib/domain/music';
+import { WebAudioAttackDetector } from '../attacks';
+import { ATTACK_NOTICE_S } from './constants';
 import { NnlsChordVerifier } from './NnlsChordVerifier';
-import { FakeFrameSource } from './testing/frames';
+import { FRAME_SIZE, FakeFrameSource } from './testing/frames';
 import { toCandidate } from './testing/synthChord';
 import { readWav } from './testing/wav';
 import index from './fixtures/index.json';
@@ -78,7 +80,7 @@ function decisionOf(fixture: Fixture): string | null {
 	const { sampleRate, samples } = readWav(wavBytes(fixture.file));
 	const heard = samples.map((v) => Math.max(-1, Math.min(1, v * fixture.builtInGain)));
 	const source = new FakeFrameSource(sampleRate, heard);
-	const verifier = new NnlsChordVerifier(source);
+	const verifier = new NnlsChordVerifier(source, new WebAudioAttackDetector(source));
 	const reports: ChordReport[] = [];
 	verifier.onReport((report) => reports.push(report));
 	verifier.expect({
@@ -110,4 +112,22 @@ describe('the chord verifier on real recorded triads', () => {
 			});
 		}
 	}
+});
+
+describe('the attack sensor on real recorded triads', () => {
+	// The verifier reads a window only once no attack can still be told inside it.
+	it('tells every attack within ATTACK_NOTICE_S of it', () => {
+		const delays: number[] = [];
+		for (const fixture of FIXTURES) {
+			const { sampleRate, samples } = readWav(wavBytes(fixture.file));
+			const heard = samples.map((v) => Math.max(-1, Math.min(1, v * fixture.builtInGain)));
+			const source = new FakeFrameSource(sampleRate, heard);
+			let frameEnd = 0;
+			source.onFrame(({ frameTime }) => (frameEnd = frameTime + FRAME_SIZE / sampleRate));
+			new WebAudioAttackDetector(source).onAttack(({ time }) => delays.push(frameEnd - time));
+			source.playUntil();
+		}
+		expect(delays.length).toBeGreaterThan(FIXTURES.length);
+		expect(Math.max(...delays)).toBeLessThanOrEqual(ATTACK_NOTICE_S);
+	});
 });
