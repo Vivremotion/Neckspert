@@ -127,7 +127,8 @@ describe('LinkLaneView', () => {
 		controller.view.status = 'count-in';
 		render(LinkLaneView, { props: { controller, model: model(0, false, null) } });
 		expect(root()).toBe('E');
-		expect(screen.queryByTestId('link-countdown')).toBeNull();
+		// The count's row is there, empty: the chord will not move when the count comes.
+		expect(screen.getByTestId('link-countdown').textContent?.trim()).toBe('');
 	});
 
 	it('writes the count above the root during the counted bar, the change where the count ends', () => {

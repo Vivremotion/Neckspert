@@ -3,10 +3,10 @@ import type { LaneEntry } from '$lib/application/session/contract';
 import type { ResponseVerdict } from '$lib/domain/types';
 import type { LaneTile } from '$lib/ui/play/lane';
 
-/** Beats on show behind the hit line, as on the notes' lane. */
-export const LANE_BEATS_BEFORE = 4;
-/** Beats on show ahead of it: two bars. */
-export const LANE_BEATS_AFTER = 8;
+/** Bars on show behind the hit line, as on the notes' lane. */
+export const LANE_BARS_BEFORE = 1;
+/** Bars on show ahead of it. */
+export const LANE_BARS_AFTER = 2;
 
 /** Far below a beat: absorbs floating-point error when matching a round or a verdict to its beat. */
 const BEAT_TOLERANCE = 1e-6;
@@ -75,7 +75,10 @@ export function linkLaneLayout(
 
 	const current = Math.floor(time.nowBeat) + 1;
 	const tiles: LinkLaneTile[] = [];
-	for (let beat = current - LANE_BEATS_BEFORE; beat < current + LANE_BEATS_AFTER; beat++) {
+	// One bar behind, two ahead, in the exercise's meter: the lane's cells are sized on it.
+	const before = LANE_BARS_BEFORE * beatsPerBar;
+	const after = LANE_BARS_AFTER * beatsPerBar;
+	for (let beat = current - before; beat < current + after; beat++) {
 		const entry = played.find((e) => Math.abs(e.beatIndex - beat) < BEAT_TOLERANCE) ?? null;
 		const on = symbols.get(beat) ?? null;
 		const inBar = (((beat - start) % beatsPerBar) + beatsPerBar) % beatsPerBar;

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 	import type { PlaySessionController } from '$lib/application/session/contract';
+	import { MARK_SIZE_PX } from '$lib/ui/primitives/LaneCell.svelte';
+	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import VerdictMark from '$lib/ui/primitives/VerdictMark.svelte';
 	import { verdictTone } from '$lib/ui/primitives/verdictTone';
 	import { useInfoLine } from '../infoLine.svelte';
@@ -65,13 +67,14 @@
 	{/if}
 
 	<div class="centre">
-		{#if view.countdown !== null}
-			<p class="count" data-testid="grid-countdown" aria-live="polite">{view.countdown}</p>
-		{/if}
+		<!-- The count's row is always there: the chord never moves when the counted bar comes or goes. -->
+		<p class="count" data-testid="grid-countdown" aria-live="polite">{view.countdown ?? ''}</p>
 		<div class="now" aria-live="polite">
-			{#if current !== null}
-				<p class="current" data-testid="current-chord">{current}</p>
-			{/if}
+			<!-- The chord on show as a hero prompt: one line whatever its symbol's length. Before the
+			     first change its row is kept at its height, blank, so the next chord does not move. -->
+			<div class="current" data-testid={current !== null ? 'current-chord' : undefined}>
+				<Prompt main={current ?? '\u00a0'} size="hero" />
+			</div>
 			{#if next !== null}
 				<!-- The next chord, with its arrow: no word for it. Announced a beat ahead, it lights up. -->
 				<p class="next" class:announced={placement.nextAnnounced} data-testid="next-chord">
@@ -82,9 +85,14 @@
 		{#if stage.prompt.detail}
 			<p class="cue">{stage.prompt.detail}</p>
 		{/if}
-		{#each stage.verdict?.misses ?? [] as miss, i (i)}
-			<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
-		{/each}
+		{#if (stage.verdict?.misses ?? []).length > 0}
+			<!-- A miss is laid over the bottom of the centre, out of the flow: the chord stays put. -->
+			<div class="misses">
+				{#each stage.verdict?.misses ?? [] as miss, i (i)}
+					<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<div class="bottom">
@@ -102,7 +110,9 @@
 								<span class="chord">{cell.symbol}</span>
 							{/if}
 							{#if cell.verdict}
-								<span class="verdict"><VerdictMark verdict={cell.verdict} size={24} /></span>
+								<span class="verdict"
+									><VerdictMark verdict={cell.verdict} size={MARK_SIZE_PX} /></span
+								>
 							{/if}
 						</div>
 					{/each}
@@ -147,6 +157,7 @@
 
 	.centre {
 		container-type: inline-size;
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -156,11 +167,23 @@
 		text-align: center;
 	}
 
+	/* The count's row is kept when there is none, so nothing under it moves. */
 	.count {
+		min-height: 1.1em;
 		font-size: var(--np-size-prompt);
 		font-weight: 300;
 		line-height: 1.1;
 		font-variant-numeric: tabular-nums;
+	}
+
+	.misses {
+		position: absolute;
+		inset-inline: 0;
+		inset-block-end: 0;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--np-step-4);
 	}
 
 	/* The chord on show and the next one on one line, both one word, never cut. */
@@ -172,11 +195,11 @@
 		gap: var(--np-step-2) var(--np-step-5);
 	}
 
+	/* The hero's width is the chord's share of the row: the next chord keeps its place beside it. */
 	.current {
-		font-size: min(var(--np-size-hero), 22cqi);
-		font-weight: 300;
-		line-height: 1;
-		white-space: nowrap;
+		container-type: inline-size;
+		min-width: 0;
+		max-inline-size: 70cqi;
 	}
 
 	.next {
@@ -222,17 +245,15 @@
 		min-width: 0;
 	}
 
+	/* A cell's height is fixed: a verdict landing never grows the chart, so nothing above it moves. */
 	.cell {
 		position: relative;
 		display: flex;
 		flex-basis: 0;
-		flex-wrap: wrap;
 		align-items: center;
-		align-content: center;
 		justify-content: center;
-		gap: var(--np-step-1);
 		min-width: 0;
-		min-height: clamp(var(--np-step-6), 5.6vw, var(--np-step-8));
+		block-size: clamp(var(--np-step-7), 7vw, var(--np-step-8));
 		padding: var(--np-step-1);
 		box-sizing: border-box;
 		background: var(--np-cell);
@@ -288,10 +309,23 @@
 		white-space: nowrap;
 	}
 
+	/* The name sits above the mark, as on a lane cell. */
+	.cell:has(.verdict) .chord {
+		padding-block-end: var(--np-step-3);
+	}
+
+	/* The mark under the name, at the bottom of the cell, never in its place. */
 	.verdict {
-		display: inline-flex;
-		flex: none;
+		position: absolute;
+		inset-block-end: 2px;
+		inset-inline: 0;
+		display: flex;
+		justify-content: center;
 		animation: imprint var(--np-motion-imprint) var(--np-motion-ease);
+	}
+
+	.verdict :global(svg) {
+		flex: none;
 	}
 
 	/* The aid's neck at the chart's width: a climb's first change spans the whole neck. */

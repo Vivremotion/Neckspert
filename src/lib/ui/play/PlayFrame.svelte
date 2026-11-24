@@ -62,8 +62,8 @@
 		view.status === 'count-in' || view.status === 'awaiting' || view.status === 'verdict'
 	);
 	/**
-	 * The controller plays figures: « Écouter la figure » and « Réécouter » have keys, Escape
-	 * closes the pause, and the pause offers to quit the exercise. Other sessions are untouched.
+	 * The controller plays figures: « Écouter la figure » and « Réécouter » have keys, and Escape
+	 * closes the pause. Other sessions are untouched.
 	 */
 	const figures = $derived(Boolean(controller.listen || controller.replay));
 	const replay = $derived(replayOf(controller));

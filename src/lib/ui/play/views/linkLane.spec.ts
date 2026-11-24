@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { LaneEntry } from '$lib/application/session/contract';
-import { LANE_BEATS_AFTER, LANE_BEATS_BEFORE, laneTilesOfLink, linkLaneLayout } from './linkLane';
+import { LANE_BARS_AFTER, LANE_BARS_BEFORE, laneTilesOfLink, linkLaneLayout } from './linkLane';
 
 /** A tour of D: a bar each, four shapes up then three down. */
 const ROUNDS = [null, 'up', 'up', 'up', 'down', 'down', 'down'].map((way, i) => ({
@@ -30,8 +30,12 @@ const row = (tiles: ReturnType<typeof linkLaneLayout>) =>
 	tiles.map((t) => [t.beatIndex, t.symbol, t.due, t.downbeat]);
 
 describe('linkLaneLayout', () => {
-	it('shows the beats of the notes lane: LANE_BEATS_BEFORE past, LANE_BEATS_AFTER ahead', () => {
-		expect([LANE_BEATS_BEFORE, LANE_BEATS_AFTER]).toEqual([4, 8]);
+	it('shows the bars of the notes lane, one behind and two ahead, in the meter played', () => {
+		expect([LANE_BARS_BEFORE, LANE_BARS_AFTER]).toEqual([1, 2]);
+		expect(linkLaneLayout(model(0), { nowBeat: 3.2 })).toHaveLength(12);
+		// In 3/4, nine beats: the lane sizes its cells on the meter.
+		const waltz = { ...model(0), beatsPerBar: 3 };
+		expect(linkLaneLayout(waltz, { nowBeat: 3.2 })).toHaveLength(9);
 	});
 
 	it('draws one tile per beat, the way only on the first beat of each bar, the change asked due', () => {
@@ -127,7 +131,7 @@ describe('linkLaneLayout', () => {
 			{ rounds: [], index: 0, beatsPerBar: 4, anchorBeat: null, history: [] },
 			{ nowBeat: 3.2 }
 		);
-		expect(tiles).toHaveLength(LANE_BEATS_BEFORE + LANE_BEATS_AFTER);
+		expect(tiles).toHaveLength((LANE_BARS_BEFORE + LANE_BARS_AFTER) * 4);
 		expect(tiles.every((t) => t.symbol === null && !t.due)).toBe(true);
 	});
 

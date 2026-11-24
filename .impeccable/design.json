@@ -383,14 +383,8 @@
 			}
 		],
 		"migration": {
-			"oldWorldStill": [
-				"PlayFrame and its views (grid scroll, link lane, rhythm figure, played cycle, PixelWord)",
-				"diagnostic oracle page",
-				"ChordShape internals (themed by --shape-*)",
-				"Term fallbacks (themed by --term-*)",
-				"Pixel* primitives and VerdictSprite (inside PlayFrame only)",
-				"dev-only played cycle bridge on the summary (until plan 3)"
-			]
+			"oldWorldStill": [],
+			"done": "plan 3 (2026-11-24): the Game Boy world, its tokens, fonts, plates and pixel primitives are deleted; tokens.spec.ts refuses their return"
 		}
 	},
 	"components": [
@@ -560,7 +554,7 @@
 			},
 			{
 				"name": "The One World Per Screen Rule",
-				"body": "A screen is either wholly in « Près du silence » or wholly in the old world; it never mixes the two. A migrated screen resets what the global pixel rules impose (weight, smoothing, image rendering), as `PlayScreen` and the shell do. A shared component used in both worlds is themed by the screen through its own variables, never by old tokens leaking in; the local bridge on the summary is the one sanctioned exception, scoped and dated. The old tokens, VT323, the scaffold region variables, the bridge and the pixel primitives are deleted when the last screen migrates.",
+				"body": "Every screen is in « Près du silence »: the old Game Boy world, its tokens, VT323, the plates and the pixel primitives were deleted with plan 3 (2026-11-24), and `tokens.spec.ts` refuses their return. A shared component (`ChordShape`, `Term`) is themed by its screen through its own variables (`--shape-*`, `--term-*`), with the light page's tones as fallbacks.",
 				"section": "migration"
 			}
 		],

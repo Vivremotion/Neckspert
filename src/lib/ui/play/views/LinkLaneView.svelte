@@ -45,10 +45,11 @@
 
 <div class="link-lane">
 	<div class="centre">
-		{#if view.countdown !== null}
-			<!-- The counted bar before a new chord, above it: the chord keeps the screen. -->
-			<p class="count" data-testid="link-countdown" aria-live="polite">{view.countdown}</p>
-		{/if}
+		<!-- The count's row is always there, at the height of a prompt line: the chord never moves
+		     when the counted bar comes or goes. -->
+		<p class="count" data-testid="link-countdown" aria-live="polite">
+			{view.countdown ?? ''}
+		</p>
 		<div data-testid="link-root">
 			<Prompt main={lane.prompt.primary} line={lane.prompt.secondary} size="hero">
 				{#if lane.prompt.detail}
@@ -56,9 +57,14 @@
 				{/if}
 			</Prompt>
 		</div>
-		{#each misses as miss, i (i)}
-			<DrawnMiss {miss} chordDiagram={lane.chordDiagram} />
-		{/each}
+		{#if misses.length > 0}
+			<!-- A miss is laid over the bottom of the centre, out of the flow: the chord stays put. -->
+			<div class="misses">
+				{#each misses as miss, i (i)}
+					<DrawnMiss {miss} chordDiagram={lane.chordDiagram} />
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<div class="bottom">
@@ -94,6 +100,7 @@
 	.centre {
 		/* The prompt's hero word scales to this width (cqi). */
 		container-type: inline-size;
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -108,12 +115,23 @@
 		margin: 0;
 	}
 
-	/* The count, light and large, read before the chord. */
+	/* The count, light and large, read before the chord; its row kept when there is none. */
 	.count {
+		min-height: 1.1em;
 		font-size: var(--np-size-prompt);
 		font-weight: 300;
 		line-height: 1.1;
 		font-variant-numeric: tabular-nums;
+	}
+
+	.misses {
+		position: absolute;
+		inset-inline: 0;
+		inset-block-end: 0;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--np-step-4);
 	}
 
 	/* Under the chord: its strings, read last. */

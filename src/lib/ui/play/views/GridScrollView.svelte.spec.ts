@@ -4,6 +4,7 @@ import type { MissView } from '$lib/application/presentation/contentViews';
 import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_ZONE } from '$lib/testing/catalog';
 import { passageModel } from '$lib/testing/changesPassages';
+import PlayFrame from '../PlayFrame.svelte';
 import GridScrollView from './GridScrollView.svelte';
 import { StageController } from './testing/StageController.svelte';
 
@@ -74,7 +75,7 @@ describe('GridScrollView', () => {
 		controller.view.status = 'awaiting';
 		controller.nowBeat = 12.2;
 		render(GridScrollView, { props: { controller, model: model({ anchorBeat: 12 }) } });
-		expect(screen.getByTestId('current-chord').textContent).toBe('G7');
+		expect(screen.getByTestId('current-chord').textContent?.trim()).toBe('G7');
 		// The next chord with its arrow, no « Ensuite ».
 		expect(screen.getByTestId('next-chord').textContent?.replace(/\s+/g, '')).toBe('→Dm7');
 		expect(screen.queryByText('Ensuite')).toBeNull();
@@ -150,7 +151,7 @@ describe('GridScrollView', () => {
 		});
 		const chords = [...document.querySelectorAll('.cell .chord')].map((c) => c.textContent);
 		expect(chords.slice(0, 3)).toEqual(['Dm7', 'G7', 'Dm7']);
-		expect(screen.getByTestId('current-chord').textContent).toBe('G7');
+		expect(screen.getByTestId('current-chord').textContent?.trim()).toBe('G7');
 	});
 
 	it('puts the verdicts of its history on the changes played', () => {
@@ -160,6 +161,21 @@ describe('GridScrollView', () => {
 		const history = [{ beatIndex: 8, verdict: 'perfect' as const }];
 		render(GridScrollView, { props: { controller, model: model({ anchorBeat: 12, history }) } });
 		expect(document.querySelector('.cell.past .verdict')).toBeTruthy();
+	});
+
+	it('in its frame, puts the chart’s title in the info line, once, and keeps the count’s row', () => {
+		const controller = new StageController();
+		controller.view.status = 'awaiting';
+		controller.nowBeat = 12.2;
+		controller.view.stage = { view: 'grid-scroll', model: model({ anchorBeat: 12 }) };
+		const { container } = render(PlayFrame, { props: { controller } });
+		expect(container.querySelector('.info-parts')?.textContent).toContain(
+			'I Only Have Eyes for You'
+		);
+		expect(screen.queryByTestId('grid-title')).toBeNull();
+		expect(screen.getAllByText('I Only Have Eyes for You')).toHaveLength(1);
+		// No count: its row is still there, empty, so the chord does not move when one comes.
+		expect(screen.getByTestId('grid-countdown').textContent?.trim()).toBe('');
 	});
 
 	it('shows the first chord as the next one before the passage starts', () => {
