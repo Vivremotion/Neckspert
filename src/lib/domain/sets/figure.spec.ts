@@ -7,7 +7,7 @@ describe('figureSet', () => {
 		expect(figureSet.itemKey(item)).toBe('offbeats-2@3');
 	});
 
-	it('parses a key back, negative aid levels included', () => {
+	it('parses a key back, the negative levels of keys stored before issue #19 included', () => {
 		for (const item of [
 			{ figureId: 'offbeats-2', level: 3 },
 			{ figureId: 'eighths', level: 0 },

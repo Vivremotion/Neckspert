@@ -78,7 +78,7 @@ export function servedPassageRound(
 
 /**
  * The screen model of round `rank` of a passage of `definition`, as the series shows it: at
- * `exerciseLevel` (an aid level draws the aid), its target on `anchorBeat` (null before its round
+ * `exerciseLevel` (a level that names a picture draws it), its target on `anchorBeat` (null before its round
  * opens), settled with `settled` when given.
  */
 export function passageModel(

@@ -87,12 +87,12 @@
 		</ol>
 	{/key}
 
-	{#if stage.aid}
-		{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
+	{#if stage.picture}
+		{@const Drawn = PICTURE_VIEWS[stage.picture.kind]}
 		<!-- Its own row under the cells, as the link's under its lane. No legend: the neck tells now
 		from next by the colour of its notes. -->
-		<div class="aid" data-testid="grid-aid">
-			<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
+		<div class="picture" data-testid="grid-picture">
+			<Drawn picture={stage.picture} chordDiagram={stage.chordDiagram} />
 		</div>
 	{/if}
 </div>
@@ -155,8 +155,8 @@
 		gap: var(--np-space-1, 8px);
 	}
 
-	/* The aid's neck at the view's width: a climb's first change spans the whole neck. */
-	.aid {
+	/* The picture's neck at the view's width: a climb's first change spans the whole neck. */
+	.picture {
 		--neck-max: none;
 		min-width: 0;
 	}

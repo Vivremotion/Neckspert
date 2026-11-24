@@ -172,7 +172,7 @@ describe('LaneView', () => {
 		expect(container.textContent).not.toMatch(/1[,.]21/);
 	});
 
-	it('writes the detail its level gives under the prompt, and no aid tile', () => {
+	it('writes the detail its level gives under the prompt, on no tile of its own', () => {
 		const detailed = show({ prompt: { ...F_ON_B, detail: 'case 6' } });
 		expect(detailed.container.querySelector('.centre .detail')?.textContent).toBe('case 6');
 		expect(detailed.container.querySelector('.aid')).toBeNull();
@@ -180,7 +180,7 @@ describe('LaneView', () => {
 		expect(show().container.querySelector('.detail')).toBeNull();
 	});
 
-	it('draws the string under the prompt only when it carries the aid', () => {
+	it('draws the string under the prompt only when its presentation names the picture', () => {
 		const drawn = show({ prompt: { ...F_ON_B, pictures: B_DRAWN } });
 		expect(drawn.container.querySelector('.diagram')?.getAttribute('data-string')).toBe('2');
 		cleanup();

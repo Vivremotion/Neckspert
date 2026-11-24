@@ -7,8 +7,10 @@
  * the places, the tiles, the ways, the rank, the misses and the aid were equal, but for the link's
  * strings (« sol · si · mi » under « sur cordes » before, « sur cordes sol‑si‑mi » now, decided)
  * and the grids' aid (one shape before, every shape admitted now and next, D5). These rows,
- * captured from this model while that comparison held, keep it pinned. The jam's six aid rows
- * came later (plan 4c, Task 4: it gained its aid level, D7); the comparison saw no jam aid.
+ * captured from this model while that comparison held, keep it pinned. The jam's six picture rows
+ * came later (plan 4c, Task 4: it gained its aid level, D7); the comparison saw no jam aid. Since
+ * issue #19 (D12) that aid level is the first level, which draws the shapes admitted, and the old
+ * level 1 the second, which draws nothing: the rows are read at the levels that write so.
  */
 import { describe, expect, it } from 'vitest';
 import { passageIndices } from '$lib/domain/exercise/passage/indices';
@@ -26,7 +28,7 @@ import {
 import { qualityById, type StringNumber } from '$lib/domain/music';
 import { createPassageSource } from '$lib/domain/session/passageSource';
 import { SESSION_MS } from '$lib/domain/session/policy';
-import { levelRange, type ResponseValue, type RoundPlan } from '$lib/domain/time';
+import type { ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { PlannedItem, ResponseVerdict } from '$lib/domain/types';
 import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { Picture } from '$lib/application/presentation/pictures';
@@ -53,10 +55,16 @@ function onePassage(
 	};
 }
 
-/** The levels shown: level 1, and the aid level when the exercise writes one. */
-function levelsOf(definition: ExerciseDefinition): number[] {
-	const { lowest } = levelRange(exerciseLevelsOf(definition));
-	return lowest < 0 ? [0, -1] : [0];
+/**
+ * The levels shown, by what they write: the first that names no picture, and the first that names
+ * one (null when none does).
+ */
+function levelsOf(definition: ExerciseDefinition): { plain: number; drawn: number | null } {
+	const levels = exerciseLevelsOf(definition);
+	const draws = (index: number) => 'presentation.picture' in levels[index].params;
+	const indexes = levels.map((_, index) => index);
+	const drawn = indexes.find(draws);
+	return { plain: indexes.find((index) => !draws(index)) ?? 0, drawn: drawn ?? null };
 }
 
 function memberContent(plan: RoundPlan): MemberContent {
@@ -225,7 +233,8 @@ const neckOf = (picture: Picture | null) =>
 /**
  * The rows of a passage on the screen model: its line; each round's words (in English too for
  * the first); at the second round, what each settlement tells (in English for nothing heard);
- * at the aid level, the aid of the first round, of the second once right, and of the last.
+ * at the level that draws it, the picture of the first round, of the second once right, and of
+ * the last.
  */
 function rowsOf(definition: ExerciseDefinition, label: string): string[] {
 	const rows: string[] = [];
@@ -237,7 +246,7 @@ function rowsOf(definition: ExerciseDefinition, label: string): string[] {
 		durationMs: SESSION_MS
 	});
 	let clock = 1_000_000;
-	const aidLevel = levelsOf(definition).includes(-1);
+	const { plain, drawn } = levelsOf(definition);
 	for (
 		let planned = source.next({ now: clock, elapsedMs: 0, fatigued: false });
 		planned;
@@ -247,7 +256,7 @@ function rowsOf(definition: ExerciseDefinition, label: string): string[] {
 		const { rank } = passage;
 		const plan = compilePassageRound(definition, planned);
 		const settlements = settlementsOf(memberContent(plan));
-		const at = (locale: 'fr' | 'en', settled: Settlement['settled'], level = 0) =>
+		const at = (locale: 'fr' | 'en', settled: Settlement['settled'], level = plain) =>
 			show(
 				definition,
 				{ ...planned!, exerciseLevel: level },
@@ -264,7 +273,7 @@ function rowsOf(definition: ExerciseDefinition, label: string): string[] {
 			);
 			rows.push(`${label} #0 en: ${words(at('en', null))}`);
 		}
-		rows.push(`${label} #${rank}: ${words(shown)}${shown.aid ? ' AID' : ''}`);
+		rows.push(`${label} #${rank}: ${words(shown)}${shown.picture ? ' PICTURE' : ''}`);
 		if (rank === 1) {
 			for (const { kind, settled } of settlements) {
 				if (settled === null) continue;
@@ -285,13 +294,13 @@ function rowsOf(definition: ExerciseDefinition, label: string): string[] {
 			const told = at('en', nothing.settled).verdict!.misses[0];
 			rows.push(`${label} #1 nothing en: gap ${told?.gap ?? '-'}`);
 		}
-		if (aidLevel) {
+		if (drawn !== null) {
 			const last = rank === passage.length - 1;
-			if (rank === 0 || last) rows.push(`${label} #${rank} aid: ${neckOf(at('fr', null, -1).aid)}`);
+			const picture = (settled: Settlement['settled']) => neckOf(at('fr', settled, drawn).picture);
+			if (rank === 0 || last) rows.push(`${label} #${rank} picture: ${picture(null)}`);
 			if (rank === 1) {
 				const right = settlements.find((each) => each.kind === 'right');
-				if (right)
-					rows.push(`${label} #1 aid once right: ${neckOf(at('fr', right.settled, -1).aid)}`);
+				if (right) rows.push(`${label} #1 picture once right: ${picture(right.settled)}`);
 			}
 		}
 		const right = settlements.find((each) => each.kind === 'right');
@@ -344,13 +353,14 @@ describe('the changes on the screen model of a passage', () => {
 
 /**
  * Captured from the screen model of a passage (plan 4c, Task 3) while the comparison above held
- * it equal to the old models on every passage: the words, the line, the misses and the aid.
+ * it equal to the old models on every passage: the words, the line, the misses and the aid (its
+ * rows labelled « picture » since issue #19, their content unchanged).
  */
 const FROZEN: readonly string[] = [
 	'inversion-run chord=C;strings=3,2,1 line: 0+4 C, 4+4 C up, 8+4 C up, 12+4 C up, 16+4 C down, 20+4 C down, 24+4 C down',
 	'inversion-run chord=C;strings=3,2,1 #0 en: C | major | on strings G‑B‑E',
 	'inversion-run chord=C;strings=3,2,1 #0: C | majeur | sur cordes sol‑si‑mi',
-	'inversion-run chord=C;strings=3,2,1 #0 aid: strings 3,2,1 [0-5] 3:0:G 2:1:C 1:0:E 3:5:C+ 2:5:E+ 1:3:G+',
+	'inversion-run chord=C;strings=3,2,1 #0 picture: strings 3,2,1 [0-5] 3:0:G 2:1:C 1:0:E 3:5:C+ 2:5:E+ 1:3:G+',
 	'inversion-run chord=C;strings=3,2,1 #1: C | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=C;strings=3,2,1 #1 right: perfect no miss',
 	'inversion-run chord=C;strings=3,2,1 #1 offbeat: offbeat no miss',
@@ -361,17 +371,17 @@ const FROZEN: readonly string[] = [
 	'inversion-run chord=C;strings=3,2,1 #1 wrong:other-quality: wrong heard 3:5 2:4 1:3 expected 3:5 2:5 1:3 gap autre qualité',
 	'inversion-run chord=C;strings=3,2,1 #1 wrong:other-chord: wrong heard 3:3 2:2 1:2 expected 3:5 2:5 1:3 gap autre accord',
 	'inversion-run chord=C;strings=3,2,1 #1 nothing en: gap no chord heard',
-	'inversion-run chord=C;strings=3,2,1 #1 aid once right: strings 3,2,1 [3-9] 3:5:C 2:5:E 1:3:G 3:9:E+ 2:8:G+ 1:8:C+',
+	'inversion-run chord=C;strings=3,2,1 #1 picture once right: strings 3,2,1 [3-9] 3:5:C 2:5:E 1:3:G 3:9:E+ 2:8:G+ 1:8:C+',
 	'inversion-run chord=C;strings=3,2,1 #2: C | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=C;strings=3,2,1 #3: C | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=C;strings=3,2,1 #4: C | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=C;strings=3,2,1 #5: C | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=C;strings=3,2,1 #6: C | majeur | sur cordes sol‑si‑mi',
-	'inversion-run chord=C;strings=3,2,1 #6 aid: strings 3,2,1 [0-1] 3:0:G 2:1:C 1:0:E',
+	'inversion-run chord=C;strings=3,2,1 #6 picture: strings 3,2,1 [0-1] 3:0:G 2:1:C 1:0:E',
 	'inversion-run chord=Ebm;strings=4,3,2 line: 0+4 Ebm, 4+4 Ebm up, 8+4 Ebm up, 12+4 Ebm up, 16+4 Ebm down, 20+4 Ebm down, 24+4 Ebm down',
 	'inversion-run chord=Ebm;strings=4,3,2 #0 en: Ebm | minor | on strings D‑G‑B',
 	'inversion-run chord=Ebm;strings=4,3,2 #0: Ebm | mineur | sur cordes ré‑sol‑si',
-	'inversion-run chord=Ebm;strings=4,3,2 #0 aid: strings 4,3,2 [3-8] 4:4:F# 3:3:A# 2:4:D# 4:8:A#+ 3:8:D#+ 2:7:F#+',
+	'inversion-run chord=Ebm;strings=4,3,2 #0 picture: strings 4,3,2 [3-8] 4:4:F# 3:3:A# 2:4:D# 4:8:A#+ 3:8:D#+ 2:7:F#+',
 	'inversion-run chord=Ebm;strings=4,3,2 #1: Ebm | mineur | sur cordes ré‑sol‑si',
 	'inversion-run chord=Ebm;strings=4,3,2 #1 right: perfect no miss',
 	'inversion-run chord=Ebm;strings=4,3,2 #1 offbeat: offbeat no miss',
@@ -382,17 +392,17 @@ const FROZEN: readonly string[] = [
 	'inversion-run chord=Ebm;strings=4,3,2 #1 wrong:other-quality: wrong heard 3:3 2:4 1:3 expected 4:8 3:8 2:7 gap autre qualité',
 	'inversion-run chord=Ebm;strings=4,3,2 #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:8 3:8 2:7 gap autre accord',
 	'inversion-run chord=Ebm;strings=4,3,2 #1 nothing en: gap no chord heard',
-	'inversion-run chord=Ebm;strings=4,3,2 #1 aid once right: strings 4,3,2 [7-13] 4:8:A# 3:8:D# 2:7:F# 4:13:D#+ 3:11:F#+ 2:11:A#+',
+	'inversion-run chord=Ebm;strings=4,3,2 #1 picture once right: strings 4,3,2 [7-13] 4:8:A# 3:8:D# 2:7:F# 4:13:D#+ 3:11:F#+ 2:11:A#+',
 	'inversion-run chord=Ebm;strings=4,3,2 #2: Ebm | mineur | sur cordes ré‑sol‑si',
 	'inversion-run chord=Ebm;strings=4,3,2 #3: Ebm | mineur | sur cordes ré‑sol‑si',
 	'inversion-run chord=Ebm;strings=4,3,2 #4: Ebm | mineur | sur cordes ré‑sol‑si',
 	'inversion-run chord=Ebm;strings=4,3,2 #5: Ebm | mineur | sur cordes ré‑sol‑si',
 	'inversion-run chord=Ebm;strings=4,3,2 #6: Ebm | mineur | sur cordes ré‑sol‑si',
-	'inversion-run chord=Ebm;strings=4,3,2 #6 aid: strings 4,3,2 [3-4] 4:4:F# 3:3:A# 2:4:D#',
+	'inversion-run chord=Ebm;strings=4,3,2 #6 picture: strings 4,3,2 [3-4] 4:4:F# 3:3:A# 2:4:D#',
 	'inversion-run chord=F#;strings=3,2,1 line: 0+4 F#, 4+4 F# up, 8+4 F# up, 12+4 F# up, 16+4 F# down, 20+4 F# down, 24+4 F# down',
 	'inversion-run chord=F#;strings=3,2,1 #0 en: F# | major | on strings G‑B‑E',
 	'inversion-run chord=F#;strings=3,2,1 #0: F# | majeur | sur cordes sol‑si‑mi',
-	'inversion-run chord=F#;strings=3,2,1 #0 aid: strings 3,2,1 [2-7] 3:3:A# 2:2:C# 1:2:F# 3:6:C#+ 2:7:F#+ 1:6:A#+',
+	'inversion-run chord=F#;strings=3,2,1 #0 picture: strings 3,2,1 [2-7] 3:3:A# 2:2:C# 1:2:F# 3:6:C#+ 2:7:F#+ 1:6:A#+',
 	'inversion-run chord=F#;strings=3,2,1 #1: F# | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=F#;strings=3,2,1 #1 right: perfect no miss',
 	'inversion-run chord=F#;strings=3,2,1 #1 offbeat: offbeat no miss',
@@ -403,17 +413,17 @@ const FROZEN: readonly string[] = [
 	'inversion-run chord=F#;strings=3,2,1 #1 wrong:other-quality: wrong heard 3:2 2:2 1:2 expected 3:6 2:7 1:6 gap autre qualité',
 	'inversion-run chord=F#;strings=3,2,1 #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:6 2:7 1:6 gap autre accord',
 	'inversion-run chord=F#;strings=3,2,1 #1 nothing en: gap no chord heard',
-	'inversion-run chord=F#;strings=3,2,1 #1 aid once right: strings 3,2,1 [6-11] 3:6:C# 2:7:F# 1:6:A# 3:11:F#+ 2:11:A#+ 1:9:C#+',
+	'inversion-run chord=F#;strings=3,2,1 #1 picture once right: strings 3,2,1 [6-11] 3:6:C# 2:7:F# 1:6:A# 3:11:F#+ 2:11:A#+ 1:9:C#+',
 	'inversion-run chord=F#;strings=3,2,1 #2: F# | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=F#;strings=3,2,1 #3: F# | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=F#;strings=3,2,1 #4: F# | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=F#;strings=3,2,1 #5: F# | majeur | sur cordes sol‑si‑mi',
 	'inversion-run chord=F#;strings=3,2,1 #6: F# | majeur | sur cordes sol‑si‑mi',
-	'inversion-run chord=F#;strings=3,2,1 #6 aid: strings 3,2,1 [2-3] 3:3:A# 2:2:C# 1:2:F#',
+	'inversion-run chord=F#;strings=3,2,1 #6 picture: strings 3,2,1 [2-3] 3:3:A# 2:2:C# 1:2:F#',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #0 en: Dm7 | I Only Have Eyes for You | G‑B‑E · ↑ going up',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #0: Dm7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
-	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #0 aid: strings 3,2,1 [1-16] 3:2:A 2:3:D 1:1:F 3:7:D 2:6:F 1:5:A 3:10:F 2:10:A 1:10:D 3:14:A 2:15:D 1:13:F 3:4:B+ 1:3:G+ 2:8:G+ 1:7:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+',
+	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #0 picture: strings 3,2,1 [1-16] 3:2:A 2:3:D 1:1:F 3:7:D 2:6:F 1:5:A 3:10:F 2:10:A 1:10:D 3:14:A 2:15:D 1:13:F 3:4:B+ 1:3:G+ 2:8:G+ 1:7:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1: G7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 right: perfect no miss',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 offbeat: offbeat no miss',
@@ -423,7 +433,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:4 2:3 1:3 gap autre accord',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 nothing en: gap no chord heard',
-	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 aid once right: strings 3,2,1 [3-16] 3:4:B 2:3:D 1:3:G 3:7:D 2:8:G 1:7:B 3:12:G 2:12:B 1:10:D 3:16:B 2:15:D 1:15:G 2:6:F+ 1:5:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+',
+	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #1 picture once right: strings 3,2,1 [3-16] 3:4:B 2:3:D 1:3:G 3:7:D 2:8:G 1:7:B 3:12:G 2:12:B 1:10:D 3:16:B 2:15:D 1:15:G 2:6:F+ 1:5:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #2: Dm7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #3: G7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #4: Cmaj7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
@@ -431,11 +441,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #6: Em7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #7: Ebm7 | I Only Have Eyes for You | sol‑si‑mi · ↓ en descendant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #8: Ab7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
-	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #8 aid: strings 3,2,1 [4-17] 3:5:C 2:4:Eb 1:4:Ab 3:8:Eb 2:9:Ab 1:8:C 3:13:Ab 2:13:C 1:11:Eb 3:17:C 2:16:Eb 1:16:Ab',
+	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"up"} #8 picture: strings 3,2,1 [4-17] 3:5:C 2:4:Eb 1:4:Ab 3:8:Eb 2:9:Ab 1:8:C 3:13:Ab 2:13:C 1:11:Eb 3:17:C 2:16:Eb 1:16:Ab',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} line: 0+4 F7, 4+4 Bb7, 8+8 F7, 16+8 Bb7, 24+8 F7, 32+4 C7, 36+4 Bb7, 40+4 F7, 44+4 C7',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #0 en: F7 | Blues F | D‑G‑B · ↑ going up',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #0: F7 | Blues F | ré‑sol‑si · ↑ en montant',
-	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #0 aid: strings 4,3,2 [1-15] 4:3:F 3:2:A 2:1:C 4:7:A 3:5:C 2:6:F 4:10:C 3:10:F 2:10:A 4:15:F 3:14:A 2:13:C 3:3:Bb+ 2:3:D+ 4:8:Bb+ 3:7:D+ 4:12:D+ 2:11:Bb+ 3:15:Bb+ 2:15:D+',
+	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #0 picture: strings 4,3,2 [1-15] 4:3:F 3:2:A 2:1:C 4:7:A 3:5:C 2:6:F 4:10:C 3:10:F 2:10:A 4:15:F 3:14:A 2:13:C 3:3:Bb+ 2:3:D+ 4:8:Bb+ 3:7:D+ 4:12:D+ 2:11:Bb+ 3:15:Bb+ 2:15:D+',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1: Bb7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 right: perfect no miss',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 offbeat: offbeat no miss',
@@ -445,7 +455,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 wrong:other-quality: wrong heard 3:3 2:2 1:1 expected 4:3 3:3 2:3 gap autre qualité',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:3 3:3 2:3 gap autre accord',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 nothing en: gap no chord heard',
-	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 aid once right: strings 4,3,2 [3-15] 4:3:F 3:3:Bb 2:3:D 4:8:Bb 3:7:D 2:6:F 4:12:D 3:10:F 2:11:Bb 4:15:F 3:15:Bb 2:15:D 4:7:A+ 3:5:C+ 4:10:C+ 2:10:A+ 3:14:A+ 2:13:C+',
+	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #1 picture once right: strings 4,3,2 [3-15] 4:3:F 3:3:Bb 2:3:D 4:8:Bb 3:7:D 2:6:F 4:12:D 3:10:F 2:11:Bb 4:15:F 3:15:Bb 2:15:D 4:7:A+ 3:5:C+ 4:10:C+ 2:10:A+ 3:14:A+ 2:13:C+',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #2: F7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #3: Bb7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #4: F7 | Blues F | ré‑sol‑si · ↑ en montant',
@@ -453,11 +463,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #6: Bb7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #7: F7 | Blues F | ré‑sol‑si · ↓ en descendant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #8: C7 | Blues F | ré‑sol‑si · ↑ en montant',
-	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #8 aid: strings 4,3,2 [5-17] 4:5:G 3:5:C 2:5:E 4:10:C 3:9:E 2:8:G 4:14:E 3:12:G 2:13:C 4:17:G 3:17:C 2:17:E',
+	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"up"} #8 picture: strings 4,3,2 [5-17] 4:5:G 3:5:C 2:5:E 4:10:C 3:9:E 2:8:G 4:14:E 3:12:G 2:13:C 4:17:G 3:17:C 2:17:E',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #0 en: Dm7 | I Only Have Eyes for You | G‑B‑E · ↓ going down',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #0: Dm7 | I Only Have Eyes for You | sol‑si‑mi · ↓ en descendant',
-	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #0 aid: strings 3,2,1 [1-16] 3:2:A 2:3:D 1:1:F 3:7:D 2:6:F 1:5:A 3:10:F 2:10:A 1:10:D 3:14:A 2:15:D 1:13:F 3:4:B+ 1:3:G+ 2:8:G+ 1:7:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+',
+	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #0 picture: strings 3,2,1 [1-16] 3:2:A 2:3:D 1:1:F 3:7:D 2:6:F 1:5:A 3:10:F 2:10:A 1:10:D 3:14:A 2:15:D 1:13:F 3:4:B+ 1:3:G+ 2:8:G+ 1:7:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1: G7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 right: perfect no miss',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 offbeat: offbeat no miss',
@@ -467,7 +477,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:4 2:3 1:3 gap autre accord',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 nothing en: gap no chord heard',
-	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 aid once right: strings 3,2,1 [3-16] 3:4:B 2:3:D 1:3:G 3:7:D 2:8:G 1:7:B 3:12:G 2:12:B 1:10:D 3:16:B 2:15:D 1:15:G 2:6:F+ 1:5:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+',
+	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #1 picture once right: strings 3,2,1 [3-16] 3:4:B 2:3:D 1:3:G 3:7:D 2:8:G 1:7:B 3:12:G 2:12:B 1:10:D 3:16:B 2:15:D 1:15:G 2:6:F+ 1:5:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #2: Dm7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #3: G7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #4: Cmaj7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
@@ -475,11 +485,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #6: Em7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #7: Ebm7 | I Only Have Eyes for You | sol‑si‑mi · ↓ en descendant',
 	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #8: Ab7 | I Only Have Eyes for You | sol‑si‑mi · ↑ en montant',
-	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #8 aid: strings 3,2,1 [4-17] 3:5:C 2:4:Eb 1:4:Ab 3:8:Eb 2:9:Ab 1:8:C 3:13:Ab 2:13:C 1:11:Eb 3:17:C 2:16:Eb 1:16:Ab',
+	'grid-in-direction grid=iohefy-a;strings=3,2,1 {"direction":"down"} #8 picture: strings 3,2,1 [4-17] 3:5:C 2:4:Eb 1:4:Ab 3:8:Eb 2:9:Ab 1:8:C 3:13:Ab 2:13:C 1:11:Eb 3:17:C 2:16:Eb 1:16:Ab',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} line: 0+4 F7, 4+4 Bb7, 8+8 F7, 16+8 Bb7, 24+8 F7, 32+4 C7, 36+4 Bb7, 40+4 F7, 44+4 C7',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #0 en: F7 | Blues F | D‑G‑B · ↓ going down',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #0: F7 | Blues F | ré‑sol‑si · ↓ en descendant',
-	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #0 aid: strings 4,3,2 [1-15] 4:3:F 3:2:A 2:1:C 4:7:A 3:5:C 2:6:F 4:10:C 3:10:F 2:10:A 4:15:F 3:14:A 2:13:C 3:3:Bb+ 2:3:D+ 4:8:Bb+ 3:7:D+ 4:12:D+ 2:11:Bb+ 3:15:Bb+ 2:15:D+',
+	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #0 picture: strings 4,3,2 [1-15] 4:3:F 3:2:A 2:1:C 4:7:A 3:5:C 2:6:F 4:10:C 3:10:F 2:10:A 4:15:F 3:14:A 2:13:C 3:3:Bb+ 2:3:D+ 4:8:Bb+ 3:7:D+ 4:12:D+ 2:11:Bb+ 3:15:Bb+ 2:15:D+',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1: Bb7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 right: perfect no miss',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 offbeat: offbeat no miss',
@@ -489,7 +499,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 wrong:other-quality: wrong heard 3:3 2:2 1:1 expected 4:3 3:3 2:3 gap autre qualité',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:3 3:3 2:3 gap autre accord',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 nothing en: gap no chord heard',
-	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 aid once right: strings 4,3,2 [3-15] 4:3:F 3:3:Bb 2:3:D 4:8:Bb 3:7:D 2:6:F 4:12:D 3:10:F 2:11:Bb 4:15:F 3:15:Bb 2:15:D 4:7:A+ 3:5:C+ 4:10:C+ 2:10:A+ 3:14:A+ 2:13:C+',
+	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #1 picture once right: strings 4,3,2 [3-15] 4:3:F 3:3:Bb 2:3:D 4:8:Bb 3:7:D 2:6:F 4:12:D 3:10:F 2:11:Bb 4:15:F 3:15:Bb 2:15:D 4:7:A+ 3:5:C+ 4:10:C+ 2:10:A+ 3:14:A+ 2:13:C+',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #2: F7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #3: Bb7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #4: F7 | Blues F | ré‑sol‑si · ↑ en montant',
@@ -497,11 +507,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #6: Bb7 | Blues F | ré‑sol‑si · ↑ en montant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #7: F7 | Blues F | ré‑sol‑si · ↓ en descendant',
 	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #8: C7 | Blues F | ré‑sol‑si · ↑ en montant',
-	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #8 aid: strings 4,3,2 [5-17] 4:5:G 3:5:C 2:5:E 4:10:C 3:9:E 2:8:G 4:14:E 3:12:G 2:13:C 4:17:G 3:17:C 2:17:E',
+	'grid-in-direction grid=blues-f;strings=4,3,2 {"direction":"down"} #8 picture: strings 4,3,2 [5-17] 4:5:G 3:5:C 2:5:E 4:10:C 3:9:E 2:8:G 4:14:E 3:12:G 2:13:C 4:17:G 3:17:C 2:17:E',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #0 en: Dm7 | I Only Have Eyes for You | frets 1 to 5',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #0: Dm7 | I Only Have Eyes for You | cases 1 à 5',
-	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #0 aid: strings 4,3,2,1 [0-5] 3:2:A 2:3:D 1:1:F 4:3:F 4:0:D+ 3:0:G+ 2:0:B+ 3:4:B+ 1:3:G+ 4:5:G+',
+	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #0 picture: strings 4,3,2,1 [0-5] 3:2:A 2:3:D 1:1:F 4:3:F 4:0:D+ 3:0:G+ 2:0:B+ 3:4:B+ 1:3:G+ 4:5:G+',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1: G7 | I Only Have Eyes for You | cases 1 à 5',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 offbeat: offbeat no miss',
@@ -511,7 +521,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:0 3:0 2:0 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 aid once right: strings 4,3,2,1 [0-5] 4:0:D 3:0:G 2:0:B 3:4:B 2:3:D 1:3:G 4:5:G 3:2:A+ 1:1:F+ 4:3:F+',
+	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #1 picture once right: strings 4,3,2,1 [0-5] 4:0:D 3:0:G 2:0:B 3:4:B 2:3:D 1:3:G 4:5:G 3:2:A+ 1:1:F+ 4:3:F+',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #2: Dm7 | I Only Have Eyes for You | cases 1 à 5',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #3: G7 | I Only Have Eyes for You | cases 1 à 5',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #4: Cmaj7 | I Only Have Eyes for You | cases 1 à 5',
@@ -519,11 +529,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #6: Em7 | I Only Have Eyes for You | cases 1 à 5',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #7: Ebm7 | I Only Have Eyes for You | cases 1 à 5',
 	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #8: Ab7 | I Only Have Eyes for You | cases 1 à 5',
-	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #8 aid: strings 4,3,2,1 [1-5] 4:1:Eb 3:1:Ab 2:1:C 3:5:C 2:4:Eb 1:4:Ab',
+	'grid-in-zone grid=iohefy-a {"zone":[1,5]} #8 picture: strings 4,3,2,1 [1-5] 4:1:Eb 3:1:Ab 2:1:C 3:5:C 2:4:Eb 1:4:Ab',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #0 en: Dm7 | I Only Have Eyes for You | frets 6 to 10',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #0: Dm7 | I Only Have Eyes for You | cases 6 à 10',
-	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #0 aid: strings 4,3,2,1 [6-10] 4:7:A 3:7:D 2:6:F 3:10:F 2:10:A 1:10:D 2:8:G+ 1:7:B+ 4:9:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #0 picture: strings 4,3,2,1 [6-10] 4:7:A 3:7:D 2:6:F 3:10:F 2:10:A 1:10:D 2:8:G+ 1:7:B+ 4:9:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1: G7 | I Only Have Eyes for You | cases 6 à 10',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 offbeat: offbeat no miss',
@@ -533,7 +543,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:7 2:8 1:7 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:7 2:8 1:7 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 aid once right: strings 4,3,2,1 [6-10] 3:7:D 2:8:G 1:7:B 4:9:B 4:7:A+ 2:6:F+ 3:10:F+ 2:10:A+ 1:10:D+',
+	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #1 picture once right: strings 4,3,2,1 [6-10] 3:7:D 2:8:G 1:7:B 4:9:B 4:7:A+ 2:6:F+ 3:10:F+ 2:10:A+ 1:10:D+',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #2: Dm7 | I Only Have Eyes for You | cases 6 à 10',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #3: G7 | I Only Have Eyes for You | cases 6 à 10',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #4: Cmaj7 | I Only Have Eyes for You | cases 6 à 10',
@@ -541,11 +551,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #6: Em7 | I Only Have Eyes for You | cases 6 à 10',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #7: Ebm7 | I Only Have Eyes for You | cases 6 à 10',
 	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #8: Ab7 | I Only Have Eyes for You | cases 6 à 10',
-	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #8 aid: strings 4,3,2,1 [8-10] 3:8:Eb 2:9:Ab 1:8:C 4:10:C',
+	'grid-in-zone grid=iohefy-a {"zone":[6,10]} #8 picture: strings 4,3,2,1 [8-10] 3:8:Eb 2:9:Ab 1:8:C 4:10:C',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #0 en: Dm7 | I Only Have Eyes for You | frets 11 to 15',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #0: Dm7 | I Only Have Eyes for You | cases 11 à 15',
-	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #0 aid: strings 4,3,2,1 [12-15] 3:14:A 2:15:D 1:13:F 4:15:F 4:12:D+ 3:12:G+ 2:12:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #0 picture: strings 4,3,2,1 [12-15] 3:14:A 2:15:D 1:13:F 4:15:F 4:12:D+ 3:12:G+ 2:12:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1: G7 | I Only Have Eyes for You | cases 11 à 15',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 offbeat: offbeat no miss',
@@ -555,7 +565,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 4:12 3:12 2:12 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:12 3:12 2:12 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 aid once right: strings 4,3,2,1 [12-15] 4:12:D 3:12:G 2:12:B 3:14:A+ 2:15:D+ 1:13:F+ 4:15:F+',
+	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #1 picture once right: strings 4,3,2,1 [12-15] 4:12:D 3:12:G 2:12:B 3:14:A+ 2:15:D+ 1:13:F+ 4:15:F+',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #2: Dm7 | I Only Have Eyes for You | cases 11 à 15',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #3: G7 | I Only Have Eyes for You | cases 11 à 15',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #4: Cmaj7 | I Only Have Eyes for You | cases 11 à 15',
@@ -563,11 +573,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #6: Em7 | I Only Have Eyes for You | cases 11 à 15',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #7: Ebm7 | I Only Have Eyes for You | cases 11 à 15',
 	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #8: Ab7 | I Only Have Eyes for You | cases 11 à 15',
-	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #8 aid: strings 4,3,2,1 [11-13] 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb',
+	'grid-in-zone grid=iohefy-a {"zone":[11,15]} #8 picture: strings 4,3,2,1 [11-13] 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #0 en: Dm7 | I Only Have Eyes for You | frets 3 to 7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #0: Dm7 | I Only Have Eyes for You | cases 3 à 7',
-	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #0 aid: strings 4,3,2,1 [3-7] 3:7:D 2:6:F 1:5:A 4:7:A 3:4:B+ 2:3:D+ 1:3:G+ 4:5:G+',
+	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #0 picture: strings 4,3,2,1 [3-7] 3:7:D 2:6:F 1:5:A 4:7:A 3:4:B+ 2:3:D+ 1:3:G+ 4:5:G+',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1: G7 | I Only Have Eyes for You | cases 3 à 7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 offbeat: offbeat no miss',
@@ -577,7 +587,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:4 2:3 1:3 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 aid once right: strings 4,3,2,1 [3-7] 3:4:B 2:3:D 1:3:G 4:5:G 3:7:D+ 2:6:F+ 1:5:A+ 4:7:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #1 picture once right: strings 4,3,2,1 [3-7] 3:4:B 2:3:D 1:3:G 4:5:G 3:7:D+ 2:6:F+ 1:5:A+ 4:7:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #2: Dm7 | I Only Have Eyes for You | cases 3 à 7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #3: G7 | I Only Have Eyes for You | cases 3 à 7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #4: Cmaj7 | I Only Have Eyes for You | cases 3 à 7',
@@ -585,11 +595,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #6: Em7 | I Only Have Eyes for You | cases 3 à 7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #7: Ebm7 | I Only Have Eyes for You | cases 3 à 7',
 	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #8: Ab7 | I Only Have Eyes for You | cases 3 à 7',
-	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #8 aid: strings 4,3,2,1 [4-6] 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab',
+	'grid-in-zone grid=iohefy-a {"zone":[3,7]} #8 picture: strings 4,3,2,1 [4-6] 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #0 en: Dm7 | I Only Have Eyes for You | frets 8 to 12',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #0: Dm7 | I Only Have Eyes for You | cases 8 à 12',
-	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #0 aid: strings 4,3,2,1 [10-12] 3:10:F 2:10:A 1:10:D 4:12:D 3:12:G+ 2:12:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #0 picture: strings 4,3,2,1 [10-12] 3:10:F 2:10:A 1:10:D 4:12:D 3:12:G+ 2:12:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1: G7 | I Only Have Eyes for You | cases 8 à 12',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 offbeat: offbeat no miss',
@@ -599,7 +609,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:12 2:12 1:10 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:12 2:12 1:10 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 aid once right: strings 4,3,2,1 [10-12] 3:12:G 2:12:B 1:10:D 4:12:D 3:10:F+ 2:10:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #1 picture once right: strings 4,3,2,1 [10-12] 3:12:G 2:12:B 1:10:D 4:12:D 3:10:F+ 2:10:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #2: Dm7 | I Only Have Eyes for You | cases 8 à 12',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #3: G7 | I Only Have Eyes for You | cases 8 à 12',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #4: Cmaj7 | I Only Have Eyes for You | cases 8 à 12',
@@ -607,11 +617,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #6: Em7 | I Only Have Eyes for You | cases 8 à 12',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #7: Ebm7 | I Only Have Eyes for You | cases 8 à 12',
 	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #8: Ab7 | I Only Have Eyes for You | cases 8 à 12',
-	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #8 aid: strings 4,3,2,1 [8-10] 3:8:Eb 2:9:Ab 1:8:C 4:10:C',
+	'grid-in-zone grid=iohefy-a {"zone":[8,12]} #8 picture: strings 4,3,2,1 [8-10] 3:8:Eb 2:9:Ab 1:8:C 4:10:C',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #0 en: Dm7 | I Only Have Eyes for You | frets 13 to 17',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #0: Dm7 | I Only Have Eyes for You | cases 13 à 17',
-	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #0 aid: strings 4,3,2,1 [13-17] 3:14:A 2:15:D 1:13:F 4:15:F 3:16:B+ 1:15:G+ 4:17:G+',
+	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #0 picture: strings 4,3,2,1 [13-17] 3:14:A 2:15:D 1:13:F 4:15:F 3:16:B+ 1:15:G+ 4:17:G+',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1: G7 | I Only Have Eyes for You | cases 13 à 17',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 offbeat: offbeat no miss',
@@ -621,7 +631,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:16 2:15 1:15 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:16 2:15 1:15 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 aid once right: strings 4,3,2,1 [13-17] 3:16:B 2:15:D 1:15:G 4:17:G 3:14:A+ 1:13:F+ 4:15:F+',
+	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #1 picture once right: strings 4,3,2,1 [13-17] 3:16:B 2:15:D 1:15:G 4:17:G 3:14:A+ 1:13:F+ 4:15:F+',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #2: Dm7 | I Only Have Eyes for You | cases 13 à 17',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #3: G7 | I Only Have Eyes for You | cases 13 à 17',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #4: Cmaj7 | I Only Have Eyes for You | cases 13 à 17',
@@ -629,11 +639,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #6: Em7 | I Only Have Eyes for You | cases 13 à 17',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #7: Ebm7 | I Only Have Eyes for You | cases 13 à 17',
 	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #8: Ab7 | I Only Have Eyes for You | cases 13 à 17',
-	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #8 aid: strings 4,3,2,1 [13-17] 4:13:Eb 3:13:Ab 2:13:C 3:17:C 2:16:Eb 1:16:Ab',
+	'grid-in-zone grid=iohefy-a {"zone":[13,17]} #8 picture: strings 4,3,2,1 [13-17] 4:13:Eb 3:13:Ab 2:13:C 3:17:C 2:16:Eb 1:16:Ab',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #0 en: Dm7 | I Only Have Eyes for You | frets 5 to 9',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #0: Dm7 | I Only Have Eyes for You | cases 5 à 9',
-	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #0 aid: strings 4,3,2,1 [5-9] 3:7:D 2:6:F 1:5:A 4:7:A 2:8:G+ 1:7:B+ 4:9:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #0 picture: strings 4,3,2,1 [5-9] 3:7:D 2:6:F 1:5:A 4:7:A 2:8:G+ 1:7:B+ 4:9:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1: G7 | I Only Have Eyes for You | cases 5 à 9',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 offbeat: offbeat no miss',
@@ -643,7 +653,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:7 2:8 1:7 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:7 2:8 1:7 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 aid once right: strings 4,3,2,1 [5-9] 3:7:D 2:8:G 1:7:B 4:9:B 2:6:F+ 1:5:A+ 4:7:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #1 picture once right: strings 4,3,2,1 [5-9] 3:7:D 2:8:G 1:7:B 4:9:B 2:6:F+ 1:5:A+ 4:7:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #2: Dm7 | I Only Have Eyes for You | cases 5 à 9',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #3: G7 | I Only Have Eyes for You | cases 5 à 9',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #4: Cmaj7 | I Only Have Eyes for You | cases 5 à 9',
@@ -651,11 +661,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #6: Em7 | I Only Have Eyes for You | cases 5 à 9',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #7: Ebm7 | I Only Have Eyes for You | cases 5 à 9',
 	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #8: Ab7 | I Only Have Eyes for You | cases 5 à 9',
-	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #8 aid: strings 4,3,2,1 [8-9] 3:8:Eb 2:9:Ab 1:8:C',
+	'grid-in-zone grid=iohefy-a {"zone":[5,9]} #8 picture: strings 4,3,2,1 [8-9] 3:8:Eb 2:9:Ab 1:8:C',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #0 en: Dm7 | I Only Have Eyes for You | frets 10 to 14',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #0: Dm7 | I Only Have Eyes for You | cases 10 à 14',
-	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #0 aid: strings 4,3,2,1 [10-12] 3:10:F 2:10:A 1:10:D 4:12:D 3:12:G+ 2:12:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #0 picture: strings 4,3,2,1 [10-12] 3:10:F 2:10:A 1:10:D 4:12:D 3:12:G+ 2:12:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1: G7 | I Only Have Eyes for You | cases 10 à 14',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 offbeat: offbeat no miss',
@@ -665,7 +675,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:12 2:12 1:10 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:12 2:12 1:10 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 aid once right: strings 4,3,2,1 [10-12] 3:12:G 2:12:B 1:10:D 4:12:D 3:10:F+ 2:10:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #1 picture once right: strings 4,3,2,1 [10-12] 3:12:G 2:12:B 1:10:D 4:12:D 3:10:F+ 2:10:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #2: Dm7 | I Only Have Eyes for You | cases 10 à 14',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #3: G7 | I Only Have Eyes for You | cases 10 à 14',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #4: Cmaj7 | I Only Have Eyes for You | cases 10 à 14',
@@ -673,11 +683,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #6: Em7 | I Only Have Eyes for You | cases 10 à 14',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #7: Ebm7 | I Only Have Eyes for You | cases 10 à 14',
 	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #8: Ab7 | I Only Have Eyes for You | cases 10 à 14',
-	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #8 aid: strings 4,3,2,1 [11-13] 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb',
+	'grid-in-zone grid=iohefy-a {"zone":[10,14]} #8 picture: strings 4,3,2,1 [11-13] 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #0 en: Dm7 | I Only Have Eyes for You | frets 2 to 6',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #0: Dm7 | I Only Have Eyes for You | cases 2 à 6',
-	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #0 aid: strings 4,3,2,1 [2-5] 4:3:F 3:2:A 2:3:D 3:4:B+ 1:3:G+ 4:5:G+',
+	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #0 picture: strings 4,3,2,1 [2-5] 4:3:F 3:2:A 2:3:D 3:4:B+ 1:3:G+ 4:5:G+',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1: G7 | I Only Have Eyes for You | cases 2 à 6',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 offbeat: offbeat no miss',
@@ -687,7 +697,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:4 2:3 1:3 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 aid once right: strings 4,3,2,1 [2-5] 3:4:B 2:3:D 1:3:G 4:5:G 4:3:F+ 3:2:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #1 picture once right: strings 4,3,2,1 [2-5] 3:4:B 2:3:D 1:3:G 4:5:G 4:3:F+ 3:2:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #2: Dm7 | I Only Have Eyes for You | cases 2 à 6',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #3: G7 | I Only Have Eyes for You | cases 2 à 6',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #4: Cmaj7 | I Only Have Eyes for You | cases 2 à 6',
@@ -695,11 +705,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #6: Em7 | I Only Have Eyes for You | cases 2 à 6',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #7: Ebm7 | I Only Have Eyes for You | cases 2 à 6',
 	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #8: Ab7 | I Only Have Eyes for You | cases 2 à 6',
-	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #8 aid: strings 4,3,2,1 [4-6] 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab',
+	'grid-in-zone grid=iohefy-a {"zone":[2,6]} #8 picture: strings 4,3,2,1 [4-6] 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #0 en: Dm7 | I Only Have Eyes for You | frets 7 to 11',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #0: Dm7 | I Only Have Eyes for You | cases 7 à 11',
-	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #0 aid: strings 4,3,2,1 [7-10] 3:10:F 2:10:A 1:10:D 3:7:D+ 2:8:G+ 1:7:B+ 4:9:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #0 picture: strings 4,3,2,1 [7-10] 3:10:F 2:10:A 1:10:D 3:7:D+ 2:8:G+ 1:7:B+ 4:9:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1: G7 | I Only Have Eyes for You | cases 7 à 11',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 offbeat: offbeat no miss',
@@ -709,7 +719,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:7 2:8 1:7 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:7 2:8 1:7 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 aid once right: strings 4,3,2,1 [7-10] 3:7:D 2:8:G 1:7:B 4:9:B 3:10:F+ 2:10:A+ 1:10:D+',
+	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #1 picture once right: strings 4,3,2,1 [7-10] 3:7:D 2:8:G 1:7:B 4:9:B 3:10:F+ 2:10:A+ 1:10:D+',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #2: Dm7 | I Only Have Eyes for You | cases 7 à 11',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #3: G7 | I Only Have Eyes for You | cases 7 à 11',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #4: Cmaj7 | I Only Have Eyes for You | cases 7 à 11',
@@ -717,11 +727,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #6: Em7 | I Only Have Eyes for You | cases 7 à 11',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #7: Ebm7 | I Only Have Eyes for You | cases 7 à 11',
 	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #8: Ab7 | I Only Have Eyes for You | cases 7 à 11',
-	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #8 aid: strings 4,3,2,1 [8-10] 3:8:Eb 2:9:Ab 1:8:C 4:10:C',
+	'grid-in-zone grid=iohefy-a {"zone":[7,11]} #8 picture: strings 4,3,2,1 [8-10] 3:8:Eb 2:9:Ab 1:8:C 4:10:C',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #0 en: Dm7 | I Only Have Eyes for You | frets 12 to 16',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #0: Dm7 | I Only Have Eyes for You | cases 12 à 16',
-	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #0 aid: strings 4,3,2,1 [12-16] 3:14:A 2:15:D 1:13:F 4:15:F 4:12:D+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+',
+	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #0 picture: strings 4,3,2,1 [12-16] 3:14:A 2:15:D 1:13:F 4:15:F 4:12:D+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1: G7 | I Only Have Eyes for You | cases 12 à 16',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 offbeat: offbeat no miss',
@@ -731,7 +741,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 4:12 3:12 2:12 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:12 3:12 2:12 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 aid once right: strings 4,3,2,1 [12-16] 4:12:D 3:12:G 2:12:B 3:16:B 2:15:D 1:15:G 3:14:A+ 1:13:F+ 4:15:F+',
+	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #1 picture once right: strings 4,3,2,1 [12-16] 4:12:D 3:12:G 2:12:B 3:16:B 2:15:D 1:15:G 3:14:A+ 1:13:F+ 4:15:F+',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #2: Dm7 | I Only Have Eyes for You | cases 12 à 16',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #3: G7 | I Only Have Eyes for You | cases 12 à 16',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #4: Cmaj7 | I Only Have Eyes for You | cases 12 à 16',
@@ -739,11 +749,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #6: Em7 | I Only Have Eyes for You | cases 12 à 16',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #7: Ebm7 | I Only Have Eyes for You | cases 12 à 16',
 	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #8: Ab7 | I Only Have Eyes for You | cases 12 à 16',
-	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #8 aid: strings 4,3,2,1 [13-13] 4:13:Eb 3:13:Ab 2:13:C',
+	'grid-in-zone grid=iohefy-a {"zone":[12,16]} #8 picture: strings 4,3,2,1 [13-13] 4:13:Eb 3:13:Ab 2:13:C',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #0 en: Dm7 | I Only Have Eyes for You | frets 4 to 8',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #0: Dm7 | I Only Have Eyes for You | cases 4 à 8',
-	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #0 aid: strings 4,3,2,1 [5-8] 3:7:D 2:6:F 1:5:A 4:7:A 2:8:G+ 1:7:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #0 picture: strings 4,3,2,1 [5-8] 3:7:D 2:6:F 1:5:A 4:7:A 2:8:G+ 1:7:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1: G7 | I Only Have Eyes for You | cases 4 à 8',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 offbeat: offbeat no miss',
@@ -753,7 +763,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:7 2:8 1:7 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:7 2:8 1:7 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 aid once right: strings 4,3,2,1 [5-8] 3:7:D 2:8:G 1:7:B 2:6:F+ 1:5:A+ 4:7:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #1 picture once right: strings 4,3,2,1 [5-8] 3:7:D 2:8:G 1:7:B 2:6:F+ 1:5:A+ 4:7:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #2: Dm7 | I Only Have Eyes for You | cases 4 à 8',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #3: G7 | I Only Have Eyes for You | cases 4 à 8',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #4: Cmaj7 | I Only Have Eyes for You | cases 4 à 8',
@@ -761,11 +771,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #6: Em7 | I Only Have Eyes for You | cases 4 à 8',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #7: Ebm7 | I Only Have Eyes for You | cases 4 à 8',
 	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #8: Ab7 | I Only Have Eyes for You | cases 4 à 8',
-	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #8 aid: strings 4,3,2,1 [4-6] 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab',
+	'grid-in-zone grid=iohefy-a {"zone":[4,8]} #8 picture: strings 4,3,2,1 [4-6] 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #0 en: Dm7 | I Only Have Eyes for You | frets 9 to 13',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #0: Dm7 | I Only Have Eyes for You | cases 9 à 13',
-	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #0 aid: strings 4,3,2,1 [10-12] 3:10:F 2:10:A 1:10:D 4:12:D 3:12:G+ 2:12:B+',
+	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #0 picture: strings 4,3,2,1 [10-12] 3:10:F 2:10:A 1:10:D 4:12:D 3:12:G+ 2:12:B+',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1: G7 | I Only Have Eyes for You | cases 9 à 13',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 right: perfect no miss',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 offbeat: offbeat no miss',
@@ -775,7 +785,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:12 2:12 1:10 gap autre qualité',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:12 2:12 1:10 gap autre accord',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 aid once right: strings 4,3,2,1 [10-12] 3:12:G 2:12:B 1:10:D 4:12:D 3:10:F+ 2:10:A+',
+	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #1 picture once right: strings 4,3,2,1 [10-12] 3:12:G 2:12:B 1:10:D 4:12:D 3:10:F+ 2:10:A+',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #2: Dm7 | I Only Have Eyes for You | cases 9 à 13',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #3: G7 | I Only Have Eyes for You | cases 9 à 13',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #4: Cmaj7 | I Only Have Eyes for You | cases 9 à 13',
@@ -783,11 +793,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #6: Em7 | I Only Have Eyes for You | cases 9 à 13',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #7: Ebm7 | I Only Have Eyes for You | cases 9 à 13',
 	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #8: Ab7 | I Only Have Eyes for You | cases 9 à 13',
-	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #8 aid: strings 4,3,2,1 [11-13] 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb',
+	'grid-in-zone grid=iohefy-a {"zone":[9,13]} #8 picture: strings 4,3,2,1 [11-13] 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} line: 0+4 F7, 4+4 Bb7, 8+8 F7, 16+8 Bb7, 24+8 F7, 32+4 C7, 36+4 Bb7, 40+4 F7, 44+4 C7',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #0 en: F7 | Blues F | frets 1 to 5',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #0: F7 | Blues F | cases 1 à 5',
-	'grid-in-zone grid=blues-f {"zone":[1,5]} #0 aid: strings 4,3,2,1 [1-3] 3:2:A 2:1:C 1:1:F 4:3:F 3:3:Bb+ 2:3:D+',
+	'grid-in-zone grid=blues-f {"zone":[1,5]} #0 picture: strings 4,3,2,1 [1-3] 3:2:A 2:1:C 1:1:F 4:3:F 3:3:Bb+ 2:3:D+',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #1: Bb7 | Blues F | cases 1 à 5',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 right: perfect no miss',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 offbeat: offbeat no miss',
@@ -797,7 +807,7 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 wrong:other-quality: wrong heard 3:3 2:2 1:1 expected 3:3 2:3 1:1 gap autre qualité',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:3 2:3 1:1 gap autre accord',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 nothing en: gap no chord heard',
-	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 aid once right: strings 4,3,2,1 [1-3] 3:3:Bb 2:3:D 1:1:F 4:3:F 3:2:A+ 2:1:C+',
+	'grid-in-zone grid=blues-f {"zone":[1,5]} #1 picture once right: strings 4,3,2,1 [1-3] 3:3:Bb 2:3:D 1:1:F 4:3:F 3:2:A+ 2:1:C+',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #2: F7 | Blues F | cases 1 à 5',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #3: Bb7 | Blues F | cases 1 à 5',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #4: F7 | Blues F | cases 1 à 5',
@@ -805,11 +815,11 @@ const FROZEN: readonly string[] = [
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #6: Bb7 | Blues F | cases 1 à 5',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #7: F7 | Blues F | cases 1 à 5',
 	'grid-in-zone grid=blues-f {"zone":[1,5]} #8: C7 | Blues F | cases 1 à 5',
-	'grid-in-zone grid=blues-f {"zone":[1,5]} #8 aid: strings 4,3,2,1 [0-5] 3:0:G 2:1:C 1:0:E 4:2:E 3:5:C 2:5:E 1:3:G 4:5:G',
+	'grid-in-zone grid=blues-f {"zone":[1,5]} #8 picture: strings 4,3,2,1 [0-5] 3:0:G 2:1:C 1:0:E 4:2:E 3:5:C 2:5:E 1:3:G 4:5:G',
 	'grid-reading grid=iohefy-a line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-reading grid=iohefy-a #0 en: Dm7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #0: Dm7 | I Only Have Eyes for You | -',
-	'grid-reading grid=iohefy-a #0 aid: strings 4,3,2,1 [0-17] 3:2:A 2:3:D 1:1:F 4:3:F 3:7:D 2:6:F 1:5:A 4:7:A 3:10:F 2:10:A 1:10:D 4:12:D 3:14:A 2:15:D 1:13:F 4:15:F 4:0:D+ 3:0:G+ 2:0:B+ 3:4:B+ 1:3:G+ 4:5:G+ 2:8:G+ 1:7:B+ 4:9:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+ 4:17:G+',
+	'grid-reading grid=iohefy-a #0 picture: strings 4,3,2,1 [0-17] 3:2:A 2:3:D 1:1:F 4:3:F 3:7:D 2:6:F 1:5:A 4:7:A 3:10:F 2:10:A 1:10:D 4:12:D 3:14:A 2:15:D 1:13:F 4:15:F 4:0:D+ 3:0:G+ 2:0:B+ 3:4:B+ 1:3:G+ 4:5:G+ 2:8:G+ 1:7:B+ 4:9:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+ 4:17:G+',
 	'grid-reading grid=iohefy-a #1: G7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #1 right: perfect no miss',
 	'grid-reading grid=iohefy-a #1 offbeat: offbeat no miss',
@@ -818,7 +828,7 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=iohefy-a #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-reading grid=iohefy-a #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:0 3:0 2:0 gap autre accord',
 	'grid-reading grid=iohefy-a #1 nothing en: gap no chord heard',
-	'grid-reading grid=iohefy-a #1 aid once right: strings 4,3,2,1 [0-17] 4:0:D 3:0:G 2:0:B 3:4:B 2:3:D 1:3:G 4:5:G 3:7:D 2:8:G 1:7:B 4:9:B 3:12:G 2:12:B 1:10:D 4:12:D 3:16:B 2:15:D 1:15:G 4:17:G 3:2:A+ 1:1:F+ 4:3:F+ 2:6:F+ 1:5:A+ 4:7:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+ 4:15:F+',
+	'grid-reading grid=iohefy-a #1 picture once right: strings 4,3,2,1 [0-17] 4:0:D 3:0:G 2:0:B 3:4:B 2:3:D 1:3:G 4:5:G 3:7:D 2:8:G 1:7:B 4:9:B 3:12:G 2:12:B 1:10:D 4:12:D 3:16:B 2:15:D 1:15:G 4:17:G 3:2:A+ 1:1:F+ 4:3:F+ 2:6:F+ 1:5:A+ 4:7:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+ 4:15:F+',
 	'grid-reading grid=iohefy-a #2: Dm7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #3: G7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #4: Cmaj7 | I Only Have Eyes for You | -',
@@ -826,11 +836,11 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=iohefy-a #6: Em7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #7: Ebm7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #8: Ab7 | I Only Have Eyes for You | -',
-	'grid-reading grid=iohefy-a #8 aid: strings 4,3,2,1 [1-17] 4:1:Eb 3:1:Ab 2:1:C 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab 3:8:Eb 2:9:Ab 1:8:C 4:10:C 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb 3:17:C 2:16:Eb 1:16:Ab',
+	'grid-reading grid=iohefy-a #8 picture: strings 4,3,2,1 [1-17] 4:1:Eb 3:1:Ab 2:1:C 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab 3:8:Eb 2:9:Ab 1:8:C 4:10:C 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb 3:17:C 2:16:Eb 1:16:Ab',
 	'grid-reading grid=blues-f line: 0+4 F7, 4+4 Bb7, 8+8 F7, 16+8 Bb7, 24+8 F7, 32+4 C7, 36+4 Bb7, 40+4 F7, 44+4 C7',
 	'grid-reading grid=blues-f #0 en: F7 | Blues F | -',
 	'grid-reading grid=blues-f #0: F7 | Blues F | -',
-	'grid-reading grid=blues-f #0 aid: strings 4,3,2,1 [1-15] 3:2:A 2:1:C 1:1:F 4:3:F 3:5:C 2:6:F 1:5:A 4:7:A 3:10:F 2:10:A 1:8:C 4:10:C 3:14:A 2:13:C 1:13:F 4:15:F 3:3:Bb+ 2:3:D+ 3:7:D+ 1:6:Bb+ 4:8:Bb+ 2:11:Bb+ 1:10:D+ 4:12:D+ 3:15:Bb+ 2:15:D+',
+	'grid-reading grid=blues-f #0 picture: strings 4,3,2,1 [1-15] 3:2:A 2:1:C 1:1:F 4:3:F 3:5:C 2:6:F 1:5:A 4:7:A 3:10:F 2:10:A 1:8:C 4:10:C 3:14:A 2:13:C 1:13:F 4:15:F 3:3:Bb+ 2:3:D+ 3:7:D+ 1:6:Bb+ 4:8:Bb+ 2:11:Bb+ 1:10:D+ 4:12:D+ 3:15:Bb+ 2:15:D+',
 	'grid-reading grid=blues-f #1: Bb7 | Blues F | -',
 	'grid-reading grid=blues-f #1 right: perfect no miss',
 	'grid-reading grid=blues-f #1 offbeat: offbeat no miss',
@@ -839,7 +849,7 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=blues-f #1 wrong:other-quality: wrong heard 3:3 2:2 1:1 expected 3:3 2:3 1:1 gap autre qualité',
 	'grid-reading grid=blues-f #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:3 2:3 1:1 gap autre accord',
 	'grid-reading grid=blues-f #1 nothing en: gap no chord heard',
-	'grid-reading grid=blues-f #1 aid once right: strings 4,3,2,1 [1-15] 3:3:Bb 2:3:D 1:1:F 4:3:F 3:7:D 2:6:F 1:6:Bb 4:8:Bb 3:10:F 2:11:Bb 1:10:D 4:12:D 3:15:Bb 2:15:D 1:13:F 4:15:F 3:2:A+ 2:1:C+ 3:5:C+ 1:5:A+ 4:7:A+ 2:10:A+ 1:8:C+ 4:10:C+ 3:14:A+ 2:13:C+',
+	'grid-reading grid=blues-f #1 picture once right: strings 4,3,2,1 [1-15] 3:3:Bb 2:3:D 1:1:F 4:3:F 3:7:D 2:6:F 1:6:Bb 4:8:Bb 3:10:F 2:11:Bb 1:10:D 4:12:D 3:15:Bb 2:15:D 1:13:F 4:15:F 3:2:A+ 2:1:C+ 3:5:C+ 1:5:A+ 4:7:A+ 2:10:A+ 1:8:C+ 4:10:C+ 3:14:A+ 2:13:C+',
 	'grid-reading grid=blues-f #2: F7 | Blues F | -',
 	'grid-reading grid=blues-f #3: Bb7 | Blues F | -',
 	'grid-reading grid=blues-f #4: F7 | Blues F | -',
@@ -847,5 +857,5 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=blues-f #6: Bb7 | Blues F | -',
 	'grid-reading grid=blues-f #7: F7 | Blues F | -',
 	'grid-reading grid=blues-f #8: C7 | Blues F | -',
-	'grid-reading grid=blues-f #8 aid: strings 4,3,2,1 [0-17] 3:0:G 2:1:C 1:0:E 4:2:E 3:5:C 2:5:E 1:3:G 4:5:G 3:9:E 2:8:G 1:8:C 4:10:C 3:12:G 2:13:C 1:12:E 4:14:E 3:17:C 2:17:E 1:15:G 4:17:G'
+	'grid-reading grid=blues-f #8 picture: strings 4,3,2,1 [0-17] 3:0:G 2:1:C 1:0:E 4:2:E 3:5:C 2:5:E 1:3:G 4:5:G 3:9:E 2:8:G 1:8:C 4:10:C 3:12:G 2:13:C 1:12:E 4:14:E 3:17:C 2:17:E 1:15:G 4:17:G'
 ];

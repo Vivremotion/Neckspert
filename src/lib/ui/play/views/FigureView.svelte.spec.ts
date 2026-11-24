@@ -72,7 +72,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 	return {
 		phase: 'play',
 		exerciseLabel: 'Contretemps',
-		level: { shown: 3, of: 6, aid: false },
+		level: { shown: 3, of: 6 },
 		tempo: { bpm: 90, unit: '♩' },
 		figure: figure(0),
 		next: null,
@@ -403,8 +403,8 @@ describe('FigureView', () => {
 		expect(screen.getByTestId('figure-played').querySelectorAll('.vf-tabnote')).toHaveLength(0);
 	});
 
-	it('engraves a change cut inside its figure as the round plays it, its tab aid included', async () => {
-		// A one-bar figure of quarters over a change of 2 beats, then of 6, at the tab aid level.
+	it('engraves a change cut inside its figure as the round plays it, its tab included', async () => {
+		// A one-bar figure of quarters over a change of 2 beats, then of 6, at level 1, which shows the tab.
 		for (const [beats, tabNotes, bar] of [
 			[2, 2, 'mesure 1 / 1'],
 			[6, 6, 'mesure 2 / 2']
@@ -412,7 +412,7 @@ describe('FigureView', () => {
 			const item: PlannedItem = {
 				exerciseId: ARPEGGIO_EXERCISE.id,
 				skill: ARPEGGIO_EXERCISE.practices,
-				exerciseLevel: -1,
+				exerciseLevel: 0,
 				item: { ...placedVoicingSet.parseItem('C|maj|3:1,2:3,1:5@5-5-3'), beats },
 				phase: 'free',
 				temperature: 'hot',
@@ -635,7 +635,7 @@ describe('FigureView', () => {
 		expect(screen.queryByRole('status')).toBeNull();
 		cleanup();
 		render(FigureView, {
-			props: { controller: running(), model: breath({ level: { shown: 0, of: 4, aid: true } }) }
+			props: { controller: running(), model: breath({ level: { shown: 1, of: 5 } }) }
 		});
 		expect(screen.queryByRole('status')).toBeNull();
 	});

@@ -1,5 +1,5 @@
 import { hasSkill, skillById } from '../skill/registry';
-import { levelRange, type Level } from '../time/levels';
+import type { Level } from '../time/levels';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
 import { DEFAULT_TEMPO_BPM } from './tempo';
@@ -87,13 +87,13 @@ export function exerciseLevelsOf(definition: ExerciseDefinition): readonly Level
 	return definition.levels && definition.levels.length > 0 ? definition.levels : IMPLICIT_LEVELS;
 }
 
-/** Level `index` of `levels` (0 = level 1, aid levels negative); throws outside them. */
+/** Level `index` of `levels` (0 = level 1); throws outside them. */
 function levelAt<P>(levels: readonly Level<P>[], index: number, what: string): Level<P> {
-	const { lowest, highest } = levelRange(levels);
-	if (!Number.isInteger(index) || index < lowest || index > highest) {
-		throw new RangeError(`${what} level ${index} is not in ${lowest}..${highest}`);
+	const highest = levels.length - 1;
+	if (!Number.isInteger(index) || index < 0 || index > highest) {
+		throw new RangeError(`${what} level ${index} is not in 0..${highest}`);
 	}
-	return levels[index - lowest];
+	return levels[index];
 }
 
 /** The direct recall of the skill the exercise practises; none when it writes none or is unregistered. */

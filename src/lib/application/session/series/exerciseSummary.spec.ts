@@ -27,14 +27,14 @@ function state(level: number): LevelState {
 	};
 }
 
-// The offbeats exercise has four regular levels (the rhythm stage says « sur 4 » for it).
-const OF = 4;
+// The offbeats exercise has five levels (the rhythm stage says « sur 5 » for it).
+const OF = 5;
 
 describe('summarizeExercise', () => {
 	it('tells the level held at the end', () => {
 		const attempts = [cycle(0, true), cycle(0, false), cycle(1, true)];
 		expect(summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts, state: state(2) })).toEqual({
-			level: { shown: 3, of: OF, aid: false }
+			level: { shown: 3, of: OF }
 		});
 	});
 
@@ -45,17 +45,19 @@ describe('summarizeExercise', () => {
 			levelReached: 1,
 			state: state(3)
 		});
-		expect(summary.level).toEqual({ shown: 2, of: OF, aid: false });
+		expect(summary.level).toEqual({ shown: 2, of: OF });
 	});
 
-	it('says when the level held is an aid level', () => {
-		const summary = summarizeExercise({
-			exercise: RHYTHM_OFFBEATS,
-			attempts: [cycle(-1, true)],
-			levelReached: -1,
-			state: state(-1)
-		});
-		expect(summary.level).toEqual({ shown: 0, of: OF, aid: true });
+	it('brings a level outside the levels back into them: below the first, above the top', () => {
+		const at = (level: number) =>
+			summarizeExercise({
+				exercise: RHYTHM_OFFBEATS,
+				attempts: [cycle(level, true)],
+				levelReached: level,
+				state: state(level)
+			}).level;
+		expect(at(-1)).toEqual({ shown: 1, of: OF });
+		expect(at(99)).toEqual({ shown: OF, of: OF });
 	});
 
 	it('falls back on the level of the last cycle when no level is stored', () => {
@@ -64,7 +66,7 @@ describe('summarizeExercise', () => {
 			attempts: [cycle(0, true), cycle(1, true)],
 			state: undefined
 		});
-		expect(summary.level).toEqual({ shown: 2, of: OF, aid: false });
+		expect(summary.level).toEqual({ shown: 2, of: OF });
 	});
 
 	it('shows the first level for a session with no cycle and nothing stored', () => {
@@ -73,7 +75,7 @@ describe('summarizeExercise', () => {
 			attempts: [],
 			state: undefined
 		});
-		expect(summary).toEqual({ level: { shown: 1, of: OF, aid: false } });
+		expect(summary).toEqual({ level: { shown: 1, of: OF } });
 	});
 
 	it('reads the level of its own last cycle, never another exercise’s', () => {
@@ -83,7 +85,7 @@ describe('summarizeExercise', () => {
 			attempts: [cycle(1, true), other],
 			state: undefined
 		});
-		expect(summary.level).toEqual({ shown: 2, of: OF, aid: false });
+		expect(summary.level).toEqual({ shown: 2, of: OF });
 	});
 
 	it('engraves the last cycle from the figure its item names, over the bars its plan kept', () => {

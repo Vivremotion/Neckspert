@@ -43,8 +43,7 @@ export const playMessages = defineMessages({
 			'level-up': (shown: number, of: number, bpm: number) =>
 				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`,
 			'level-down': (shown: number, of: number, bpm: number) =>
-				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`,
-			'aid-level': (_shown: number, _of: number, bpm: number) => `Niveau d’aide · ♩ = ${bpm}`
+				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`
 		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
 		replay: 'Réécouter',
 		replaying: 'Réécoute…',
@@ -90,8 +89,7 @@ export const playMessages = defineMessages({
 			'level-up': (shown: number, of: number, bpm: number) =>
 				`Level ${shown} of ${of} · ♩ = ${bpm}`,
 			'level-down': (shown: number, of: number, bpm: number) =>
-				`Level ${shown} of ${of} · ♩ = ${bpm}`,
-			'aid-level': (_shown: number, _of: number, bpm: number) => `Aid level · ♩ = ${bpm}`
+				`Level ${shown} of ${of} · ♩ = ${bpm}`
 		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
 		replay: 'Replay',
 		replaying: 'Replaying…',

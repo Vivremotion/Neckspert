@@ -254,7 +254,7 @@ export interface SessionRecord {
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
 	/**
-	 * The level the exercise was held at when the series ended (0 = level 1, aid levels negative),
+	 * The level the exercise was held at when the series ended (0 = level 1),
 	 * for a session of one exercise; absent from sessions stored before it was kept.
 	 */
 	levelReached?: number;
@@ -413,11 +413,11 @@ export interface PlayedExercise {
 	rounds: number;
 	passed: number;
 	/**
-	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level);
+	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 »);
 	 * null when the exercise writes no level, and for any exercise but one played alone whose
 	 * round writes a figure (the changes' levels are their tempos, told by `tempo`).
 	 */
-	level: { shown: number; of: number; aid: boolean } | null;
+	level: { shown: number; of: number } | null;
 	/** The tempo of its first and of its last round; null in free time. */
 	tempo: { first: number; last: number } | null;
 	/** Its rounds were played in passages: they are changes, told as right and in time. */

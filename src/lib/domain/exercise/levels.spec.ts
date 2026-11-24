@@ -98,12 +98,12 @@ describe('resolvedParamsOf', () => {
 		expect(tempoOf(definition, 0)).toBe(90);
 	});
 
-	it('reads aid levels at negative indexes, -1 closest to level 1, and refuses one outside', () => {
+	it('reads a level by its place in the list, from 0, and refuses one outside', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,
 			levels: [
-				{ params: { cycleBars: 1 }, aid: true },
-				{ params: { cycleBars: 2 }, aid: true },
+				{ params: { cycleBars: 1 } },
+				{ params: { cycleBars: 2 } },
 				{ params: { cycleBars: 4 } },
 				{ params: {} }
 			],
@@ -111,9 +111,9 @@ describe('resolvedParamsOf', () => {
 		};
 		const bars = (exerciseLevel: number) =>
 			resolvedParamsOf(definition, { exerciseLevel, itemLevel: null }).cycleBars;
-		expect([-2, -1, 0, 1].map(bars)).toEqual([1, 2, 4, 8]);
-		expect(() => bars(2)).toThrow(RangeError);
-		expect(() => bars(-3)).toThrow(RangeError);
+		expect([0, 1, 2, 3].map(bars)).toEqual([1, 2, 4, 8]);
+		expect(() => bars(4)).toThrow(RangeError);
+		expect(() => bars(-1)).toThrow(RangeError);
 	});
 
 	it('takes the tempo the definition writes, never a tempo of its params', () => {

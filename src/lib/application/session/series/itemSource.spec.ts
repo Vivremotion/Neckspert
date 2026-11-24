@@ -72,12 +72,12 @@ describe('createExerciseItemSource, from the figures', () => {
 	it('serves an item again at the level played, with the figure of its turn that fits the round', () => {
 		const offbeats = createExerciseItemSource(RHYTHM_OFFBEATS);
 		const first = offbeats.next(context)!;
-		// Level 2 (index 1) plays rounds of two bars: the two-bar figure.
-		const leveled = offbeats.atLevel!(first, 1);
-		expect(keyOf(leveled)).toBe('offbeats-2@1');
-		expect(leveled.exerciseLevel).toBe(1);
-		// An aid level, below the first.
-		expect(keyOf(offbeats.atLevel!(first, -1))).toBe('offbeats-1@-1');
+		// Level 3 (index 2) plays rounds of two bars: the two-bar figure.
+		const leveled = offbeats.atLevel!(first, 2);
+		expect(keyOf(leveled)).toBe('offbeats-2@2');
+		expect(leveled.exerciseLevel).toBe(2);
+		// Level 1 (index 0) plays rounds of one bar.
+		expect(keyOf(offbeats.atLevel!(leveled, 0))).toBe('offbeats-1@0');
 
 		const lines = createExerciseItemSource(RHYTHM_TWO_FOUR);
 		lines.next(context);

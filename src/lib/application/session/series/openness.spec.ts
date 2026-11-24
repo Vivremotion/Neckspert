@@ -445,13 +445,13 @@ const READ_A_GRID: ExerciseDefinition = {
 	passages: { of: { grid: [BENCH_GRIDS[1]] }, members: { family: 'grid-changes' }, restBars: 1 }
 };
 
-/** The same, with an aid level under its level 1, which nothing brings. */
-const READ_A_GRID_AID_LEVEL: ExerciseDefinition = {
+/** The same, with a level 1 that draws the shapes admitted, passed after the default three. */
+const READ_A_GRID_PICTURED: ExerciseDefinition = {
 	...READ_A_GRID,
-	id: 'read-a-grid-aid-level',
+	id: 'read-a-grid-pictured',
 	practices: BENCH_PASSAGE_SKILLS.change[1],
 	levels: [
-		{ aid: true, params: { tempo: 100, 'presentation.picture': 'admitted' } },
+		{ params: { tempo: 100, 'presentation.picture': 'admitted' } },
 		{ params: { tempo: 100 }, pass: { successes: 10 }, drop: { failures: 3 } }
 	]
 };
@@ -503,8 +503,11 @@ const PASSAGE_SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);
 const RIGHT_PLAY_S = 60;
 /** How long a drawn session is played with nothing: past its length, so it ends by itself. */
 const NONE_PLAY_S = (SESSION_MS * 1.4) / 1000;
-// Floors and ceilings at about 80 % and 125 % of what the seeds give today (the counts are in
-// `task-5-report.md`): a slide of the generator, or of what the bench checks, shows.
+// Floors and ceilings at about 80 % and 125 % of what the seeds gave on 2026-11-24 (issue #19):
+// 196 passages exercises accepted, 171 played, 104 refused, 168 missed throughout (all ended),
+// 62 memory exercises accepted, 138 refused, 20 routines of each kind played, 3 510 rounds
+// checked played right, 19 574 played with nothing. A slide of the generator, or of what the
+// bench checks, shows.
 const FLOORS = {
 	passagesAccepted: 157,
 	passagesPlayed: 137,
@@ -569,8 +572,6 @@ function missesAll(definition: ExerciseDefinition): boolean {
 	return definition.round!.expectations.every((e) => e.at !== null && e.content !== null);
 }
 
-/** What a session announces when its levels move: nothing else is ever announced. */
-const LEVEL_ANNOUNCEMENTS: ReadonlySet<string> = new Set(['level-up', 'level-down', 'aid-level']);
 const ROUTINE_SEEDS = Array.from({ length: 20 }, (_, i) => i + 1);
 /** A session that plays opens a round within this many audio seconds of the last, or ends. */
 const HANG_S = 40;
@@ -613,7 +614,7 @@ const successes = (play: ServicePlay) =>
 	[...play.attempts].sort((a, b) => a.promptedAt - b.promptedAt).map((a) => a.success);
 
 describe('every valid passages exercise and routine plays', () => {
-	for (const definition of [READ_A_GRID, READ_A_GRID_AID_LEVEL, CLIMB_SHAPES]) {
+	for (const definition of [READ_A_GRID, READ_A_GRID_PICTURED, CLIMB_SHAPES]) {
 		registerExercise(definition, 'bench');
 	}
 	registerExercise(ROOT_THEN_CHORD_LISTED, 'bench');
@@ -642,18 +643,18 @@ describe('every valid passages exercise and routine plays', () => {
 	});
 
 	it('plays a passages exercise alone missed throughout past its length: it ends by itself, at level 1', async () => {
-		expect(benchRefusal(READ_A_GRID_AID_LEVEL)).toBeNull();
+		expect(benchRefusal(READ_A_GRID_PICTURED)).toBeNull();
 		const bench = await serviceBench({ acquired: true });
 		const play = await playService(
 			bench,
-			() => bench.services.startExercise(READ_A_GRID_AID_LEVEL.id),
-			[READ_A_GRID_AID_LEVEL],
+			() => bench.services.startExercise(READ_A_GRID_PICTURED.id),
+			[READ_A_GRID_PICTURED],
 			'none',
 			{ maxS: NONE_PLAY_S }
 		);
 		expect(playProblems(play, 'none')).toEqual([]);
-		// Misses in a row bring nothing: no aid level, no change of air; the passages go on until
-		// the session's length, and it ends there by itself.
+		// Misses in a row at level 1 bring nothing: the level stays, nothing is announced; the
+		// passages go on until the session's length, and it ends there by itself.
 		expect(play.status).toBe('finished');
 		expect(['time', 'complete']).toContain(play.end);
 		expect(play.attempts.length).toBeGreaterThan(12);
@@ -830,10 +831,10 @@ describe('every valid passages exercise and routine plays', () => {
 				}
 			}
 			if (missesAll(definition) && none.rounds.length > 0) {
-				// Misses in a row bring nothing but the level's own move: the session runs past its
-				// length and ends by itself, by time or with its source.
+				// Misses in a row from level 1 bring nothing: no level moves, nothing is announced;
+				// the session runs past its length and ends by itself, by time or with its source.
 				counts.passagesAllMissed++;
-				const announced = [...none.announced].filter((kind) => !LEVEL_ANNOUNCEMENTS.has(kind));
+				const announced = [...none.announced];
 				if (announced.length === 0 && (none.end === 'time' || none.end === 'complete')) {
 					counts.passagesAllMissedEnded++;
 				} else {

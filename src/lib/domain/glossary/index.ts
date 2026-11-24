@@ -14,7 +14,6 @@ export const TERM_IDS = [
 	'shift',
 	'offbeat',
 	'level',
-	'aid-level',
 	'listen-in',
 	'count-in',
 	'breath',
@@ -119,18 +118,6 @@ export const GLOSSARY: Record<TermId, Record<Locale, Term>> = {
 			term: 'level',
 			definition:
 				'The setting of the exercise you play. It goes up after cycles passed, down after repeated failures.'
-		}
-	},
-	'aid-level': {
-		fr: {
-			term: 'niveau d’aide',
-			definition:
-				'Un niveau sous le niveau 1, plus facile au sens de l’exercice ; on y passe quand ça bloque, on en sort en réussissant.'
-		},
-		en: {
-			term: 'aid level',
-			definition:
-				'A level below level 1, easier in the way the exercise means it; you get there when you are stuck, and leave it by succeeding.'
 		}
 	},
 	'listen-in': {

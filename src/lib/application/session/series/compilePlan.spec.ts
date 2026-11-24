@@ -16,6 +16,7 @@ const note: PlannedItem = {
 	leadBeats: 4
 };
 
+/** The eighths of « Mesures silencieuses » at exercise level `level` (1: its level 2, one bar silent). */
 const eighths = (level: number): PlannedItem => ({
 	exerciseId: RHYTHM_SILENT_BARS.id,
 	skill: 'inner-pulse',
@@ -42,12 +43,12 @@ describe('compilePlan', () => {
 		expect(compilePlan(LOCATE_NECK, note, METER_4_4, context)).toEqual(
 			compileRound(LOCATE_NECK, note, METER_4_4, context)
 		);
-		const cycle = compilePlan(RHYTHM_SILENT_BARS, eighths(0), METER_4_4, context);
+		const cycle = compilePlan(RHYTHM_SILENT_BARS, eighths(1), METER_4_4, context);
 		expect(cycle.policy.unit).toBe('cycle');
 		// Bar 7 of its run: the silence is its first bar.
 		expect(cycle.mutedBars).toEqual([0]);
 		// Not known yet: where a run's first cycle starts, on the first silence.
-		const first = compilePlan(RHYTHM_SILENT_BARS, eighths(0), METER_4_4, {
+		const first = compilePlan(RHYTHM_SILENT_BARS, eighths(1), METER_4_4, {
 			...context,
 			fromRunStart: null
 		});
@@ -57,8 +58,8 @@ describe('compilePlan', () => {
 	it('gives a cycle its level’s thresholds and a settlement past its end', () => {
 		const given = roundGiven(
 			RHYTHM_SILENT_BARS,
-			eighths(0),
-			planOf(RHYTHM_SILENT_BARS, eighths(0))
+			eighths(1),
+			planOf(RHYTHM_SILENT_BARS, eighths(1))
 		);
 		expect(given.thresholds).toEqual({
 			regularity: 40,
@@ -87,13 +88,13 @@ describe('compilePlan', () => {
 			...RHYTHM_SILENT_BARS,
 			params: { ...RHYTHM_SILENT_BARS.params, thresholds }
 		};
-		expect(roundGiven(silent, eighths(0), planOf(silent, eighths(0))).thresholds).toEqual(
+		expect(roundGiven(silent, eighths(1), planOf(silent, eighths(1))).thresholds).toEqual(
 			thresholds
 		);
 	});
 
 	it('opens a cycle’s run with its listen-in, its accompaniment and its entry', () => {
-		const setup = runSetup(RHYTHM_SILENT_BARS, 0);
+		const setup = runSetup(RHYTHM_SILENT_BARS, 1);
 		expect(setup).toMatchObject({ listenInBars: 2, countIn: true, entryBars: 3 });
 		expect(setup.listenIn?.bars).toEqual(['on']);
 		// Its bar 0 on transport bar 3: bars 3, 4, 5 clicked, 6 silent.
@@ -141,7 +142,7 @@ describe('compilePlan', () => {
 	});
 
 	it('makes a cycle’s figure sound, and lets its level say whether it can be listened to', () => {
-		const figure = contentFigure(RHYTHM_SILENT_BARS, eighths(0));
+		const figure = contentFigure(RHYTHM_SILENT_BARS, eighths(1));
 		expect(figure).toBe(RHYTHM_SILENT_BARS.figures?.find((f) => f.id === 'eighths')?.figure);
 		expect(listenOf(RHYTHM_SILENT_BARS, 0)).toBe('free');
 		// A template has no content to sound, nor to listen to.

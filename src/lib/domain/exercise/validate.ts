@@ -5,7 +5,6 @@ import { itemEntryKey, itemOfEntry } from './itemEntries';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
-import { levelRange } from '../time/levels';
 import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
@@ -276,7 +275,7 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
  * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, an
  * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
  * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
- * its level in `levels` (aid levels counted) or on its ladder, a run a level could not start or
+ * its level in `levels` or on its ladder, a run a level could not start or
  * end (`runProblem`), a presentation path on an exercise without one (`presentationPathsProblem`). A path no piece reads at a level passes, the learning settings among them:
  * it is without effect.
  */
@@ -287,11 +286,6 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 		for (const [index, level] of levels.entries()) {
 			if (!isObject(level)) return `levels[${index}] must be an object`;
 			if (!isObject(level.params)) return `levels[${index}].params must be an object`;
-		}
-		try {
-			levelRange(levels);
-		} catch (error) {
-			return `levels ${(error as Error).message}`;
 		}
 		for (const [index, level] of levels.entries()) {
 			const conditions = levelConditionsProblem(level);
@@ -390,7 +384,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 	if (items.length === 0) return 'items lists no item';
 	const set = exerciseItemSet(definition);
 	const meter = definition.meter ?? METER_4_4;
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const highest = exerciseLevelsOf(definition).length - 1;
 	// An exercise that writes a ladder plays each item from the ladder's first level, which gives
 	// the lead its round reads: its rounds are compiled there.
 	const ladder = isObject(definition.params) ? definition.params.ladder : undefined;
@@ -399,7 +393,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 		const written = (ladder as Ladder)[0];
 		const lead = isObject(written?.params) ? written.params.leadBeats : null;
 		itemLevels[0] = {
-			level: levelRange(ladder as Ladder).lowest,
+			level: 0,
 			leadBeats: typeof lead === 'number' ? lead : null
 		};
 	}
@@ -417,7 +411,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 		const unplayable = set.itemProblem?.(item);
 		if (unplayable) return `${field}: ${unplayable}`;
 		if (round === undefined) continue;
-		for (let level = lowest; level <= highest; level++) {
+		for (let level = 0; level <= highest; level++) {
 			for (const at of itemLevels) {
 				const planned: PlannedItem = {
 					exerciseId: definition.id,
@@ -471,11 +465,11 @@ function servedFiguresProblem(definition: ExerciseDefinition, budget: CheckBudge
 	if (definition.items !== undefined || definition.passages !== undefined) return null;
 	if (definition.round === undefined || !servesFigures(definition)) return null;
 	const meter = definition.meter ?? METER_4_4;
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const highest = exerciseLevelsOf(definition).length - 1;
 	const cache: ResolutionCache = new Map();
 	const weight = roundCheckCost(definition);
 	const named = (error: unknown) => (error as Error).message.replace(`${definition.id}: `, '');
-	for (let level = lowest; level <= highest; level++) {
+	for (let level = 0; level <= highest; level++) {
 		let served: ReturnType<typeof figureItemsAt>;
 		try {
 			served = figureItemsAt(definition, level, meter);

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	DROP_AFTER_FAILS,
 	PASS_AFTER_CYCLES,
-	levelRange,
 	nextLevelState,
 	checkStart,
 	type Level,
@@ -57,29 +56,6 @@ describe('checkStart', () => {
 	});
 });
 
-describe('levelRange', () => {
-	it('counts the aid levels below the first level', () => {
-		const levels: Level[] = [
-			{ params: {}, aid: true },
-			{ params: {}, aid: true },
-			{ params: {} },
-			{ params: {} },
-			{ params: {} }
-		];
-		expect(levelRange(levels)).toEqual({ lowest: -2, first: 0, highest: 2 });
-	});
-
-	it('has no aid levels in a plain ladder', () => {
-		expect(levelRange(plain)).toEqual({ lowest: 0, first: 0, highest: 2 });
-	});
-
-	it('rejects a ladder with no regular level or an aid level above one', () => {
-		expect(() => levelRange([])).toThrow(RangeError);
-		expect(() => levelRange([{ params: {}, aid: true }])).toThrow(RangeError);
-		expect(() => levelRange([{ params: {} }, { params: {}, aid: true }])).toThrow(RangeError);
-	});
-});
-
 describe('nextLevelState', () => {
 	it('goes up after three successes in a row', () => {
 		const { state, changes } = play(stateAt(0), plain, [ok, ok, ok]);
@@ -111,11 +87,16 @@ describe('nextLevelState', () => {
 		expect(state.level).toBe(0);
 	});
 
-	it('does not descend into the aid levels', () => {
-		const levels: Level[] = [{ params: {}, aid: true }, { params: {} }, { params: {} }];
-		const { state, changes } = play(stateAt(0), levels, [ko, ko, ko, ko]);
-		expect(changes).toEqual([]);
-		expect(state.level).toBe(0);
+	it('takes three failures at the second level of a changes exercise back to the first', () => {
+		// As the changes write it: a first level with the defaults, a second dropped after 3 misses.
+		const levels: Level[] = [
+			{ params: { tempo: 80 } },
+			{ params: { tempo: 80 }, pass: { successes: 10 }, drop: { failures: 3 } },
+			{ params: { tempo: 85 } }
+		];
+		const { state, changes } = play(stateAt(1), levels, [ko, ko, ko]);
+		expect(changes).toEqual([{ at: 2, changed: 'down' }]);
+		expect(state).toMatchObject({ level: 0, successes: 0, failures: 0 });
 	});
 
 	it('stays at the highest level after three successes', () => {
@@ -137,24 +118,10 @@ describe('nextLevelState', () => {
 		expect(play(stateAt(1), levels, [ok, ok, ok, ok, ok]).state.level).toBe(2);
 	});
 
-	it('climbs from an aid level toward level 1 by its pass condition', () => {
-		const levels: Level[] = [{ params: {}, aid: true }, { params: {} }];
-		const { state, changes } = play(stateAt(-1), levels, [ok, ok, ok]);
-		expect(changes).toEqual([{ at: 2, changed: 'up' }]);
-		expect(state.level).toBe(0);
-	});
-
 	it('keeps counting failures at the floor', () => {
 		const { state, changes } = play(stateAt(0), plain, [ko, ko, ko, ko]);
 		expect(changes).toEqual([]);
 		expect(state).toMatchObject({ level: 0, failures: 4, successes: 0 });
-	});
-
-	it('never descends further from an aid level, and keeps counting failures there', () => {
-		const levels: Level[] = [{ params: {}, aid: true }, { params: {}, aid: true }, { params: {} }];
-		const { state, changes } = play(stateAt(-1), levels, [ko, ko, ko]);
-		expect(changes).toEqual([]);
-		expect(state).toMatchObject({ level: -1, failures: 3 });
 	});
 
 	it('keeps identity and resumeAfter, and does not mutate the input', () => {
@@ -171,8 +138,21 @@ describe('nextLevelState', () => {
 		expect(frozen.successes).toBe(0);
 	});
 
-	it('rejects a state whose level is outside the ladder', () => {
+	it('rejects a state whose level is outside the ladder: below the first or above the top', () => {
 		expect(() => nextLevelState(stateAt(5), plain, ok)).toThrow(RangeError);
+		expect(() => nextLevelState(stateAt(3), plain, ok)).toThrow(RangeError);
+		expect(() => nextLevelState(stateAt(-1), plain, ok)).toThrow(RangeError);
+		expect(() => nextLevelState(stateAt(0), [], ok)).toThrow(RangeError);
+	});
+
+	it('reads a level by its place in the list, whatever it writes', () => {
+		// A first level that writes `aid` is a level like the others: its own pass condition moves it.
+		const levels = [
+			{ params: {}, aid: true, pass: { successes: 1 } },
+			{ params: {} }
+		] as unknown as Level[];
+		expect(play(stateAt(0), levels, [ok]).state.level).toBe(1);
+		expect(play(stateAt(1), levels, [ko, ko]).state.level).toBe(0);
 	});
 });
 

@@ -698,7 +698,7 @@ function randomItem(random: () => number, skill: string): unknown {
 	}
 }
 
-/** `count` items of `definition`'s set, free-played at its first level's lead and aid. */
+/** `count` items of `definition`'s set, free-played at its first level's lead. */
 export function listItems(
 	definition: ExerciseDefinition,
 	random: () => number,
@@ -1180,7 +1180,7 @@ function passagePresentation(
  * - its skill one of `BENCH_PASSAGE_SKILLS` on the members' set (now and then on the other set);
  * - its round: a change judged on the chord sensor, a selection of the shapes of the change with
  *   its filters (now and then a bare attack, a second change, free time), handed over at its end;
- * - its levels (an aid level under two tempos) and anti-blocking, now and then;
+ * - its levels (a first level, then two tempos), now and then;
  * - its view one that draws a passage, now and then the lane or a view that cannot draw it, and a
  *   presentation of the set's and the member's fields.
  */
@@ -1302,7 +1302,7 @@ export function randomPassagesExercise(random: () => number, id = 'passages'): E
 
 	const levels = chance(random, 0.4)
 		? [
-				{ aid: true as const, params: { tempo } },
+				{ params: { tempo } },
 				{
 					params: { tempo },
 					pass: { successes: between(random, 2, 4) },
@@ -1337,7 +1337,7 @@ export function randomPassagesExercise(random: () => number, id = 'passages'): E
 				: 'grid-scroll';
 	const written = passagePresentation(random, set);
 	const shown = written?.shown ?? {};
-	// What it shows, its aid level writes; without levels, its presentation, at every level.
+	// What it shows, its first level writes; without levels, its presentation, at every level.
 	const presentation =
 		written && (levels ? written.presentation : { ...written.presentation, ...shown });
 	const shownLevels = levels && showAt(levels, [true], shown);

@@ -234,27 +234,27 @@ describe('passageStage: the prompt of the round on show', () => {
 
 describe('passageStage: the shapes admitted', () => {
 	/** At the catalog's first level of the gesture, which names the picture of the shapes admitted. */
-	const pictured = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
+	const pictured = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: 0 });
 
 	it('draws nothing at a level that names no picture, whatever its rank', () => {
 		const [first] = passageOf(LINK, 'chord=D;strings=3,2,1');
-		expect(show(LINK, first).aid).toBeNull();
+		expect(show(LINK, { ...first, exerciseLevel: 1 }).picture).toBeNull();
 		const unpictured: ExerciseDefinition = {
 			...LINK,
 			levels: LINK.levels?.map((level) => ({ ...level, params: { tempo: 80 } }))
 		};
-		expect(show(unpictured, pictured(first)).aid).toBeNull();
+		expect(show(unpictured, pictured(first)).picture).toBeNull();
 	});
 
 	it("draws the link's shape now and the next one at the level that names them", () => {
 		const rounds = passageOf(LINK, 'chord=D;strings=3,2,1');
 		const shapes = rounds.map((round) => (round.item as { frets: number[] }).frets.join('-'));
-		const notes = notesOf(show(LINK, pictured(rounds[1])).aid);
+		const notes = notesOf(show(LINK, pictured(rounds[1])).picture);
 		const now = notes.filter((note) => !note.next).map((n) => n.fret);
 		expect(now.join('-')).toBe(shapes[1]);
 		expect(notes.filter((note) => note.next).length).toBeGreaterThan(0);
 		// The tour's last shape has nothing next.
-		const last = notesOf(show(LINK, pictured(rounds.at(-1)!)).aid);
+		const last = notesOf(show(LINK, pictured(rounds.at(-1)!)).picture);
 		expect(last.some((note) => note.next)).toBe(false);
 	});
 
@@ -279,17 +279,17 @@ describe('passageStage: the shapes admitted', () => {
 		];
 
 		// Nothing rang before the first change: every shape of G7 is next.
-		const before = show(CLIMB, round, null, plan).aid;
+		const before = show(CLIMB, round, null, plan).picture;
 		expect(nextPlaces(before)).toEqual(withoutNow(G, before).sort());
 		// Dm heard high: the next change climbs beyond it.
-		const after = show(CLIMB, round, settledWith(plan, D_TOP), plan).aid;
+		const after = show(CLIMB, round, settledWith(plan, D_TOP), plan).picture;
 		expect(nextPlaces(after)).toEqual(withoutNow(beyond(10), after).sort());
 		expect(nextPlaces(after)).not.toEqual(nextPlaces(before));
 		// Nothing heard: the round's own previous still rings.
 		const ringing = { ...round, passage: { ...round.passage, previous: D_TOP } };
 		const ringingPlan = compilePassageRound(CLIMB, ringing);
 		expect(
-			nextPlaces(show(CLIMB, ringing, settledWith(ringingPlan, null), ringingPlan).aid)
+			nextPlaces(show(CLIMB, ringing, settledWith(ringingPlan, null), ringingPlan).picture)
 		).toEqual(nextPlaces(after));
 	});
 });
@@ -306,8 +306,8 @@ describe('passageStage: a level that names the picture of the members admitted',
 	it('draws it at the first level that names it, not at the next', () => {
 		const definition = at([{ params: PICTURED }, { params: { tempo: 80 } }]);
 		const [first] = passageOf(definition, 'chord=D;strings=3,2,1');
-		expect(notesOf(show(definition, first).aid).length).toBeGreaterThan(0);
-		expect(show(definition, { ...first, exerciseLevel: 1 }).aid).toBeNull();
+		expect(notesOf(show(definition, first).picture).length).toBeGreaterThan(0);
+		expect(show(definition, { ...first, exerciseLevel: 1 }).picture).toBeNull();
 	});
 
 	it('draws it at the top of three levels only, the level that names it', () => {
@@ -318,7 +318,7 @@ describe('passageStage: a level that names the picture of the members admitted',
 		]);
 		const [first] = passageOf(definition, 'chord=D;strings=3,2,1');
 		const drawn = [0, 1, 2].map(
-			(exerciseLevel) => show(definition, { ...first, exerciseLevel }).aid !== null
+			(exerciseLevel) => show(definition, { ...first, exerciseLevel }).picture !== null
 		);
 		expect(drawn).toEqual([false, false, true]);
 	});
@@ -339,7 +339,7 @@ describe('passageStage: a level that names the picture of the members admitted',
 
 describe('passageStage: the shapes admitted on the grids', () => {
 	/** At the catalog's first level of the gesture, which names the picture of the shapes admitted. */
-	const pictured = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
+	const pictured = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: 0 });
 	const positionOf = (shape: Member) => GUITAR_ATTRIBUTES.position(shape as never) as number;
 	const nextNotes = (picture: Picture | null) => notesOf(picture).filter((note) => note.next);
 
@@ -352,7 +352,7 @@ describe('passageStage: the shapes admitted on the grids', () => {
 		});
 		const plan = compilePassageRound(CLIMB, round);
 		const heard = shapeId('E', 'min', G_B_E, '16-17-15');
-		const next = nextNotes(show(CLIMB, round, settledWith(plan, heard), plan).aid);
+		const next = nextNotes(show(CLIMB, round, settledWith(plan, heard), plan).picture);
 		// Nothing of Ebm lies above Em 16-17-15: without the turn, nothing would come next.
 		const Eb = chordShapes.members({ chord: triadOf('Ebm7'), strings: [...G_B_E] });
 		const at = positionOf(chordShapes.member(heard)!);
@@ -364,9 +364,9 @@ describe('passageStage: the shapes admitted on the grids', () => {
 
 	it('zone: the shapes now and next in its frets, on its four strings', () => {
 		const rounds = passageOf(ZONE, 'grid=iohefy-a', { zone: [7, 11] });
-		const aid = show(ZONE, pictured(rounds[0])).aid;
-		expect(aid).toMatchObject({ kind: 'neck', strings: [4, 3, 2, 1] });
-		const notes = notesOf(aid);
+		const picture = show(ZONE, pictured(rounds[0])).picture;
+		expect(picture).toMatchObject({ kind: 'neck', strings: [4, 3, 2, 1] });
+		const notes = notesOf(picture);
 		expect(notes.some((note) => note.next)).toBe(true);
 		// An open string counts inside a zone at fret 1 only: none here.
 		expect(notes.every((note) => note.fret >= 7 && note.fret <= 11)).toBe(true);
@@ -475,7 +475,7 @@ afterAll(() => {
 });
 
 describe('passageStage: a family the screen has no view of', () => {
-	it('draws the line with the words of its items and the way of its positions, no aid, without an error', () => {
+	it('draws the line with the words of its items and the way of its positions, no picture, without an error', () => {
 		const STEPS = stepsExercise(SHORT_GRID);
 		// An exercise the checks at load accept: its words read its items, none its family.
 		expect(presentationProblem(STEPS)).toBeNull();
@@ -489,7 +489,7 @@ describe('passageStage: a family the screen has no view of', () => {
 			{ at: 12, length: 4, label: 'F', way: 'down' }
 		]);
 		expect(model.prompt.primary).toBe('F');
-		expect(model.aid).toBeNull();
+		expect(model.picture).toBeNull();
 	});
 });
 

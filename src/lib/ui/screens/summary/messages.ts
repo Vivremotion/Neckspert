@@ -38,7 +38,6 @@ export const summaryMessages = defineMessages({
 		playedRight: 'Joué juste',
 		contested: 'Contesté',
 		levelReached: (shown: number, of: number) => `Niveau atteint : ${shown} sur ${of}`,
-		aidLevelReached: 'Niveau atteint : niveau d’aide',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
 		run: (n: number) => `Suite ${n}`,
@@ -46,7 +45,7 @@ export const summaryMessages = defineMessages({
 		runCut: 'interrompue',
 		replayRun: 'Réécouter la suite',
 		stopReplay: 'Arrêter',
-		levelName: (index: number) => (index < 0 ? 'niveau d’aide' : `niveau ${index + 1}`),
+		levelName: (index: number) => `niveau ${index + 1}`,
 		listens: (n: number) => (n === 1 ? '1 écoute' : `${n} écoutes`),
 		playedShare: (percent: number) => `${percent} % du temps joué`,
 		inPlace: 'C’était en place ·',
@@ -130,7 +129,6 @@ export const summaryMessages = defineMessages({
 		playedRight: 'Played right',
 		contested: 'Contested',
 		levelReached: (shown: number, of: number) => `Level reached: ${shown} of ${of}`,
-		aidLevelReached: 'Level reached: aid level',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
 		run: (n: number) => `Run ${n}`,
@@ -138,7 +136,7 @@ export const summaryMessages = defineMessages({
 		runCut: 'cut short',
 		replayRun: 'Hear the run again',
 		stopReplay: 'Stop',
-		levelName: (index: number) => (index < 0 ? 'aid level' : `level ${index + 1}`),
+		levelName: (index: number) => `level ${index + 1}`,
 		listens: (n: number) => (n === 1 ? '1 listen' : `${n} listens`),
 		playedShare: (percent: number) => `${percent} % of the time played`,
 		inPlace: 'It was in place ·',

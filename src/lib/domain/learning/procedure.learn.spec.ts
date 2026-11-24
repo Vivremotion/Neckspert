@@ -295,7 +295,7 @@ describe('createLearningProcedure record', () => {
 	});
 
 	it('never learns an item at a level below its top, even on a ladder of one lead', () => {
-		// One lead written twice: the answer shown, then the top, apart.
+		// One lead written twice: a level that writes the answer in its detail, then the top, apart.
 		const source = procedure({
 			subject: fakeSubject({
 				items: 8,

@@ -212,7 +212,7 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 			cycle(RHYTHM_OFFBEATS.id, 1, false)
 		]);
 		expect(text).toContain('Contretemps');
-		expect(text).toContain('Niveau atteint : 2 sur 4');
+		expect(text).toContain('Niveau atteint : 2 sur 5');
 		expect(text).toContain('2 cycles réussis sur 3');
 		expect(text).not.toMatch(/aide|aidé/);
 		expect(text).not.toContain('Notes apprises');

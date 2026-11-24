@@ -29,17 +29,6 @@ const RUNS: ExerciseDefinition = {
 	levels: [{ params: {}, pass: { successes: 1 } }, { params: { 'pacing.roundsPerBreath': 3 } }]
 };
 
-/** Two aid levels below level 1. */
-const AID_LEVELS: ExerciseDefinition = {
-	...CLIMB,
-	id: 'aids',
-	levels: [
-		{ aid: true, params: { tempo: 60 } },
-		{ aid: true, params: { tempo: 70 } },
-		...(CLIMB.levels ?? [])
-	]
-};
-
 /**
  * A figure that sounds: played along everywhere but at level 2, which writes `playAlong: false`;
  * heard first at level 3 only.
@@ -70,7 +59,7 @@ function stored(exerciseId: string, scope: string, level: number): LevelState {
 async function setup(states: LevelState[] = []) {
 	const repository = new InMemoryLevelStateRepository();
 	for (const state of states) await repository.put(state);
-	const definitions = [CLIMB, PLAIN, RUNS, AID_LEVELS, RHYTHM_OFFBEATS, SOUNDING, SILENT];
+	const definitions = [CLIMB, PLAIN, RUNS, RHYTHM_OFFBEATS, SOUNDING, SILENT];
 	const levels = new ExerciseLevels({
 		levels: repository,
 		exercise: (id) => {
@@ -101,6 +90,34 @@ describe('ExerciseLevels', () => {
 	it('clamps a stored level above the exercise’s highest', async () => {
 		const { levels } = await setup([stored('climb', 'blues-f', 7)]);
 		expect(levels.played('climb', 'blues-f')).toBe(2);
+	});
+
+	it('brings a stored level outside the levels back into them at the first round (Review Focus)', async () => {
+		// -1: a level the migration did not shift, of an exercise it did not know; 99: above the top.
+		const { levels } = await setup([
+			stored(RHYTHM_OFFBEATS.id, '', -1),
+			stored('climb', 'blues-f', 99),
+			stored('climb', 'iohefy-a', -1)
+		]);
+		const top = (RHYTHM_OFFBEATS.levels?.length ?? 0) - 1;
+		expect(levels.played(RHYTHM_OFFBEATS.id)).toBe(0);
+		expect(levels.played('climb', 'blues-f')).toBe(2);
+		expect(levels.played('climb', 'iohefy-a')).toBe(0);
+		expect(
+			levels.boundary({ exerciseId: RHYTHM_OFFBEATS.id }, 0, 1000, { chains: false, countIn: true })
+				.next.role
+		).not.toBe('end');
+		// Its first round settles at the level brought back, and moves from there.
+		for (let i = 0; i < 3; i++) {
+			await levels.settle({ exerciseId: RHYTHM_OFFBEATS.id, level: 0, success: true });
+		}
+		expect(levels.reached(RHYTHM_OFFBEATS.id)).toBe(Math.min(1, top));
+	});
+
+	it('starts a never-played exercise at the first of its levels, index 0', async () => {
+		const { levels } = await setup();
+		expect(levels.played(RHYTHM_OFFBEATS.id)).toBe(0);
+		expect(levels.reached('climb', 'blues-f')).toBe(0);
 	});
 
 	it('moves up after the passes but plays the old level until apply', async () => {
@@ -243,14 +260,13 @@ describe('ExerciseLevels', () => {
 		expect(levels.boundary(at, 0, 1000, null).next).toEqual({ role: 'end', reason: 'complete' });
 	});
 
-	it('announces any aid level as one, a deeper one too', async () => {
-		const { levels } = await setup([stored('aids', '', -2)]);
-		for (let i = 0; i < 3; i++) {
-			await levels.settle({ exerciseId: 'aids', level: -2, success: true });
-		}
-		expect(levels.reached('aids')).toBe(-1);
-		expect(levels.apply('aids')).toBe('aid-level');
-		expect(levels.played('aids')).toBe(-1);
+	it('announces a level by its move only: down to the first level is a level down', async () => {
+		const { levels } = await setup([stored('climb', 'blues-f', 1)]);
+		await levels.settle(round(false, 'blues-f', 'climb', 1));
+		await levels.settle(round(false, 'blues-f', 'climb', 1));
+		expect(levels.reached('climb', 'blues-f')).toBe(0);
+		expect(levels.apply('climb', 'blues-f')).toBe('level-down');
+		expect(levels.played('climb', 'blues-f')).toBe(0);
 	});
 
 	it('decides without counting when asked to look only', async () => {
@@ -264,7 +280,8 @@ describe('ExerciseLevels', () => {
 	});
 
 	it('hears the content asked for, where the level gives listening', async () => {
-		const { levels } = await setup();
+		// Level 2 of the offbeats: nothing heard first but what is asked.
+		const { levels } = await setup([stored(RHYTHM_OFFBEATS.id, '', 1)]);
 		const at = { exerciseId: RHYTHM_OFFBEATS.id };
 		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
 		levels.askListen(RHYTHM_OFFBEATS.id);
@@ -277,7 +294,7 @@ describe('ExerciseLevels', () => {
 	});
 
 	it('forgets the run and the listen asked when play stops', async () => {
-		const { levels } = await setup();
+		const { levels } = await setup([stored(RHYTHM_OFFBEATS.id, '', 1)]);
 		const at = { exerciseId: RHYTHM_OFFBEATS.id };
 		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
 		levels.askListen(RHYTHM_OFFBEATS.id);

@@ -55,7 +55,6 @@ import {
 } from '$lib/domain/routine';
 import {
 	type Attempt,
-	type LevelState,
 	type CardKey,
 	type CardState,
 	type PlannedItem,
@@ -466,8 +465,7 @@ export function createAppServices(
 
 	/** What the Library is told of every exercise of the registry, read once from the stores. */
 	const libraryEntries = async (): Promise<LibraryEntry[]> => {
-		const [cards, levels] = await Promise.all([deps.cards.all(), deps.levels.all()]);
-		const now = deps.now();
+		const cards = await deps.cards.all();
 		const acquired = acquiredKeysOf(cards);
 		const routines = registeredRoutines();
 		/** Whether it is playable; a throw telling it leaves it unplayable, the others told. */

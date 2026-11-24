@@ -5,7 +5,7 @@
 	// beat lost, `?phase=wrong` a breath after wrong notes of a figure derived from a chord shape,
 	// its prompt above and the shape asked, the breath otherwise. `?shot=written` a figure written with its notes (a G
 	// major scale in position), engraved as staff and tab; `?shot=derived` the triad arpeggio's
-	// aid level, the tab of the notes derived from its chord shape under its prompt.
+	// level 1, the tab of the notes derived from its chord shape under its prompt.
 	// The frame tells what the series announces (the level reached at the breath).
 	import { page } from '$app/state';
 	import type { PlayView } from '$lib/application/session/contract';
@@ -83,7 +83,7 @@
 	const base: FigureStageModel = {
 		phase: 'play',
 		exerciseLabel: shown?.title?.fr ?? shown?.id ?? '',
-		level: { shown: 3, of: 6, aid: false },
+		level: { shown: 3, of: 6 },
 		tempo: { bpm: 80, unit: '♩' },
 		figure,
 		next: null,
@@ -176,7 +176,7 @@
 	const written: FigureStageModel = {
 		...base,
 		exerciseLabel: 'Gamme de sol',
-		level: { shown: 1, of: 3, aid: false },
+		level: { shown: 1, of: 3 },
 		figure: scale,
 		barInCycle: 0,
 		cycleBars: 2,
@@ -184,14 +184,14 @@
 		notation: { staff: true, tab: true }
 	};
 
-	/** The arpeggio's aid level, its round under way: the tab of the C chord's notes. */
+	/** The arpeggio's level 1, its round under way: the tab of the C chord's notes. */
 	function derived(): FigureStageModel {
 		// The arpeggio practises a skill of the tests, which no file of the app defines.
 		registerSkill(TEST_PLACED_VOICING_SKILL, 'dev');
 		const item: PlannedItem = {
 			exerciseId: ARPEGGIO_EXERCISE.id,
 			skill: ARPEGGIO_EXERCISE.practices,
-			exerciseLevel: -1,
+			exerciseLevel: 0,
 			item: { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
@@ -225,7 +225,7 @@
 		cursor: null,
 		next: figure,
 		settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
-		level: { shown: 4, of: 6, aid: false }
+		level: { shown: 4, of: 6 }
 	};
 	const model: FigureStageModel =
 		shot === 'written'

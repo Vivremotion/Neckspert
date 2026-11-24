@@ -62,7 +62,7 @@ const summary = {
 			exerciseId: 'rhythm-offbeats',
 			rounds: 1,
 			passed: 0,
-			level: { shown: 1, of: 4, aid: false },
+			level: { shown: 1, of: 4 },
 			tempo: { first: 80, last: 80 },
 			inPassages: false,
 			passages: null

@@ -4,7 +4,6 @@ import {
 	Fraction,
 	METER_4_4,
 	barLength,
-	levelRange,
 	type CycleVerdict,
 	type Figure,
 	type LevelState
@@ -68,7 +67,6 @@ export function summarizeExercise(input: {
 	const cycles = input.attempts.filter(
 		(attempt): attempt is Attempt<FigureAttemptData> => attempt.exerciseId === exercise.id
 	);
-	const { lowest, highest } = levelRange(levels);
 	const last = cycles.at(-1);
 	const held = input.levelReached ?? input.state?.level ?? last?.data.level ?? 0;
 	const value = last?.verdict?.value as CycleVerdict | undefined;
@@ -78,7 +76,7 @@ export function summarizeExercise(input: {
 	const played = last ? playedOf(exercise, last) : null;
 	const readable = Array.isArray(last?.data.report?.expectations);
 	return {
-		level: levelView(levels, Math.min(highest, Math.max(lowest, held))),
+		level: levelView(levels, Math.min(levels.length - 1, Math.max(0, held))),
 		...(last?.data.report &&
 			verdict &&
 			readable && {

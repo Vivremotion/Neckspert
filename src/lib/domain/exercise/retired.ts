@@ -16,6 +16,8 @@ const FADING_ADVICE =
 const ANTI_BLOCKING_ADVICE =
 	'flow.antiBlocking is no longer read: nothing is triggered after failures; a level says what it shows and plays, and its "drop" when the player leaves it';
 const LISTEN_ADVICE = 'listen "aid" is no longer read: write "free"';
+const AID_LEVEL_ADVICE =
+	'aid is no longer read: a level is its place in the list, the first is level 1; remove "aid"';
 
 /** The advice for a retired slot of the presentation a level writes at `path`; null for any other. */
 function presentationPathProblem(path: string, value: unknown): string | null {
@@ -53,6 +55,9 @@ function levelProblem(
 ): string | null {
 	for (const [name, levels] of levelLists(definition, params)) {
 		for (const [index, level] of levels.entries()) {
+			if (isRecord(level) && Object.hasOwn(level, 'aid')) {
+				return `${name}[${index}].${AID_LEVEL_ADVICE}`;
+			}
 			if (!isRecord(level) || !isRecord(level.params)) continue;
 			for (const [path, value] of Object.entries(level.params)) {
 				const advice = presentationPathProblem(path, value);

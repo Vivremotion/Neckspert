@@ -66,7 +66,7 @@ function oneOf<T extends string>(values: readonly T[], value: unknown, otherwise
 }
 
 /**
- * The figure params of exercise level `exerciseLevel` (0 = level 1, aid levels negative), read in
+ * The figure params of exercise level `exerciseLevel` (0 = level 1), read in
  * its resolved params (`resolvedParamsOf`), each over its default. Throws on a level the exercise
  * does not have.
  */

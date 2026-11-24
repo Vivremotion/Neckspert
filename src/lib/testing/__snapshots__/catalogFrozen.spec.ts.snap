@@ -559,7 +559,6 @@ exports[`keeps grid-in-direction as it is 1`] = `
   "id": "grid-in-direction",
   "levels": [
     {
-      "aid": true,
       "params": {
         "presentation.picture": "admitted",
         "tempo": 80,
@@ -788,7 +787,6 @@ exports[`keeps grid-in-zone as it is 1`] = `
   "id": "grid-in-zone",
   "levels": [
     {
-      "aid": true,
       "params": {
         "presentation.picture": "admitted",
         "tempo": 80,
@@ -1063,7 +1061,6 @@ exports[`keeps grid-reading as it is 1`] = `
   "id": "grid-reading",
   "levels": [
     {
-      "aid": true,
       "params": {
         "presentation.picture": "admitted",
         "tempo": 80,
@@ -1420,7 +1417,6 @@ exports[`keeps inversion-run as it is 1`] = `
   "id": "inversion-run",
   "levels": [
     {
-      "aid": true,
       "params": {
         "presentation.picture": "admitted",
         "tempo": 80,
@@ -2012,8 +2008,9 @@ exports[`keeps rhythm-offbeats as it is 1`] = `
   "id": "rhythm-offbeats",
   "levels": [
     {
-      "aid": true,
       "params": {
+        "listenFirst": true,
+        "playAlong": true,
         "tempo": 70,
       },
     },
@@ -2240,7 +2237,6 @@ exports[`keeps rhythm-silent-bars as it is 1`] = `
   "id": "rhythm-silent-bars",
   "levels": [
     {
-      "aid": true,
       "params": {
         "accompaniment": {
           "bars": [
@@ -2291,6 +2287,8 @@ exports[`keeps rhythm-silent-bars as it is 1`] = `
             ],
           },
         },
+        "listenFirst": true,
+        "playAlong": true,
       },
     },
     {
@@ -3507,7 +3505,6 @@ exports[`keeps rhythm-two-four as it is 1`] = `
   "id": "rhythm-two-four",
   "levels": [
     {
-      "aid": true,
       "params": {
         "accompaniment": {
           "bars": [
@@ -3555,6 +3552,8 @@ exports[`keeps rhythm-two-four as it is 1`] = `
             ],
           },
         },
+        "listenFirst": true,
+        "playAlong": true,
       },
     },
     {

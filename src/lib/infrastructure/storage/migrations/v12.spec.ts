@@ -45,9 +45,11 @@ describe('cyclePlanToV12', () => {
 	for (const { exerciseId, level, figureId, record } of CYCLE_PLANS_V11) {
 		it(`rewrites a stored cycle plan as the round plan it judged (${exerciseId})`, () => {
 			const rewritten = cyclePlanToV12(record);
+			// Stored before issue #19: its level is read one higher since the exercise's aid level
+			// became its level 1 (D12).
 			const compiled = compileRound(
 				exerciseOf(exerciseId),
-				itemOf(exerciseId, figureId, level),
+				itemOf(exerciseId, figureId, level + 1),
 				METER_4_4,
 				{ previewBeats: 0, fromRunStart: record.startBar }
 			);

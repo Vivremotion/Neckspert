@@ -11,40 +11,15 @@ export type Feedback = 'every-cycle' | 'summary' | 'out-of-tolerance';
 
 /**
  * A level, of an exercise or of an item: a partial override of the params (dotted paths for an
- * exercise's levels, see `overrideParams`), with its conditions as data. `aid` levels sit first in
- * the list, below level 1.
+ * exercise's levels, see `overrideParams`), with its conditions as data. A level is its place in
+ * the list: index 0 is « niveau 1 », the top is `levels.length - 1`.
  */
 export interface Level<P = Readonly<Record<string, unknown>>> {
 	params: Partial<P>;
 	pass?: { successes: number };
 	drop?: { failures: number };
-	aid?: true;
 	/** What counts as a success at this level: any success (default), or a direct recall only. */
 	success?: 'any' | 'direct-recall';
-}
-
-/**
- * Levels are indexed from the first regular level: index 0 is « niveau 1 », index `i >= 0`
- * is « niveau i + 1 sur N ». Aid levels, which come first in the list, have negative
- * indexes, -1 being the one closest to level 1.
- */
-export interface LevelRange {
-	lowest: number;
-	first: 0;
-	highest: number;
-}
-
-export function levelRange(levels: readonly Level<unknown>[]): LevelRange {
-	const aidCount = levels.findIndex((level) => !level.aid);
-	if (aidCount < 0) throw new RangeError('an exercise needs at least one level that is not an aid');
-	if (levels.slice(aidCount).some((level) => level.aid)) {
-		throw new RangeError('aid levels must come before the first regular level');
-	}
-	return {
-		lowest: aidCount === 0 ? 0 : -aidCount,
-		first: 0,
-		highest: levels.length - aidCount - 1
-	};
 }
 
 /**
@@ -77,18 +52,18 @@ export interface LevelState {
 /**
  * The state after one cycle: `pass` successes in a row move up a level, `drop` failures in a row
  * move down (their defaults `PASS_AFTER_CYCLES` and `DROP_AFTER_FAILS`). Going down stops at
- * level 1, where failures keep counting. A level change starts both runs again.
+ * level 1 (index 0), where failures keep counting. A level change starts both runs again.
  */
 export function nextLevelState(
 	state: LevelState,
 	levels: readonly Level<unknown>[],
 	cycle: { success: boolean }
 ): { state: LevelState; changed: 'up' | 'down' | null } {
-	const { lowest, highest } = levelRange(levels);
-	if (!Number.isInteger(state.level) || state.level < lowest || state.level > highest) {
-		throw new RangeError(`level ${state.level} is not in ${lowest}..${highest}`);
+	const highest = levels.length - 1;
+	if (!Number.isInteger(state.level) || state.level < 0 || state.level > highest) {
+		throw new RangeError(`level ${state.level} is not in 0..${highest}`);
 	}
-	const here = levels[state.level - lowest];
+	const here = levels[state.level];
 	if (cycle.success) {
 		const successes = state.successes + 1;
 		if (successes < (here.pass?.successes ?? PASS_AFTER_CYCLES)) {

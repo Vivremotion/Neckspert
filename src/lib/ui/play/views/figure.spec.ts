@@ -499,7 +499,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 	return {
 		phase: 'play',
 		exerciseLabel: 'Contretemps',
-		level: { shown: 3, of: 6, aid: false },
+		level: { shown: 3, of: 6 },
 		tempo: { bpm: 90, unit: '♩' },
 		figure,
 		next: null,

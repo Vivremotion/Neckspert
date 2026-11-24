@@ -79,7 +79,7 @@ describe('figureParamsOf', () => {
 			listenFirst: false,
 			playAlong: false
 		});
-		expect(figureParamsOf(RHYTHM_SILENT_BARS, 5)).toEqual({
+		expect(figureParamsOf(RHYTHM_SILENT_BARS, 6)).toEqual({
 			feedback: 'out-of-tolerance',
 			listen: 'free',
 			cursor: false,
@@ -91,7 +91,7 @@ describe('figureParamsOf', () => {
 			listenFirst: false,
 			playAlong: false
 		});
-		expect(figureParamsOf(RHYTHM_TWO_FOUR, 0)).toMatchObject({ listen: 'free', cursor: true });
+		expect(figureParamsOf(RHYTHM_TWO_FOUR, 1)).toMatchObject({ listen: 'free', cursor: true });
 	});
 
 	it('reads listenFirst and playAlong at any level, false by default or when not a boolean', () => {

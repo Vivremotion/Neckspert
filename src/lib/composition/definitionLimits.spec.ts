@@ -246,7 +246,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			() => (ARPEGGIO_EXERCISE.items as unknown[])[0]
 		);
 		const levels = [
-			{ aid: true, params: { 'notation.tab': true } },
+			{ params: { 'notation.tab': true } },
 			...Array.from({ length: levelCount - 1 }, () => ({ params: {} }))
 		];
 		const { ms, registered, refusals } = timedLoad({ ...arpeggioJson('h-rounds'), items, levels });
@@ -635,7 +635,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(refusals).toHaveLength(1);
 		expect(refusals[0].reason).toMatch(
 			new RegExp(
-				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level -1: round\\.length spans 500000 bars, more than the 1024 a round may span$`
+				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level 0: round\\.length spans 500000 bars, more than the 1024 a round may span$`
 			)
 		);
 		expect(ms).toBeLessThan(REFUSED_MS);
@@ -652,11 +652,11 @@ describe('a definition file at the limits of what checking it may cost', () => {
 					params: { ...(rhythm.params as object), cycleBars: 400 },
 					figures: [{ id: 'eighths', lilypond: 'c32 '.repeat(32) }]
 				},
-				'figures ("eighths") does not compile at exercise level -1: round.expectations[0].figure would give 12800 notes over 400 bars, more than the 1024 notes a figure round may hold'
+				'figures ("eighths") does not compile at exercise level 0: round.expectations[0].figure would give 12800 notes over 400 bars, more than the 1024 notes a figure round may hold'
 			],
 			[
 				{ params: { ...(rhythm.params as object), cycleBars: 400_000 } },
-				'figures ("eighths") does not compile at exercise level -1: round.length spans 400000 bars, more than the 1024 a round may span'
+				'figures ("eighths") does not compile at exercise level 0: round.length spans 400000 bars, more than the 1024 a round may span'
 			],
 			[
 				{
@@ -671,7 +671,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 						]
 					}
 				},
-				'figures ("eighths") does not compile at exercise level -1: round.length spans 50000000 bars, more than the 1024 a round may span'
+				'figures ("eighths") does not compile at exercise level 0: round.length spans 50000000 bars, more than the 1024 a round may span'
 			]
 		];
 		for (const [written, reason] of cases) {

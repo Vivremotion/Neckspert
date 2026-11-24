@@ -30,9 +30,15 @@ import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/testi
  * The rhythm's cycles on the session controller (plan H6, Tasks 7 and 8): every behaviour the
  * rhythm's own controller was specified by, played again with the same expected values: cycles,
  * their accompaniment and their attempts, the listen-in and its demonstration, listening, the
- * breath and its marks, the levels and their announcements, the anti-blocking, the replay, pause
+ * breath and its marks, the levels and their announcements, the replay, pause
  * and quit at every phase, the summary.
  */
+
+/**
+ * The level these series are held at: level 2, the level 1 they were written for before the aid
+ * levels became the first (issue #19, D12). Its first level is played in « its first level ».
+ */
+const SECOND = 1;
 
 const OFFBEATS_BAR_S = 3; // ♩ = 80 bpm
 const TWO_FOUR_BAR_S = 2.4; // ♩ = 100 bpm
@@ -43,7 +49,10 @@ const epochOfBar = (bar: number, barS: number) => EPOCH + (ORIGIN + bar * barS) 
 
 describe('the rhythm on the series, a run of offbeats played exactly', () => {
 	it('records four passed cycles chained without a gap, each with its verdict and observations', async () => {
-		const { controller, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.ready();
 		await controller.start();
 		expect(controller.timeline.nowBeat()).toBeCloseTo(-ORIGIN / 0.75, 2);
@@ -75,7 +84,10 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 	});
 
 	it('writes each cycle as a hot free attempt of its figure, with its resolved plan', async () => {
-		const { controller, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 5.6 * OFFBEATS_BAR_S);
 		const [first] = await stored();
@@ -83,7 +95,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			sessionId: 'series',
 			exerciseId: 'rhythm-offbeats',
 			skill: 'figure-independence',
-			cardKey: 'figure-independence:offbeats-1@0',
+			cardKey: 'figure-independence:offbeats-1@1',
 			phase: 'free',
 			temperature: 'hot',
 			tempoBpm: 80,
@@ -101,8 +113,8 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		const offbeats: PlannedItem = {
 			exerciseId: 'rhythm-offbeats',
 			skill: 'figure-independence',
-			exerciseLevel: 0,
-			item: { figureId: 'offbeats-1', level: 0 },
+			exerciseLevel: SECOND,
+			item: { figureId: 'offbeats-1', level: SECOND },
 			phase: 'free',
 			temperature: 'hot',
 			leadBeats: null
@@ -121,8 +133,8 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		);
 		expect(plan.startAudioS).toBeCloseTo(ORIGIN + 3 * OFFBEATS_BAR_S, 9);
 		const data = first.data as FigureAttemptData;
-		expect(data.item).toEqual({ figureId: 'offbeats-1', level: 0 });
-		expect(data.level).toBe(0);
+		expect(data.item).toEqual({ figureId: 'offbeats-1', level: SECOND });
+		expect(data.level).toBe(SECOND);
 		expect(data.report.expectations).toHaveLength(5);
 		controller.quit();
 	});
@@ -142,7 +154,10 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 				})
 			}
 		};
-		const { controller, stored, advance } = await rhythmSeries(exercise, { met: true });
+		const { controller, stored, advance } = await rhythmSeries(exercise, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, counted bar 2, entry bar 3 (the click's first bar), cycles from bar 4
 		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
@@ -150,8 +165,8 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		const item: PlannedItem = {
 			exerciseId: exercise.id,
 			skill: 'inner-pulse',
-			exerciseLevel: 0,
-			item: { figureId: 'offbeats-1', level: 0 },
+			exerciseLevel: SECOND,
+			item: { figureId: 'offbeats-1', level: SECOND },
 			phase: 'free',
 			temperature: 'hot',
 			leadBeats: null
@@ -171,6 +186,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 describe('the rhythm on the series, settling a cycle', () => {
 	it(`stores a cycle ${SETTLE_AFTER_BARS} of a bar after it ends, with an attack reported late`, async () => {
 		const { controller, stored, attacks, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -205,6 +221,7 @@ describe('the rhythm on the series, settling a cycle', () => {
 describe('the rhythm on the series, a pause', () => {
 	it('drops the cycle under way, keeps the ones over, and opens the run again on resume', async () => {
 		const { controller, stored, sounds, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -228,7 +245,10 @@ describe('the rhythm on the series, a pause', () => {
 
 describe('the rhythm on the series, silent bars', () => {
 	it('judges the 1 where the click comes back once, in the cycle of the silence', async () => {
-		const { controller, stored, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		const { controller, stored, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, count 2, entry 3-5, cycles 6-9 and 10-13
 		await advance(ORIGIN + 14.6 * OFFBEATS_BAR_S);
@@ -258,7 +278,10 @@ describe('the rhythm on the series, silent bars', () => {
 	});
 
 	it('mutes the click on the silent bars, and only there', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 14.6 * OFFBEATS_BAR_S);
 		const clickedBars = new Set(
@@ -272,7 +295,10 @@ describe('the rhythm on the series, silent bars', () => {
 	});
 
 	it('shows the silence, with no cursor in it', async () => {
-		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 6.3 * OFFBEATS_BAR_S);
 		const silence = stageOf(controller);
@@ -285,7 +311,10 @@ describe('the rhythm on the series, silent bars', () => {
 	});
 
 	it('shows the entry before the first silence as the end of a cycle, played', async () => {
-		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 3.3 * OFFBEATS_BAR_S);
 		expect(stageOf(controller)).toMatchObject({
@@ -303,13 +332,16 @@ describe('the rhythm on the series, silent bars', () => {
 
 describe('the rhythm on the series, its screen', () => {
 	it('shows the figure waiting, then the listen-in, the count and the cycles in the rhythm view', async () => {
-		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.ready();
 		expect(controller.view.stage?.view).toBe('figure');
 		expect(stageOf(controller)).toMatchObject({
 			phase: 'listen-in',
 			exerciseLabel: 'Contretemps',
-			level: { shown: 1, of: 4, aid: false },
+			level: { shown: 2, of: 5 },
 			tempo: { bpm: 80, unit: '♩' },
 			next: null,
 			barInCycle: 0,
@@ -348,7 +380,7 @@ describe('the rhythm on the series, its screen', () => {
 		for (const exercise of [RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR]) {
 			expect(exercise.flow?.briefing).toBe('first-encounter');
 		}
-		const { controller } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller } = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND, met: true });
 		await controller.ready();
 		expect(controller.view.briefing).toBeNull();
 		await controller.start();
@@ -357,7 +389,7 @@ describe('the rhythm on the series, its screen', () => {
 	});
 
 	it('tells the how-to on the start screen, and starts without it', async () => {
-		const { controller } = await rhythmSeries(RHYTHM_OFFBEATS);
+		const { controller } = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND });
 		await controller.ready();
 		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
 		await controller.start();
@@ -370,6 +402,7 @@ describe('the rhythm on the series, its screen', () => {
 describe('the rhythm on the series, a level reached on the run’s last cycle', () => {
 	it('plays the next run at the new level, after the breath', async () => {
 		const { controller, stored, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -378,16 +411,16 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 		await advance(ORIGIN + 4 * OFFBEATS_BAR_S, false);
 		await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
 		const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
-		expect(state?.level).toBe(1);
+		expect(state?.level).toBe(2);
 		// The breath, bars 7 and 8; the next run from bar 9, its cycles of two bars.
 		await advance(ORIGIN + 11.6 * OFFBEATS_BAR_S);
 		const attempts = await stored();
 		expect(attempts.map((a) => [a.cardKey, a.success])).toEqual([
-			['figure-independence:offbeats-1@0', false],
-			['figure-independence:offbeats-1@0', true],
-			['figure-independence:offbeats-1@0', true],
-			['figure-independence:offbeats-1@0', true],
-			['figure-independence:offbeats-2@1', true]
+			['figure-independence:offbeats-1@1', false],
+			['figure-independence:offbeats-1@1', true],
+			['figure-independence:offbeats-1@1', true],
+			['figure-independence:offbeats-1@1', true],
+			['figure-independence:offbeats-2@2', true]
 		]);
 		expect(attempts[4].promptedAt).toBe(epochOfBar(9, OFFBEATS_BAR_S));
 		controller.quit();
@@ -395,6 +428,7 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 
 	it('changes the tempo at the breath, with a listen-in and a counted bar at the new one', async () => {
 		const { controller, stored, sounds, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -418,7 +452,7 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 		const attempts = await stored();
 		expect(attempts).toHaveLength(4);
 		expect(attempts.slice(0, 3).every((a) => a.tempoBpm === 100 && a.success)).toBe(true);
-		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'displaced-pulse:line-4@1' });
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'displaced-pulse:line-4@2' });
 		controller.quit();
 	});
 });
@@ -426,6 +460,7 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 describe('the rhythm on the series, a run with no counted bar', () => {
 	it('plays right after the listen-in, at the start and after a pause, with no countdown', async () => {
 		const { controller, sounds, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
+			level: SECOND,
 			met: true
 		});
 		expect(RHYTHM_TWO_FOUR.params.pacing).toMatchObject({ countIn: false });
@@ -451,6 +486,7 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 
 	it('counts a bar in after the listen-in when the exercise asks it', async () => {
 		const { controller, stored, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -458,7 +494,7 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 		await advance(ORIGIN + 7.5 * TWO_FOUR_BAR_S);
 		const [line] = await stored();
 		expect(line.promptedAt).toBe(epochOfBar(3, TWO_FOUR_BAR_S));
-		expect(line).toMatchObject({ cardKey: 'displaced-pulse:line-1@0', success: true });
+		expect(line).toMatchObject({ cardKey: 'displaced-pulse:line-1@1', success: true });
 		controller.quit();
 	});
 });
@@ -495,7 +531,10 @@ describe('the rhythm on the series, the breath sounds as the exercise', () => {
 	}
 
 	it('clicks a two-four breath on 2 and 4', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, the line on bars 2 to 5, the breath on bars 6 and 7, the next line from 8
 		await advance(ORIGIN + 6.3 * TWO_FOUR_BAR_S);
@@ -517,7 +556,10 @@ describe('the rhythm on the series, the breath sounds as the exercise', () => {
 	});
 
 	it('clicks a silent-bars breath with its muted bars switched on', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, count 2, entry 3-5, four cycles 6-21 (silent on 6, 10, 14, 18 and, in
 		// the run's accompaniment, 22), the breath on bars 22 and 23
@@ -544,11 +586,14 @@ describe('the rhythm on the series, a level told until play', () => {
 	const changeAt = ORIGIN + 20 * TWO_FOUR_BAR_S;
 
 	it('keeps the announcement of a new tempo until the new run plays', async () => {
-		const { controller, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+		const { controller, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 18.6 * TWO_FOUR_BAR_S);
 		expect(stageOf(controller).phase).toBe('breath');
-		const announced = { kind: 'level-up', level: 1, tempoBpm: 120 };
+		const announced = { kind: 'level-up', level: 2, tempoBpm: 120 };
 		expect(controller.view.announcement).toMatchObject(announced);
 		// Through the rest of the breath and every beat of the listen-in at the new tempo.
 		for (let at = 18.8 * TWO_FOUR_BAR_S; at < 20 * TWO_FOUR_BAR_S; at += 0.6) {
@@ -572,7 +617,10 @@ describe('the rhythm on the series, a level told until play', () => {
 			[ORIGIN + 18.6 * TWO_FOUR_BAR_S, 'breath'],
 			[changeAt + 0.3, 'listen-in']
 		] as const) {
-			const { controller, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+			const { controller, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
+				level: SECOND,
+				met: true
+			});
 			await controller.start();
 			await advance(pausedAt);
 			expect(stageOf(controller).phase).toBe(phase);
@@ -580,7 +628,7 @@ describe('the rhythm on the series, a level told until play', () => {
 			controller.resume();
 			await settled();
 			const resumedAt = clock.now() + ORIGIN;
-			const announced = { kind: 'level-up', level: 1, tempoBpm: 120 };
+			const announced = { kind: 'level-up', level: 2, tempoBpm: 120 };
 			// listen-in 0-1 at ♩ = 120, the line from bar 2.
 			for (let beat = 0; beat < 8; beat++) {
 				await advance(resumedAt + beat * (NEW_BAR_S / 4) + 0.05, false);
@@ -594,15 +642,18 @@ describe('the rhythm on the series, a level told until play', () => {
 	});
 
 	it('tells a level no more once the run plays, its entry bars included', async () => {
-		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, count 2, entry 3-5, four cycles 6-21, the third reaching level 2 (two
 		// bars clicked, two silent); the breath 22-23; the next run from bar 24, its entry 24-25.
 		await advance(ORIGIN + 22.6 * OFFBEATS_BAR_S);
 		expect(stageOf(controller).phase).toBe('breath');
-		expect(controller.view.announcement).toMatchObject({ kind: 'level-up', level: 1 });
+		expect(controller.view.announcement).toMatchObject({ kind: 'level-up', level: 2 });
 		await advance(ORIGIN + 23.8 * OFFBEATS_BAR_S);
-		expect(controller.view.announcement).toMatchObject({ kind: 'level-up', level: 1 });
+		expect(controller.view.announcement).toMatchObject({ kind: 'level-up', level: 2 });
 		// Played from its first bar: the entry, then the first cycle on bar 26.
 		for (const bar of [24.1, 24.6, 25.3, 26.3]) {
 			await advance(ORIGIN + bar * OFFBEATS_BAR_S);
@@ -613,7 +664,10 @@ describe('the rhythm on the series, a level told until play', () => {
 	});
 
 	it('shows the countdown silently over the bar before a run without a counted bar', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// At the start: the second listen-in bar counts down, unheard.
 		expect(await countdownOverBar(1, ORIGIN, TWO_FOUR_BAR_S)).toEqual([4, 3, 2, 1]);
@@ -655,13 +709,14 @@ describe('the rhythm on the series, a level told until play', () => {
 
 describe('the rhythm on the series, the latency of its sensor', () => {
 	it('stores the latency applied to the onsets with the session, zero when none is calibrated', async () => {
-		const plain = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const plain = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND, met: true });
 		await plain.controller.start();
 		plain.controller.quit();
 		await settled();
 		expect((await plain.sessions.get('series'))?.latencyMs).toBe(0);
 
 		const calibrated = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true,
 			latency: { ms: 42, provenance: 'system' },
 			latencies: { note: { ms: 30, provenance: 'system' } }
@@ -674,7 +729,7 @@ describe('the rhythm on the series, the latency of its sensor', () => {
 
 	/** Plays the first cycle of offbeats, pauses in the next one and hears the run again. */
 	async function replayed(latencies: Parameters<typeof rhythmSeries>[1]) {
-		const bench = await rhythmSeries(RHYTHM_OFFBEATS, { met: true, ...latencies });
+		const bench = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND, met: true, ...latencies });
 		await bench.controller.start();
 		await bench.advance(ORIGIN + 4.5 * OFFBEATS_BAR_S);
 		bench.controller.pause();
@@ -705,6 +760,7 @@ describe('the rhythm on the series, the latency of its sensor', () => {
 
 	it('corrects the attacks by that latency', async () => {
 		const { controller, player, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true,
 			latencies: { note: { ms: 30, provenance: 'player' } }
 		});
@@ -751,12 +807,12 @@ async function watch(
 	return seen;
 }
 
-/** Offbeats' stored level, at the aid level. */
-const AID_STATE = {
+/** Offbeats' stored level, at level 1. */
+const FIRST_STATE = {
 	exerciseId: RHYTHM_OFFBEATS.id,
 	scope: '',
 	item: '',
-	level: -1,
+	level: 0,
 	successes: 0,
 	failures: 0,
 	resumeAfter: null
@@ -764,25 +820,28 @@ const AID_STATE = {
 
 describe('the rhythm on the series, the breath and the levels', () => {
 	it('moves up a level after three passed cycles and says so at the breath', async () => {
-		const { controller, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
-		expect(stageOf(controller).level).toEqual({ shown: 1, of: 4, aid: false });
+		expect(stageOf(controller).level).toEqual({ shown: 2, of: 5 });
 		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
 		const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
-		expect(state?.level).toBe(1);
+		expect(state?.level).toBe(2);
 		// The run goes on at its level: the change shows at the breath, with the figure to come.
 		expect(controller.view.announcement).toBeNull();
-		expect(stageOf(controller).level.shown).toBe(1);
+		expect(stageOf(controller).level.shown).toBe(2);
 		await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
 		const model = stageOf(controller);
 		expect(model.phase).toBe('breath');
 		expect(controller.view.announcement).toEqual({
 			kind: 'level-up',
-			level: 1,
-			of: 4,
+			level: 2,
+			of: 5,
 			tempoBpm: 80
 		});
-		expect(model.level.shown).toBe(2);
+		expect(model.level.shown).toBe(3);
 		expect(model.next?.bars).toBe(2);
 		// The figure just played, with its marks.
 		expect(model.figure.bars).toBe(1);
@@ -796,6 +855,7 @@ describe('the rhythm on the series, the breath and the levels', () => {
 
 	it('reports a level write that failed, plays on and goes on writing the level', async () => {
 		const { controller, levels, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		const put = levels.put.bind(levels);
@@ -814,7 +874,7 @@ describe('the rhythm on the series, the breath and the levels', () => {
 			expect(errors).toHaveBeenCalledWith('[neckspert] level write failed', failure);
 			expect(calls).toBeGreaterThan(1);
 			const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
-			expect(state?.level).toBe(1);
+			expect(state?.level).toBe(2);
 			// The series goes on: the breath reached, the run's four cycles stored.
 			await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
 			expect(stageOf(controller).phase).toBe('breath');
@@ -826,7 +886,10 @@ describe('the rhythm on the series, the breath and the levels', () => {
 	});
 
 	it('shows the breath with its last bar counted, then the next run', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 8.3 * OFFBEATS_BAR_S);
 		// The first beat of each run is heard: laid before the run begins.
@@ -848,7 +911,10 @@ describe('the rhythm on the series, the breath and the levels', () => {
 	});
 
 	it('shows the breath of a run that moves to another tempo at its own, with no count', async () => {
-		const { controller, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), { met: true });
+		const { controller, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// One cycle per run: cycles on bars 3, 9 and 15, each followed by a two-bar breath.
 		await advance(ORIGIN + 20.3 * TWO_FOUR_BAR_S);
@@ -874,7 +940,10 @@ describe('the rhythm on the series, the breath and the levels', () => {
 				i === 2 ? { ...level, params: { ...level.params, 'pacing.roundsPerBreath': 2 } } : level
 			)
 		};
-		const { controller, stored, clock, advance } = await rhythmSeries(exercise, { met: true });
+		const { controller, stored, clock, advance } = await rhythmSeries(exercise, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 7.5 * OFFBEATS_BAR_S);
 		expect(stageOf(controller).phase).toBe('breath');
@@ -887,9 +956,9 @@ describe('the rhythm on the series, the breath and the levels', () => {
 		expect(stageOf(controller).phase).toBe('breath');
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual([
-			...Array(4).fill('figure-independence:offbeats-1@0'),
-			'figure-independence:offbeats-2@1',
-			'figure-independence:offbeats-2@1'
+			...Array(4).fill('figure-independence:offbeats-1@1'),
+			'figure-independence:offbeats-2@2',
+			'figure-independence:offbeats-2@2'
 		]);
 		controller.quit();
 	});
@@ -897,7 +966,9 @@ describe('the rhythm on the series, the breath and the levels', () => {
 
 describe('the rhythm on the series, a first encounter', () => {
 	it('tells the how-to and plays the figure as a demonstration over a longer listen-in', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_OFFBEATS);
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND
+		});
 		await controller.ready();
 		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
 		await controller.start();
@@ -915,7 +986,9 @@ describe('the rhythm on the series, a first encounter', () => {
 	});
 
 	it('demonstrates the figure once: not again after a pause', async () => {
-		const { controller, sounds, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS);
+		const { controller, sounds, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND
+		});
 		await controller.start();
 		await advance(ORIGIN + 1.5 * OFFBEATS_BAR_S, false);
 		controller.pause();
@@ -928,11 +1001,11 @@ describe('the rhythm on the series, a first encounter', () => {
 	});
 
 	it('asks for headphones when the calibration heard the click, the how-to still told', async () => {
-		const met = await rhythmSeries(RHYTHM_OFFBEATS, { met: true, clickBleed: true });
+		const met = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND, met: true, clickBleed: true });
 		await met.controller.ready();
 		expect(met.controller.view.audioError).toBe('bleed');
 		expect(met.controller.view.briefing).toBeNull();
-		const first = await rhythmSeries(RHYTHM_OFFBEATS, { clickBleed: true });
+		const first = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND, clickBleed: true });
 		await first.controller.ready();
 		expect(first.controller.view.audioError).toBe('bleed');
 		expect(first.controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
@@ -945,7 +1018,10 @@ describe('the rhythm on the series, a first encounter', () => {
 
 describe('the rhythm on the series, plain words', () => {
 	async function plainWordsAfter(ended: number): Promise<boolean> {
-		const { controller, sessions } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, sessions } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		for (let i = 0; i < ended; i++) {
 			await sessions.put({
 				id: `old-${i}`,
@@ -972,7 +1048,7 @@ describe('the rhythm on the series, listening to the figure', () => {
 	it('turns the next cycle into one heard, and counts the cycles after it as any other', async () => {
 		const { controller, stored, sounds, memory, levels, advance } = await rhythmSeries(
 			counted(RHYTHM_TWO_FOUR),
-			{ met: true }
+			{ level: SECOND, met: true }
 		);
 		await controller.start();
 		// listen-in 0-1, count 2, cycle 3-6, breath 7-8, then the cycle asked for is heard: 9-12
@@ -999,7 +1075,7 @@ describe('the rhythm on the series, listening to the figure', () => {
 		expect(attempts.every((a) => a.aids === undefined)).toBe(true);
 		// The listen asked does not hold the level back: three successes move it up.
 		const state = await levels.get({ exerciseId: RHYTHM_TWO_FOUR.id, scope: '', item: '' });
-		expect(state?.level).toBe(1);
+		expect(state?.level).toBe(2);
 		controller.quit();
 		await settled();
 		// The heard cycle opens the second run, before its round.
@@ -1011,7 +1087,10 @@ describe('the rhythm on the series, listening to the figure', () => {
 			...RHYTHM_OFFBEATS,
 			params: { ...RHYTHM_OFFBEATS.params, listen: 'none' }
 		};
-		const { controller, stored, advance } = await rhythmSeries(exercise, { met: true });
+		const { controller, stored, advance } = await rhythmSeries(exercise, {
+			level: SECOND,
+			met: true
+		});
 		controller.listen?.();
 		await controller.start();
 		await advance(ORIGIN + 3.6 * OFFBEATS_BAR_S);
@@ -1029,11 +1108,10 @@ function writingAt(
 	params: Record<string, unknown>
 ): ExerciseDefinition {
 	const levels = exercise.levels ?? [];
-	const first = levels.findIndex((written) => !written.aid);
 	return {
 		...exercise,
 		levels: levels.map((written, index) =>
-			index === first + level ? { ...written, params: { ...written.params, ...params } } : written
+			index === level ? { ...written, params: { ...written.params, ...params } } : written
 		)
 	};
 }
@@ -1058,15 +1136,16 @@ function countsOf(values: number[]): Record<number, number> {
 }
 
 describe('the rhythm on the series, a level that plays the model', () => {
-	/** Offbeats whose level 1 hears the model before each run and plays along with it. */
-	const MODELLED = writingAt(RHYTHM_OFFBEATS, 0, { listenFirst: true, playAlong: true });
+	/** Offbeats whose level 2 hears the model before each run and plays along with it. */
+	const MODELLED = writingAt(RHYTHM_OFFBEATS, SECOND, { listenFirst: true, playAlong: true });
 
 	it('hears a cycle first, plays the model along every cycle, and moves up after three successes', async () => {
 		const { controller, stored, sounds, memory, levels, advance } = await rhythmSeries(MODELLED, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
-		// listen-in 0-1, count 2, the heard cycle 3, cycles 4-7, breath 8-9, level 2 from bar 10
+		// listen-in 0-1, count 2, the heard cycle 3, cycles 4-7, breath 8-9, level 3 from bar 10
 		await advance(ORIGIN + 3.5 * OFFBEATS_BAR_S);
 		expect(stageOf(controller).phase).toBe('listening');
 		await advance(ORIGIN + 13.6 * OFFBEATS_BAR_S);
@@ -1085,20 +1164,21 @@ describe('the rhythm on the series, a level that plays the model', () => {
 			[4, 5, 6, 7, 10].map((bar) => epochOfBar(bar, OFFBEATS_BAR_S))
 		);
 		expect(attempts.slice(0, 4).every((a) => a.success && a.data)).toBe(true);
-		expect(attempts.map((a) => (a.data as FigureAttemptData).level)).toEqual([0, 0, 0, 0, 1]);
+		expect(attempts.map((a) => (a.data as FigureAttemptData).level)).toEqual([1, 1, 1, 1, 2]);
 		// Three successes played along are three successes: the level went up.
 		const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
-		expect(state?.level).toBe(1);
+		expect(state?.level).toBe(2);
 		controller.quit();
 		await settled();
 		const runs = runsOf(memory);
 		expect(roles(runs[0])).toEqual(['listen', 'round', 'round', 'round', 'round']);
-		// Level 2 writes neither: its run opens with a round, nothing heard nor played along.
+		// Level 3 writes neither: its run opens with a round, nothing heard nor played along.
 		expect(roles(runs[1])[0]).toBe('round');
 	});
 
 	it('hears the model again on resume after a pause during the heard cycle', async () => {
 		const { controller, stored, sounds, memory, clock, advance } = await rhythmSeries(MODELLED, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1125,7 +1205,9 @@ describe('the rhythm on the series, a level that plays the model', () => {
 	});
 
 	it('adds no demonstration at a first encounter: the heard cycle opens the run', async () => {
-		const { controller, sounds, advance } = await rhythmSeries(MODELLED);
+		const { controller, sounds, advance } = await rhythmSeries(MODELLED, {
+			level: SECOND
+		});
 		await controller.ready();
 		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
 		await controller.start();
@@ -1138,30 +1220,84 @@ describe('the rhythm on the series, a level that plays the model', () => {
 	});
 
 	it('plays along at the level that writes it, not at the one below', async () => {
-		const second = writingAt(RHYTHM_OFFBEATS, 1, { playAlong: true });
-		const atFirst = await rhythmSeries(second, { met: true });
-		await atFirst.controller.start();
-		await atFirst.advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
-		expect(barsOf(atFirst.sounds.emitted(), 'play-along', OFFBEATS_BAR_S)).toEqual([]);
-		atFirst.controller.quit();
-		const atSecond = await rhythmSeries(second, { met: true });
-		await atSecond.levels.put({
-			exerciseId: RHYTHM_OFFBEATS.id,
-			scope: '',
-			item: '',
-			level: 1,
-			successes: 0,
-			failures: 0,
-			resumeAfter: null
-		});
+		const third = writingAt(RHYTHM_OFFBEATS, SECOND + 1, { playAlong: true });
+		const atSecond = await rhythmSeries(third, { level: SECOND, met: true });
 		await atSecond.controller.start();
-		// listen-in 0-1, count 2, two-bar cycles from bar 3, played along from their first bar
 		await atSecond.advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
-		const along = barsOf(atSecond.sounds.emitted(), 'play-along', OFFBEATS_BAR_S);
+		expect(barsOf(atSecond.sounds.emitted(), 'play-along', OFFBEATS_BAR_S)).toEqual([]);
+		atSecond.controller.quit();
+		const atThird = await rhythmSeries(third, { level: SECOND + 1, met: true });
+		await atThird.controller.start();
+		// listen-in 0-1, count 2, two-bar cycles from bar 3, played along from their first bar
+		await atThird.advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+		const along = barsOf(atThird.sounds.emitted(), 'play-along', OFFBEATS_BAR_S);
 		expect(along.length).toBeGreaterThan(0);
 		expect(Math.min(...along)).toBe(3);
-		expect(barsOf(atSecond.sounds.emitted(), 'demo', OFFBEATS_BAR_S)).toEqual([]);
-		atSecond.controller.quit();
+		expect(barsOf(atThird.sounds.emitted(), 'demo', OFFBEATS_BAR_S)).toEqual([]);
+		atThird.controller.quit();
+	});
+});
+
+describe('the rhythm on the series, its first level (D12)', () => {
+	const BAR_S = 3; // ♩ = 80 bpm, at both of its first levels
+
+	it('a never-played « Mesures silencieuses » starts at level 1 with the model heard and along, leaves it after three, and comes back after two misses', async () => {
+		const { controller, sounds, stored, levels, player, clock, advance } =
+			await rhythmSeries(RHYTHM_SILENT_BARS);
+		await controller.ready();
+		expect(stageOf(controller).level).toEqual({ shown: 1, of: 7 });
+		expect(stageOf(controller).tempo).toEqual({ bpm: 80, unit: '♩' });
+		await controller.start();
+		const told: string[] = [];
+		const until = async (to: number) => {
+			while (clock.time < to - 1e-9) {
+				await advance(Math.min(to, clock.time + 0.25));
+				const announcement = controller.view.announcement;
+				const line = announcement && `${announcement.kind} ${announcement.level + 1}`;
+				if (line && told.at(-1) !== line) told.push(line);
+			}
+		};
+		// listen-in 0-1, count 2, the heard cycle 3-6, four cycles 7-22 played along, breath 23-24,
+		// level 2 from bar 25.
+		await until(ORIGIN + 25.5 * BAR_S);
+		expect(told).toEqual(['level-up 2']);
+		expect(stageOf(controller)).toMatchObject({ phase: 'play', level: { shown: 2, of: 7 } });
+		const first = sounds.emitted();
+		expect(new Set(barsOf(first, 'demo', BAR_S))).toEqual(new Set([3, 4, 5, 6]));
+		const along = barsOf(first, 'play-along', BAR_S);
+		expect(Math.min(...along)).toBe(7);
+		expect(Math.max(...along)).toBe(22);
+		// The player misses a note of each bar from now on: level 2's run of four fails (each
+		// cycle judged from its muted bar, 28 to 43), its breath (bars 44-45) tells the level down,
+		// level 1 hears the model again from bar 46.
+		player.skip = 3;
+		await until(ORIGIN + 46.5 * BAR_S);
+		expect(told).toEqual(['level-up 2', 'level-down 1']);
+		expect(stageOf(controller)).toMatchObject({ phase: 'listening', level: { shown: 1, of: 7 } });
+		const emitted = sounds.emitted();
+		// At level 2 the model is silent: neither heard nor played along.
+		const quiet = (bar: number) => bar >= 25 && bar < 46;
+		expect(barsOf(emitted, 'play-along', BAR_S).some(quiet)).toBe(false);
+		expect(barsOf(emitted, 'demo', BAR_S).some(quiet)).toBe(false);
+		expect(barsOf(emitted, 'demo', BAR_S)).toContain(46);
+		controller.quit();
+		const attempts = await stored();
+		expect(attempts.map((a) => (a.data as FigureAttemptData).level)).toEqual([
+			0, 0, 0, 0, 1, 1, 1, 1
+		]);
+		expect(attempts.map((a) => a.success)).toEqual([
+			true,
+			true,
+			true,
+			true,
+			false,
+			false,
+			false,
+			false
+		]);
+		expect(
+			await levels.get({ exerciseId: RHYTHM_SILENT_BARS.id, scope: '', item: '' })
+		).toMatchObject({ level: 0 });
 	});
 });
 
@@ -1172,25 +1308,28 @@ describe('the rhythm on the series, failures in a row', () => {
 	] as const;
 
 	it.each(ways)(
-		'at level 1, failed %s, plays rounds and breaths only, nothing imposed, nothing rested',
+		'at level 1, failed %s, plays what the level writes only, nothing imposed, nothing rested',
 		async (_, play) => {
-			const { controller, memory, sounds, stored, levels, player, clock, advance } =
-				await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+			const { controller, memory, stored, levels, player, clock, advance } = await rhythmSeries(
+				RHYTHM_OFFBEATS,
+				{ met: true }
+			);
+			const barS = (60 / 70) * 4; // level 1 of the offbeats: ♩ = 70
 			play(player as never);
 			await controller.start();
-			// run 1 on bars 3-6, breath 7-8, run 2 on bars 9-12, its last cycle settled in bar 13
-			const seen = await watch(controller, advance, clock, ORIGIN + 13.5 * OFFBEATS_BAR_S);
-			const emitted = sounds.emitted();
+			// run 1: the heard cycle 3, rounds 4-7; breath 8-9; run 2: heard 10, rounds 11-14,
+			// its last cycle settled in bar 15
+			const seen = await watch(controller, advance, clock, ORIGIN + 15.5 * barS);
 			expect(controller.view.status).not.toBe('finished');
 			controller.quit();
 			await settled();
 			expect([...seen]).toEqual([]);
+			// Each run as the level writes it: the model heard, then four rounds; no listen added.
 			const runs = runsOf(memory);
 			expect(runs.slice(0, 2).map(roles)).toEqual([
-				['round', 'round', 'round', 'round'],
-				['round', 'round', 'round', 'round']
+				['listen', 'round', 'round', 'round', 'round'],
+				['listen', 'round', 'round', 'round', 'round']
 			]);
-			expect(emitted.some((s) => s.sound === 'play-along' || s.sound === 'demo')).toBe(false);
 			const attempts = await stored();
 			expect(attempts.length).toBeGreaterThanOrEqual(6);
 			expect(attempts.every((a) => !a.success && a.aids === undefined)).toBe(true);
@@ -1223,6 +1362,7 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 
 	it('plays again the line it was reading when paused during its cycle', async () => {
 		const { controller, stored, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1238,6 +1378,7 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 
 	it('plays the line laid out ahead when paused just before its cycle', async () => {
 		const { controller, stored, clock, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1252,6 +1393,7 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 
 	it('goes on to the next line after a cycle played to its end', async () => {
 		const { controller, stored, clock, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1273,7 +1415,10 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 				pacing: { ...(counted(RHYTHM_TWO_FOUR).params.pacing as object), roundsPerBreath: 2 }
 			}
 		};
-		const { controller, stored, clock, advance } = await rhythmSeries(exercise, { met: true });
+		const { controller, stored, clock, advance } = await rhythmSeries(exercise, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// The first line on bars 3-6, the second decided on beat 4 of bar 6.
 		await advance(ORIGIN + 6.9 * TWO_FOUR_BAR_S, false);
@@ -1289,7 +1434,10 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 
 describe('the rhythm on the series, another series', () => {
 	it('starts a new series under a new id once the last one finished', async () => {
-		const { controller, sessions, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, sessions, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 1.6 * OFFBEATS_BAR_S);
 		controller.quit();
@@ -1303,7 +1451,10 @@ describe('the rhythm on the series, another series', () => {
 	});
 
 	it('keeps no plan of the last series for the screen of the next', async () => {
-		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		const stagePlan = () =>
 			(controller as unknown as { stagePlan: { item: PlannedItem } | null }).stagePlan;
 		await controller.start();
@@ -1320,20 +1471,22 @@ describe('the rhythm on the series, another series', () => {
 
 	it('keeps on its own session the level held when the series ended, whatever a later one does', async () => {
 		const { controller, sessions, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
 		await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
 		controller.quit();
 		await settled();
-		expect((await sessions.get('series'))?.levelReached).toBe(1);
+		expect((await sessions.get('series'))?.levelReached).toBe(2);
 		// Later the stored level moves on: the first session's own record does not.
-		await levels.put({ ...AID_STATE, level: 3 });
-		expect((await sessions.get('series'))?.levelReached).toBe(1);
+		await levels.put({ ...FIRST_STATE, level: 4 });
+		expect((await sessions.get('series'))?.levelReached).toBe(2);
 	});
 
 	it('sums the session up with the level it reached', async () => {
 		const { controller, sessions, stored, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1356,24 +1509,28 @@ describe('the rhythm on the series, another series', () => {
 		});
 		expect(line).toMatchObject({
 			exerciseId: RHYTHM_OFFBEATS.id,
-			level: { shown: 2, of: 4, aid: false },
+			level: { shown: 3, of: 5 },
 			rounds: 4,
 			passed: 4
 		});
 	});
 
 	it('keeps the level reached when the series ends in the middle of a run', async () => {
-		const { controller, sessions, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, sessions, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// Level 2 reached on the third cycle, the run still at level 1.
 		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
 		controller.quit();
 		await settled();
-		expect((await sessions.get('series'))?.levelReached).toBe(1);
+		expect((await sessions.get('series'))?.levelReached).toBe(2);
 	});
 
 	it('writes no session for a second series whose input never opened', async () => {
 		const { controller, sessions, detector, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1391,6 +1548,7 @@ describe('the rhythm on the series, another series', () => {
 
 	it('keeps the start of the series that ends when another starts before its writes are done', async () => {
 		const { controller, attempts, sessions, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		let release: () => void = () => {};
@@ -1422,7 +1580,7 @@ describe('the rhythm on the series, its end', () => {
 	it('ends with the run under way once the series has lasted its time', async () => {
 		const { controller, stored, sessions, sounds, clock, advance } = await rhythmSeries(
 			RHYTHM_OFFBEATS,
-			{ met: true }
+			{ level: SECOND, met: true }
 		);
 		await controller.start();
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
@@ -1439,7 +1597,10 @@ describe('the rhythm on the series, its end', () => {
 
 describe('the rhythm on the series, its trace', () => {
 	it('traces a series as it is played', async () => {
-		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, count 2, cycles 3-6, breath from 7
 		await advance(ORIGIN + 8.5 * OFFBEATS_BAR_S);
@@ -1450,7 +1611,7 @@ describe('the rhythm on the series, its trace', () => {
 		const [listenIn, count, run, breath] = series.children;
 		expect(listenIn.startS).toBeCloseTo(ORIGIN, 9);
 		expect(count.startS).toBeCloseTo(ORIGIN + 2 * OFFBEATS_BAR_S, 9);
-		expect(run).toMatchObject({ exerciseId: RHYTHM_OFFBEATS.id, level: 0, ended: 'done' });
+		expect(run).toMatchObject({ exerciseId: RHYTHM_OFFBEATS.id, level: SECOND, ended: 'done' });
 		expect(run.startS).toBeCloseTo(ORIGIN + 3 * OFFBEATS_BAR_S, 9);
 		expect(run.endS).toBeCloseTo(ORIGIN + 7 * OFFBEATS_BAR_S, 9);
 		expect(roles(run)).toEqual(['round', 'round', 'round', 'round']);
@@ -1461,6 +1622,7 @@ describe('the rhythm on the series, its trace', () => {
 
 	it('a pause cuts the run and its round', async () => {
 		const { controller, memory, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1483,7 +1645,10 @@ describe('the rhythm on the series, its trace', () => {
 	});
 
 	it('a heard cycle is a listen segment, with no attempt', async () => {
-		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 3.5 * OFFBEATS_BAR_S);
 		controller.listen?.();
@@ -1497,7 +1662,10 @@ describe('the rhythm on the series, its trace', () => {
 	});
 
 	it('each run keeps its take', async () => {
-		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// two runs with their breaths
 		await advance(ORIGIN + 17.5 * OFFBEATS_BAR_S);
@@ -1515,6 +1683,7 @@ describe('the rhythm on the series, its trace', () => {
 
 	it('the series ends after SESSION_MS with its run, for its time', async () => {
 		const { controller, memory, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1531,6 +1700,7 @@ describe('the rhythm on the series, its trace', () => {
 
 	it('a pause once the end is decided ends the series, it does not bring it back', async () => {
 		const { controller, memory, stored, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1553,7 +1723,10 @@ describe('the rhythm on the series, its trace', () => {
 	});
 
 	it('quit marks the series', async () => {
-		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, memory, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 4.5 * OFFBEATS_BAR_S);
 		controller.quit();
@@ -1565,6 +1738,7 @@ describe('the rhythm on the series, its trace', () => {
 describe('the rhythm on the series, quitting', () => {
 	it('stops every sound when quit during the counted bar, with nothing recorded', async () => {
 		const { controller, sounds, stored, sessions, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1585,6 +1759,7 @@ describe('the rhythm on the series, quitting', () => {
 
 	it('stops every sound when quit during a breath, every attempt with its verdict', async () => {
 		const { controller, sounds, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1602,6 +1777,7 @@ describe('the rhythm on the series, quitting', () => {
 
 	it('stops every sound when quit during a heard cycle', async () => {
 		const { controller, sounds, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1619,7 +1795,10 @@ describe('the rhythm on the series, quitting', () => {
 	});
 
 	it('is silent when quit while the audio output warms up', async () => {
-		const { controller, sounds, clock } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, sounds, clock } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		let release: () => void = () => {};
 		clock.settle = () => new Promise<void>((resolve) => (release = resolve));
 		const starting = controller.start();
@@ -1635,6 +1814,7 @@ describe('the rhythm on the series, quitting', () => {
 describe('the rhythm on the series, a latency', () => {
 	it('plays without a calibrated latency, and precision then judges nothing', async () => {
 		const { controller, stored, player, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		player.offsetS = 0.07;
@@ -1650,6 +1830,7 @@ describe('the rhythm on the series, a latency', () => {
 
 	it('lets precision judge with a latency measured without the player', async () => {
 		const { controller, stored, player, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true,
 			latency: { ms: 0, provenance: 'system' }
 		});
@@ -1664,6 +1845,7 @@ describe('the rhythm on the series, a latency', () => {
 
 	it("takes the attack sensor's own latency over the note's", async () => {
 		const { controller, stored, player, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true,
 			latency: { ms: 0, provenance: 'system' },
 			latencies: { note: { ms: 70, provenance: 'system' } }
@@ -1682,6 +1864,7 @@ describe('the rhythm on the series, a latency', () => {
 describe('the rhythm on the series, hearing the last run again', () => {
 	it('replays the run from the breath with the click on every beat, the silent bars included, then counts in', async () => {
 		const { controller, takes, sounds, clock, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1720,6 +1903,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 
 	it('replays from the pause what was played, shifted by the calibrated latency', async () => {
 		const { controller, takes, sounds, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true,
 			latency: { ms: 30, provenance: 'system' }
 		});
@@ -1748,6 +1932,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 
 	it('does nothing while a cycle is played, nor before a run was played', async () => {
 		const { controller, takes, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1769,6 +1954,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 
 	it('stops the replay on resume, and counts in once', async () => {
 		const { controller, takes, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1793,7 +1979,10 @@ describe('the rhythm on the series, hearing the last run again', () => {
 	});
 
 	it('keeps the run playable through a pause in the last bar of its breath', async () => {
-		const { controller, takes, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, takes, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		// cycles 3-6, the breath 7-8; the next run, at the same tempo, asks for bar 9 from bar 8
 		await advance(ORIGIN + 8.5 * OFFBEATS_BAR_S);
@@ -1813,6 +2002,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 
 	it('replays the same run again from a pause in the listen-in that follows a replay', async () => {
 		const { controller, takes, clock, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		await controller.start();
@@ -1836,7 +2026,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 	it('replays the last run at its tempo, then counts the next run at the new one', async () => {
 		const { controller, takes, sounds, stored, clock, advance } = await rhythmSeries(
 			counted(RHYTHM_TWO_FOUR),
-			{ met: true }
+			{ level: SECOND, met: true }
 		);
 		await controller.start();
 		// One cycle per run: cycles on bars 3, 9 and 15; the third reaches level 2, at ♩ = 120,
@@ -1862,12 +2052,12 @@ describe('the rhythm on the series, hearing the last run again', () => {
 		await advance(resumedAt + 6 + 8 + 0.6, false);
 		const attempts = await stored();
 		expect(attempts).toHaveLength(4);
-		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'displaced-pulse:line-4@1' });
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'displaced-pulse:line-4@2' });
 		controller.quit();
 	});
 
 	it('forgets the takes of an earlier session when a series starts', async () => {
-		const { controller, takes } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, takes } = await rhythmSeries(RHYTHM_OFFBEATS, { level: SECOND, met: true });
 		takes.keepFrom(-10);
 		takes.hear(-5);
 		expect(takes.spans).toHaveLength(1);
@@ -1877,7 +2067,10 @@ describe('the rhythm on the series, hearing the last run again', () => {
 	});
 
 	it('keeps no input once the series is quit, even with a start asked ahead', async () => {
-		const { controller, takes, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, takes, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 1.5 * OFFBEATS_BAR_S);
 		controller.quit();
@@ -1888,6 +2081,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 
 	it('does nothing when the run was cut before its first bar sounded', async () => {
 		const { controller, takes, sounds, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
 			met: true
 		});
 		// Every wake-up 50 ms early: the run's first bar is entered before it sounds.
@@ -1903,7 +2097,10 @@ describe('the rhythm on the series, hearing the last run again', () => {
 	});
 
 	it('stops the replay on quit', async () => {
-		const { controller, takes, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const { controller, takes, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			level: SECOND,
+			met: true
+		});
 		await controller.start();
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
 		controller.pause();

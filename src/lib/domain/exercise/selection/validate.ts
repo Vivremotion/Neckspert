@@ -1,7 +1,6 @@
 import { ITEM_NUMBERS, ITEM_VALUES } from '../../derivations';
 import { familyNamed, indexDerivation, selectionProblem, type Filter } from '../../families';
 import { exerciseSetId } from '../../sets';
-import { levelRange } from '../../time/levels';
 import { ladderOf } from '../ladder';
 import { exerciseLevelsOf, overrideParams, resolvedParamsOf, type LevelOverrides } from '../levels';
 import type { ExerciseDefinition } from '../types';
@@ -228,13 +227,11 @@ function* levelsOf(
 	definition: ExerciseDefinition,
 	paths: readonly string[]
 ): Generator<{ where: string; params: Readonly<Record_> }> {
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const count = exerciseLevelsOf(definition).length;
 	let steps: LevelOverrides[] | null = null;
-	let first = 0;
 	if (definition.params.ladder !== undefined) {
 		try {
 			const ladder = ladderOf(definition);
-			first = levelRange(ladder).lowest;
 			steps = ladder.map((step) =>
 				Object.fromEntries(
 					Object.entries(step.params as LevelOverrides).filter(([key]) =>
@@ -246,7 +243,7 @@ function* levelsOf(
 			// A ladder that cannot be read is refused by its own check.
 		}
 	}
-	for (let level = lowest; level <= highest; level++) {
+	for (let level = 0; level < count; level++) {
 		const base = resolvedParamsOf(definition, { exerciseLevel: level, itemLevel: null });
 		if (steps === null) {
 			yield { where: `exercise level ${level}`, params: base };
@@ -254,7 +251,7 @@ function* levelsOf(
 		}
 		for (const [i, step] of steps.entries()) {
 			yield {
-				where: `exercise level ${level}, item level ${first + i}`,
+				where: `exercise level ${level}, item level ${i}`,
 				params: Object.keys(step).length === 0 ? base : overrideParams(base, step)
 			};
 		}

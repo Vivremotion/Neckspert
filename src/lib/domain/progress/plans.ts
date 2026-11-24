@@ -3,7 +3,7 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { ladderLevel } from '$lib/domain/learning/ladder';
 import type { CardRef, LadderParams, LearningSubject } from '$lib/domain/learning/subject';
 import { setOfSkill } from '$lib/domain/sets';
-import { levelRange, type LevelState } from '$lib/domain/time/levels';
+import type { LevelState } from '$lib/domain/time/levels';
 import { cardKey, type LeadBeats, type PlannedItem } from '$lib/domain/types';
 import { FREE_PLAY_COUNT } from './constants';
 
@@ -54,8 +54,7 @@ export function freeLeadOf(input: {
 	const levelOf = freeLevelOf(input);
 	return (card) => {
 		const ladder = input.subject.ladder(card.skill);
-		const { lowest } = levelRange(ladder);
-		return (ladder[levelOf(card) - lowest].params as LadderParams).leadBeats;
+		return (ladder[levelOf(card)].params as LadderParams).leadBeats;
 	};
 }
 

@@ -44,7 +44,7 @@
 				exerciseId: figureExercise?.id ?? '',
 				rounds: 14,
 				passed: 11,
-				level: { shown: 3, of: 6, aid: false },
+				level: { shown: 3, of: 6 },
 				tempo: { first: 80, last: 80 },
 				inPassages: false,
 				passages: null

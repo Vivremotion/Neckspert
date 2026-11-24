@@ -281,7 +281,7 @@ describe('SummaryScreen of a rhythm session', () => {
 		exercises: [
 			played({
 				exerciseId: 'rhythm-offbeats',
-				level: { shown: 3, of: 6, aid: false },
+				level: { shown: 3, of: 6 },
 				rounds: 14,
 				passed: 11,
 				tempo: { first: 80, last: 80 }
@@ -317,23 +317,23 @@ describe('SummaryScreen of a rhythm session', () => {
 		expect(screen.queryByText(/aid/i)).toBeNull();
 	});
 
-	it('names an aid level as the play header does, in French and in English', () => {
-		const atAidLevel: SessionSummary = {
+	it('names the first level by its number, as the play header does, in French and in English', () => {
+		const atFirst: SessionSummary = {
 			...rhythm,
-			exercises: [{ ...rhythm.exercises[0], level: { shown: 0, of: 6, aid: true } }]
+			exercises: [{ ...rhythm.exercises[0], level: { shown: 1, of: 7 } }]
 		};
 		render(SummaryScreen, {
-			props: { summary: atAidLevel, now: 0, onhome: () => {}, onmap: () => {} }
+			props: { summary: atFirst, now: 0, onhome: () => {}, onmap: () => {} }
 		});
-		expect(screen.getByText('Niveau atteint : niveau d’aide')).toBeTruthy();
-		expect(screen.queryByText(/0 sur 6/)).toBeNull();
+		expect(screen.getByText('Niveau atteint : 1 sur 7')).toBeTruthy();
+		expect(screen.queryByText(/aide/i)).toBeNull();
 		cleanup();
 		i18n.locale = 'en';
 		render(SummaryScreen, {
-			props: { summary: atAidLevel, now: 0, onhome: () => {}, onmap: () => {} }
+			props: { summary: atFirst, now: 0, onhome: () => {}, onmap: () => {} }
 		});
-		expect(screen.getByText('Level reached: aid level')).toBeTruthy();
-		expect(screen.queryByText(/0 of 6/)).toBeNull();
+		expect(screen.getByText('Level reached: 1 of 7')).toBeTruthy();
+		expect(screen.queryByText(/aid/i)).toBeNull();
 	});
 });
 
@@ -345,7 +345,7 @@ describe('SummaryScreen of a series in memory', () => {
 		exercises: [
 			played({
 				exerciseId: 'rhythm-offbeats',
-				level: { shown: 0, of: 4, aid: true },
+				level: { shown: 1, of: 5 },
 				rounds: 8,
 				passed: 3
 			})
@@ -354,7 +354,7 @@ describe('SummaryScreen of a series in memory', () => {
 		series: {
 			exerciseId: 'rhythm-offbeats',
 			ended: 'time',
-			levels: [0, 1, -1],
+			levels: [1, 2, 0],
 			rounds: 8,
 			successes: 3,
 			listens: 1,
@@ -410,7 +410,7 @@ describe('SummaryScreen of a series in memory', () => {
 
 	it('tells the level changes, the listens and the share of time played', () => {
 		render(SummaryScreen, { props: { summary: base, now: 0, onhome: () => {}, onmap: () => {} } });
-		expect(screen.getByText('niveau 1 → niveau 2 → niveau d’aide')).toBeTruthy();
+		expect(screen.getByText('niveau 2 → niveau 3 → niveau 1')).toBeTruthy();
 		expect(screen.getByText('1 écoute')).toBeTruthy();
 		expect(screen.getByText('62 % du temps joué')).toBeTruthy();
 	});
@@ -496,7 +496,7 @@ describe('SummaryScreen: one list for any session', () => {
 					exerciseId: 'rhythm-offbeats',
 					rounds: 4,
 					passed: 3,
-					level: { shown: 2, of: 4, aid: false }
+					level: { shown: 2, of: 4 }
 				})
 			]
 		};

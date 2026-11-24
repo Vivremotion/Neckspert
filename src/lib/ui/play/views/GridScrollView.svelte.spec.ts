@@ -80,21 +80,21 @@ describe('GridScrollView', () => {
 		expect(screen.getByText('I Only Have Eyes for You')).toBeTruthy();
 	});
 
-	it('names the zone, and draws the aid on the neck: the shapes admitted now and next', () => {
+	it('names the zone, and draws the picture on the neck: the shapes admitted now and next', () => {
 		const controller = new StageController();
 		controller.nowBeat = 12.2;
 		const zone = passageModel(GESTURE_ZONE, 'grid=iohefy-a', 1, {
 			each: { zone: [5, 9] },
-			exerciseLevel: -1,
+			exerciseLevel: 0,
 			anchorBeat: 12
 		});
 		render(GridScrollView, { props: { controller, model: zone } });
 		expect(screen.getByText('cases 5 à 9')).toBeTruthy();
-		// The aid's neck alone, with no legend: no explanatory words in play.
+		// The picture's neck alone, with no legend: no explanatory words in play.
 		expect(screen.getByTestId('aid-neck')).toBeTruthy();
 		expect(screen.queryByText('Forme suivante')).toBeNull();
-		expect(document.querySelector('.aid .label')).toBeNull();
-		// The aid draws on the neck (plan 4c, D5): G's shapes in the zone now, Dm's next.
+		expect(document.querySelector('.picture .label')).toBeNull();
+		// The picture draws on the neck (plan 4c, D5): G's shapes in the zone now, Dm's next.
 		const notes = screen.getAllByTestId('aid-note');
 		expect(notes.map((n) => n.getAttribute('data-shape'))).toContain('now');
 		expect(notes.map((n) => n.getAttribute('data-shape'))).toContain('next');
@@ -105,17 +105,17 @@ describe('GridScrollView', () => {
 		).toEqual(['mi', 'si', 'sol', 'ré']);
 	});
 
-	it('draws the aid on its own row under the cells, every fret wide enough for its note', () => {
+	it('draws the picture on its own row under the cells, every fret wide enough for its note', () => {
 		const controller = new StageController();
 		controller.nowBeat = 12.2;
-		// A climb's first change at the aid level: every shape of the chord, a wide span of frets.
+		// A climb's first change at level 1: every shape of the chord, a wide span of frets.
 		const climb = passageModel(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 0, {
 			each: { direction: 'up' },
-			exerciseLevel: -1,
+			exerciseLevel: 0,
 			anchorBeat: 12
 		});
 		render(GridScrollView, { props: { controller, model: climb } });
-		const row = screen.getByTestId('grid-aid');
+		const row = screen.getByTestId('grid-picture');
 		const bars = document.querySelector('.bars')!;
 		// After the cells, out of the row of the chords.
 		expect(bars.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

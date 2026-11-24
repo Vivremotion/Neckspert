@@ -12,7 +12,7 @@ import {
 	paramValue,
 	type FigureRef
 } from '$lib/domain/exercise/round';
-import { levelRange, type Figure } from '$lib/domain/time';
+import type { Figure } from '$lib/domain/time';
 import { fretOf } from '$lib/domain/music/fretboard';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type {
@@ -182,21 +182,19 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 		return problem === null ? null : `${id}: ${field}: ${problem}`;
 	};
 	const exerciseLevels = exerciseLevelsOf(definition);
-	const { lowest } = levelRange(exerciseLevels);
 	for (const [i, level] of exerciseLevels.entries()) {
 		if (!rewritesPresentation(level)) continue;
-		const problem = at(`levels[${i}]`, { exerciseLevel: i + lowest, itemLevel: null });
+		const problem = at(`levels[${i}]`, { exerciseLevel: i, itemLevel: null });
 		if (problem !== null) return problem;
 	}
 	const ladder = definition.params.ladder as Ladder | undefined;
 	if (!Array.isArray(ladder)) return null;
-	const first = levelRange(ladder).lowest;
 	const writesLevels = (definition.levels?.length ?? 0) > 0;
 	for (const [j, step] of ladder.entries()) {
 		if (!rewritesPresentation(step)) continue;
 		for (const i of exerciseLevels.keys()) {
 			const over = writesLevels ? ` at levels[${i}]` : '';
-			const levels = { exerciseLevel: i + lowest, itemLevel: j + first };
+			const levels = { exerciseLevel: i, itemLevel: j };
 			const problem = at(`params.ladder[${j}]${over}`, levels);
 			if (problem !== null) return problem;
 		}
@@ -288,8 +286,8 @@ function unfrettedNote(figure: Figure): string | null {
 function tabProblem(definition: ExerciseDefinition): string | null {
 	const entry = definition.round?.expectations.find(isFigureEntry);
 	if (!entry || (entry.content !== null && entry.content.from !== FIGURE_CONTENT)) return null;
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
-	for (let level = lowest; level <= highest; level++) {
+	const count = exerciseLevelsOf(definition).length;
+	for (let level = 0; level < count; level++) {
 		if (!notationOf(definition, level).tab) continue;
 		for (const { id, figure } of figuresAt(definition, entry.figure, level)) {
 			const problem = unfrettedNote(figure);

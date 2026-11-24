@@ -158,7 +158,6 @@ Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires
 			},
 			"levels": [
 				{
-					"aid": true,
 					"params": {
 						"notation.tab": true
 					}

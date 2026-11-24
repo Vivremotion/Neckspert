@@ -68,8 +68,8 @@ export interface AnswerChoice {
 	label: string;
 }
 
-/** What a series announces: a level moved (up, down, to an aid level). */
-export type Announcement = 'level-up' | 'level-down' | 'aid-level';
+/** What a series announces: a level moved, up or down. */
+export type Announcement = 'level-up' | 'level-down';
 
 /**
  * A stage as a controller sets it: the view and its model, a value built whole and never changed
@@ -116,7 +116,7 @@ export interface PlayView {
 	/**
 	 * What the series announces before the run it applies to, from its breath (or its listen-in,
 	 * or its counted bar) until the player plays (its first bar, entry bars included), kept
-	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` regular levels) and
+	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` levels) and
 	 * the tempo it plays at; null otherwise.
 	 */
 	announcement: {

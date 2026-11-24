@@ -22,7 +22,7 @@ export interface SeriesSummary {
 	/** The series' exercise; for a series of several, which names none, its first run's. */
 	exerciseId: string;
 	ended: SeriesEnd | 'quit';
-	/** Level of each run in order, repeats merged: [0, 1, -1] = up, then to the aid level. */
+	/** Level of each run in order, repeats merged: [0, 1, 0] = up, then down again. */
 	levels: number[];
 	rounds: number;
 	successes: number;

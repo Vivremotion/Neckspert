@@ -218,13 +218,13 @@ describe('summarizePlayed of a figure exercise', () => {
 				cycle(true),
 				cycle(false)
 			],
-			level: () => ({ shown: 3, of: 4, aid: false })
+			level: () => ({ shown: 3, of: 4 })
 		});
 		expect(line).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
 			rounds: 4,
 			passed: 3,
-			level: { shown: 3, of: 4, aid: false },
+			level: { shown: 3, of: 4 },
 			tempo: { first: 80, last: 80 },
 			inPassages: false,
 			passages: null
@@ -256,14 +256,14 @@ describe('summarizePlayed of a figure exercise', () => {
 			executions: [],
 			attempts: [],
 			alone: RHYTHM_OFFBEATS.id,
-			level: () => ({ shown: 1, of: 4, aid: false })
+			level: () => ({ shown: 1, of: 4 })
 		});
 		expect(exercises).toEqual([
 			expect.objectContaining({
 				exerciseId: RHYTHM_OFFBEATS.id,
 				rounds: 0,
 				passed: 0,
-				level: { shown: 1, of: 4, aid: false },
+				level: { shown: 1, of: 4 },
 				tempo: null
 			})
 		]);

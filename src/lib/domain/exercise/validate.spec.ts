@@ -522,7 +522,7 @@ describe('validateExercise on listed items', () => {
 		});
 		expect(validateExercise(beyond)).toMatch(
 			new RegExp(
-				`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] .* at exercise level -1: round\\.expectations\\[0\\]\\.content\\.pattern asks note 4`
+				`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] .* at exercise level 0: round\\.expectations\\[0\\]\\.content\\.pattern asks note 4`
 			)
 		);
 	});
@@ -706,7 +706,7 @@ describe('validateExercise limits', () => {
 
 	it('refuses items × levels asking more round checks than MAX_ROUND_CHECKS, before any', () => {
 		expect(MAX_ROUND_CHECKS).toBe(20_000);
-		// 201 items at 100 exercise levels (one an aid level): 20 100 rounds to compile.
+		// 201 items at 100 exercise levels (the first writes the tab): 20 100 rounds to compile.
 		const items = Array.from({ length: 201 }, () => ARPEGGIO_EXERCISE.items![0]);
 		const levels = [ARPEGGIO_EXERCISE.levels![0], ...plainLevels(99)];
 		const start = performance.now();

@@ -389,9 +389,9 @@ describe('screenProblem', () => {
 				NONE
 			)
 		).toBe(
-			'rhythm-offbeats: exercise level -1 shows the tab of figure "offbeats-1", whose note 1 has no string'
+			'rhythm-offbeats: exercise level 0 shows the tab of figure "offbeats-1", whose note 1 has no string'
 		);
-		// Notes derived from the item carry the string the derivation gives: the aid level's tab.
+		// Notes derived from the item carry the string the derivation gives: its level 1's tab.
 		expect(screenProblem(ARPEGGIO_EXERCISE, NONE)).toBeNull();
 	});
 

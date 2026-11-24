@@ -115,7 +115,7 @@ export interface ExerciseDefinition {
 	/** Its name on screen, in each language, when it is shown by name (the rhythm exercises). */
 	title?: { fr: string; en: string };
 	/**
-	 * Its levels (aid levels first): each overrides dotted paths of its resolved params
+	 * Its levels, the first being level 1: each overrides dotted paths of its resolved params
 	 * (`resolvedParamsOf`), the tempo included; absent: one level that changes nothing.
 	 */
 	levels?: readonly Level<LevelOverrides>[];

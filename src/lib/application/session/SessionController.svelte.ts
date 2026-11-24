@@ -14,7 +14,6 @@ import {
 	METER_4_4,
 	beatPositions,
 	clickAccompaniment,
-	levelRange,
 	renderSounds,
 	type Accompaniment,
 	type LiveReading,
@@ -2222,7 +2221,7 @@ export class SessionController implements PlaySessionController {
 		return {
 			kind,
 			level,
-			of: levelRange(exerciseLevelsOf(definition)).highest + 1,
+			of: exerciseLevelsOf(definition).length,
 			tempoBpm: tempoOf(definition, level)
 		};
 	}

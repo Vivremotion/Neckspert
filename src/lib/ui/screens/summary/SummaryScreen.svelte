@@ -91,9 +91,9 @@
 		return `${name} · ${grid?.title ?? scope}`;
 	}
 
-	/** The level a line ended on, an aid level named as the play header names it. */
+	/** The level a line ended on, named as the play header names it. */
 	function levelText(level: NonNullable<PlayedExercise['level']>): string {
-		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
+		return t.levelReached(level.shown, level.of);
 	}
 
 	/** The share of a line's rounds that passed, in whole percent. */

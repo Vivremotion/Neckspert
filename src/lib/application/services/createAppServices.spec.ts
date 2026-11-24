@@ -542,7 +542,7 @@ describe('a routine that opens on a level', () => {
 		resumeAfter: null
 	});
 
-	it('opens at the level written, never at level 1 nor at an aid level, scope or no scope', async () => {
+	it('opens at the level written (index + 1), never below it, scope or no scope', async () => {
 		for (const scope of [undefined, 'blues-f']) {
 			registerRoutine(
 				{
@@ -557,8 +557,6 @@ describe('a routine that opens on a level', () => {
 			const open = async () =>
 				(await services.routines()).find((r) => r.id === `on-level-${scope ?? 'none'}`)?.open;
 			expect(await open(), 'no level held').toBe(false);
-			await deps.levels.put(held(-1, scope));
-			expect(await open(), 'an aid level').toBe(false);
 			await deps.levels.put(held(0, scope));
 			expect(await open(), 'level 1').toBe(false);
 			// Another scope's level is not this one's.
@@ -754,14 +752,14 @@ describe('the gesture track', () => {
 			exerciseId: 'inversion-run',
 			scope: '',
 			item: '',
-			level: 2,
+			level: 3,
 			successes: 0,
 			failures: 0,
 			resumeAfter: null
 		});
 		const controller = await services.startRoutine('changes');
 		await controller.start();
-		// Level 3 of the link: ♩ = 90.
+		// Level 4 of the link: ♩ = 90.
 		expect(controller.view.tempoBpm).toBe(90);
 		controller.quit();
 	});
@@ -977,7 +975,7 @@ describe('the rhythm exercises', () => {
 		expect(summary.exercises).toEqual([
 			{
 				exerciseId: RHYTHM_OFFBEATS.id,
-				level: { shown: 2, of: 4, aid: false },
+				level: { shown: 2, of: 5 },
 				rounds: 3,
 				passed: 2,
 				tempo: { first: 80, last: 80 },
@@ -1069,13 +1067,11 @@ describe('the rhythm exercises', () => {
 		await deps.levels.put(heldLevel(3));
 		expect((await services.sessionSummary('older')).exercises[0]?.level).toEqual({
 			shown: 2,
-			of: 4,
-			aid: false
+			of: 5
 		});
 		expect((await services.sessionSummary('later')).exercises[0]?.level).toEqual({
 			shown: 4,
-			of: 4,
-			aid: false
+			of: 5
 		});
 	});
 
@@ -1085,8 +1081,7 @@ describe('the rhythm exercises', () => {
 		await deps.levels.put(heldLevel(2));
 		expect((await services.sessionSummary('r1')).exercises[0]?.level).toEqual({
 			shown: 3,
-			of: 4,
-			aid: false
+			of: 5
 		});
 	});
 

@@ -3,7 +3,7 @@ import { introduceCard, markLearned } from '../progress/cards';
 import { lastAttemptByCard, reviewableCards } from '../progress/review';
 import type { RecordOutcome, SelectorContext, ItemSource } from '../progress/selector';
 import { cardSuccessRate, successRate } from '../progress/success';
-import { levelRange, nextLevelState, type LevelState } from '../time/levels';
+import { nextLevelState, type LevelState } from '../time/levels';
 import {
 	cardKey,
 	type Attempt,
@@ -133,10 +133,9 @@ class Procedure implements LearningProcedure {
 		const ladder = this.ladderOf(ref);
 		const state = ladderLevel(this.levelOf(ref), ladder);
 		// A level that asks it counts only a direct recall.
-		const success =
-			ladder[state.level - levelRange(ladder).lowest].success === 'direct-recall'
-				? this.subject.recall(ref.skill)(attempt)
-				: attempt.success;
+		const success = asksDirectRecall(ladder, state.level)
+			? this.subject.recall(ref.skill)(attempt)
+			: attempt.success;
 		const learned = attempt.phase === 'learning' && passesTop(state, ladder, success);
 		const level = nextLevelState(state, ladder, { success }).state;
 		this.setLevel(level);
@@ -458,7 +457,7 @@ class Procedure implements LearningProcedure {
 	/** The params of level `level` of the item's ladder. */
 	private paramsAt(ref: CardRef, level: number): LadderParams {
 		const ladder = this.ladderOf(ref);
-		return ladder[level - levelRange(ladder).lowest].params as LadderParams;
+		return ladder[level].params as LadderParams;
 	}
 
 	/** An item served at its level: what its prompt shows is its level's (`presentationOf`). */

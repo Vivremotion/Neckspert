@@ -33,8 +33,11 @@ export interface PassageStageModel {
 	beatsPerBar: number;
 	anchorBeat: number | null;
 	history: readonly LaneEntry[];
-	/** The members admitted, when the presentation at the round's levels names them; null otherwise. */
-	aid: Picture | null;
+	/**
+	 * The picture the round's resolved presentation names (the members admitted); null when it
+	 * names none.
+	 */
+	picture: Picture | null;
 	verdict: StageVerdict | null;
 	chordDiagram: ChordDiagramStyle;
 }
@@ -252,7 +255,7 @@ export function passageStage(input: {
 		beatsPerBar: input.beatsPerBar,
 		anchorBeat: place.anchorBeat,
 		history: place.history,
-		aid: drawsAdmitted ? admittedPicture(definition, round, items, plan, settled) : null,
+		picture: drawsAdmitted ? admittedPicture(definition, round, items, plan, settled) : null,
 		verdict: settled && stageVerdict(plan, settled, locale, random),
 		chordDiagram: input.chordDiagram
 	};

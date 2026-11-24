@@ -49,7 +49,7 @@ describe('LibraryScreen', () => {
 		expect(rows()[0].textContent).toContain('5 min');
 	});
 
-	it('tells the routines that list it and its rest, small under its title', () => {
+	it('tells the routines that list it, small under its title', () => {
 		render(LibraryScreen, {
 			props: {
 				entries: [

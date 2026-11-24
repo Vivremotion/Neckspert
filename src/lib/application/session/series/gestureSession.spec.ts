@@ -344,12 +344,14 @@ describe('a gesture session on the session controller, end to end', () => {
 		// beat before its target, a chained one at its handover (200 ms before).
 		const bar = 4 * 750;
 		expect(second[0].promptedAt - first[6].promptedAt).toBeCloseTo(2 * bar - (750 - 200), -1);
-		// Seven misses in a row at level 1: the tour comes back at level 1, nothing imposed.
+		// Seven misses in a row at level 1: the tour comes back at level 1, nothing imposed. Its
+		// third right change reaches level 2 (level 1 writes no pass: 3); the four after it, still
+		// played at level 1, count for neither.
 		expect([...first, ...second].every((a) => a.aids === undefined)).toBe(true);
 		expect(second.every((a) => a.success)).toBe(true);
 		expect(
 			await app.deps.levels.get({ exerciseId: 'inversion-run', scope: '', item: '' })
-		).toMatchObject({ level: 0, failures: 0, successes: 7, resumeAfter: null });
+		).toMatchObject({ level: 1, failures: 0, successes: 0, resumeAfter: null });
 	});
 
 	it('plays a beginner’s tours at level 1 when nothing is right: nothing ends the session early', async () => {
@@ -886,7 +888,8 @@ describe('a level per exercise and scope', () => {
 		await playAllRight(ctx);
 		const level = (scope: string) =>
 			ctx.levels.get({ exerciseId: 'grid-reading', scope, item: '' });
-		expect(await level('iohefy-a')).toMatchObject({ level: 1, successes: 0 });
+		// Three right at level 1 reach level 2, played from the third passage: six right there.
+		expect(await level('iohefy-a')).toMatchObject({ level: 1, successes: 6 });
 		expect(await level('blues-f')).toMatchObject({ level: 0, successes: 1 });
 		expect(await level('')).toBeUndefined();
 	});
@@ -1044,7 +1047,8 @@ describe('the chord sensor of a change (twoSensors)', () => {
 		const ctx = gestureSeries(passage());
 		await ctx.controller.start();
 		ctx.runTo(ctx.bar(1) + 0.02);
-		// The jam on iohefy-a: the change, the title, the line of its passage, no aid at level 1.
+		// The jam on iohefy-a: the change, the title, the line of its passage, no picture on the
+		// bench's levels.
 		expect(model(ctx)).toMatchObject({
 			prompt: { primary: 'Dm7', secondary: 'I Only Have Eyes for You', detail: null },
 			rounds: [
@@ -1052,7 +1056,7 @@ describe('the chord sensor of a change (twoSensors)', () => {
 				{ at: 4, length: 4, label: 'G7', way: null }
 			],
 			index: 0,
-			aid: null
+			picture: null
 		});
 		ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
 		ctx.runTo(ctx.bar(2) - 0.15);
@@ -1203,15 +1207,18 @@ describe('« Joué juste » on a change', () => {
 
 describe('the exercise level moving in session (levels)', () => {
 	const RIGHT = (_n: number, expected: string) => expected;
-	const LEVEL_UP = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
+	const LEVEL_UP = { kind: 'level-up', level: 2, of: 10, tempoBpm: 85 };
 	const passages = (count: number, options: Parameters<typeof passage>[0] = {}) =>
 		Array.from({ length: count }, (_, n) => passage({ ...options, passage: `s:${n}` })).flat();
-	/** Where (exercise, scope) stands, `successes` right changes in a row at level 0. */
+	/**
+	 * Where (exercise, scope) stands, `successes` right changes in a row at level 2 (index 1):
+	 * ♩ = 80, left after ten right changes.
+	 */
 	const standing = (successes: number, exerciseId = 'grid-reading', scope = 'iohefy-a') => ({
 		exerciseId,
 		scope,
 		item: '',
-		level: 0,
+		level: 1,
 		successes,
 		failures: 0,
 		resumeAfter: null
@@ -1235,7 +1242,7 @@ describe('the exercise level moving in session (levels)', () => {
 		ctx.levels.get({ exerciseId, scope, item: '' });
 
 	it('raises the tempo at the next passage after ten right changes', async () => {
-		const ctx = gestureSeries(passages(6), { catalogLevels: true });
+		const ctx = gestureSeries(passages(6), { catalogLevels: true, levelStates: [standing(0)] });
 		const seen = frames(ctx);
 		await ctx.controller.start();
 		const tempos = await playAllRight(ctx, RIGHT, seen.watch);
@@ -1253,7 +1260,7 @@ describe('the exercise level moving in session (levels)', () => {
 		// Gone once the change is asked.
 		expect(seen.open.length).toBeGreaterThan(0);
 		expect(seen.open.every((announcement) => announcement === null)).toBe(true);
-		expect(await levelOf(ctx)).toMatchObject({ level: 1, successes: 2, failures: 0 });
+		expect(await levelOf(ctx)).toMatchObject({ level: 2, successes: 2, failures: 0 });
 	});
 
 	it('counts a link tour played again in at the level reached', async () => {
@@ -1273,7 +1280,7 @@ describe('the exercise level moving in session (levels)', () => {
 		expect(
 			seen.counting.filter((frame) => frame.announcement !== null).map((f) => f.tempoBpm)
 		).toEqual([85, 85, 85]);
-		expect(await levelOf(ctx, 'inversion-run', '')).toMatchObject({ level: 1 });
+		expect(await levelOf(ctx, 'inversion-run', '')).toMatchObject({ level: 2 });
 	});
 
 	it('counts again at the new tempo after a pause in the counted bar', async () => {
@@ -1301,8 +1308,8 @@ describe('the exercise level moving in session (levels)', () => {
 		// Paused on the count's first beat, then counted again whole, at 85.
 		expect(announced.map((frame) => frame.countdown)).toEqual([4, 4, 3, 2]);
 		expect(announced.every((frame) => frame.tempoBpm === 85)).toBe(true);
-		// Moved once: two right changes since at level 1, nothing counted twice.
-		expect(await levelOf(ctx)).toMatchObject({ level: 1, successes: 2 });
+		// Moved once: two right changes since at level 3, nothing counted twice.
+		expect(await levelOf(ctx)).toMatchObject({ level: 2, successes: 2 });
 	});
 
 	it('stores the level reached when time runs out before it is played', async () => {
@@ -1317,7 +1324,7 @@ describe('the exercise level moving in session (levels)', () => {
 		// The passage begun is played to its end at 80; no other begins.
 		expect(tempos).toEqual([80, 80]);
 		expect((await ctx.stored()).map((a) => a.tempoBpm)).toEqual([80, 80]);
-		expect(await levelOf(ctx)).toMatchObject({ level: 1 });
+		expect(await levelOf(ctx)).toMatchObject({ level: 2 });
 	});
 
 	it('starts the next session at the stored level', async () => {
@@ -1337,27 +1344,30 @@ describe('the exercise level moving in session (levels)', () => {
 	});
 });
 
-describe('the aid level of the changes (Review Focus 4)', () => {
+describe('the first level of the changes (D12, Review Focus 4)', () => {
 	const CLIMB = 'grid-in-direction';
 	const climbs = (count: number, from = 0) =>
 		Array.from({ length: count }, (_, n) =>
 			passage({ exerciseId: CLIMB, passage: `s:${from + n}` })
 		).flat();
-	/** What each change showed once open: its level's aid, and the announcement of its counted bar. */
+	/**
+	 * What each change showed once open: its level's picture, and the announcement of its counted
+	 * bar with the level it tells (« Niveau n »).
+	 */
 	function watching(ctx: Ctx) {
-		const shown: { aid: unknown; tempoBpm: number }[] = [];
+		const shown: { picture: unknown; tempoBpm: number }[] = [];
 		const announced: string[] = [];
 		let told = 0;
 		const watch = () => {
 			const { view } = ctx.controller;
 			if (view.status === 'count-in' && view.announcement && announced.at(-1) !== 'told') {
-				announced.push(view.announcement.kind, 'told');
+				announced.push(`${view.announcement.kind} ${view.announcement.level + 1}`, 'told');
 			}
 			if (view.status !== 'count-in' && announced.at(-1) === 'told') announced.pop();
 			if (ctx.verifier.expectations.length > told) {
 				told = ctx.verifier.expectations.length;
 				if (ctx.verifier.expectations.at(-1)) {
-					shown.push({ aid: model(ctx)?.aid ?? null, tempoBpm: view.tempoBpm });
+					shown.push({ picture: model(ctx)?.picture ?? null, tempoBpm: view.tempoBpm });
 				}
 			}
 		};
@@ -1366,49 +1376,46 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 	const levelOf = (ctx: Ctx, exerciseId = CLIMB) =>
 		ctx.levels.get({ exerciseId, scope: 'iohefy-a', item: '' });
 
-	it('writes an aid level under level 1 that draws the shapes admitted, and no anti-blocking', () => {
+	it('writes a first level that draws the shapes admitted, with neither pass nor drop', () => {
 		for (const id of GESTURE_EXERCISE_IDS) {
 			const definition = exerciseById(id);
-			// The aid level of the exercise writes its own picture: the shapes admitted.
+			// Its first level writes its own picture: the shapes admitted, at ♩ = 80.
 			expect(definition.levels?.[0]).toEqual({
-				aid: true,
 				params: { tempo: 80, 'presentation.picture': 'admitted' }
 			});
 			expect(definition.presentation?.picture).toBeUndefined();
-			expect(definition.levels?.slice(1).every((level) => !level.aid)).toBe(true);
+			expect(definition.levels?.slice(1).every((level) => !('aid' in level))).toBe(true);
 			expect(definition.flow).toBeUndefined();
 		}
 	});
 
-	/** The stored level of `exerciseId` on iohefy-a at the aid level. */
-	const atAidLevel = (exerciseId: string) => ({
+	/** The stored level of `exerciseId` on iohefy-a at `level`. */
+	const heldAt = (exerciseId: string, level: number) => ({
 		exerciseId,
 		scope: 'iohefy-a',
 		item: '',
-		level: -1,
+		level,
 		successes: 0,
 		failures: 0,
 		resumeAfter: null
 	});
 
-	it('the jam at its aid level: every shape of the chord drawn, three right take it to level 1', async () => {
+	it('a never-played jam starts at level 1: every shape of the chord drawn, three right take it to level 2', async () => {
 		const jams = [0, 1, 2, 3, 4].flatMap((n) => passage({ passage: `j:${n}` }));
-		const ctx = gestureSeries(jams, {
-			catalogLevels: true,
-			levelStates: [atAidLevel('grid-reading')]
-		});
+		const ctx = gestureSeries(jams, { catalogLevels: true });
 		const seen = watching(ctx);
 		await ctx.controller.start();
 		await playAllRight(ctx, (_n, expected) => expected, seen.watch);
 
 		const attempts = await ctx.stored();
 		expect(attempts.map((attempt) => attempt.success)).toEqual(Array(10).fill(true));
-		// The first two passages at the aid level (the third right change moves it up), then level 1.
-		expect(seen.shown.map((each) => each.aid !== null)).toEqual([
+		// The first two passages at level 1 (the third right change moves it up), then level 2.
+		expect(seen.shown.map((each) => each.picture !== null)).toEqual([
 			...Array(4).fill(true),
 			...Array(6).fill(false)
 		]);
-		expect(seen.announced).toEqual(['level-up']);
+		expect(seen.shown.every((each) => each.tempoBpm === 80)).toBe(true);
+		expect(seen.announced).toEqual(['level-up 2']);
 		expect(attempts.every((attempt) => attempt.aids === undefined)).toBe(true);
 		// The first passage's first change, Dm7 then G7, on the jam's four strings: every place of
 		// every shape of Dm drawn as now, every place of G not already drawn as next.
@@ -1420,10 +1427,10 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			);
 		const now = placesOf('Dm7');
 		const next = [...placesOf('G7')].filter((place) => !now.has(place));
-		const aid = seen.shown[0].aid as Picture & { kind: 'neck' };
-		expect(aid).toMatchObject({ kind: 'neck', strings: [4, 3, 2, 1] });
+		const picture = seen.shown[0].picture as Picture & { kind: 'neck' };
+		expect(picture).toMatchObject({ kind: 'neck', strings: [4, 3, 2, 1] });
 		const drawn = (isNext: boolean) =>
-			aid.notes
+			picture.notes
 				.filter((note) => (note.next === true) === isNext)
 				.map(({ string, fret }) => `${string}:${fret}`)
 				.sort();
@@ -1431,14 +1438,14 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		expect(drawn(false)).toEqual([...now].sort());
 		expect(drawn(true)).toEqual(next.sort());
 		expect(await levelOf(ctx, 'grid-reading')).toMatchObject({
-			level: 0,
+			level: 1,
 			successes: 6,
 			failures: 0
 		});
 	});
 
 	it('draws the shapes admitted at the levels that name them only, whatever their rank (D6)', async () => {
-		// A climb written in the test: its aid level and its level 2 draw them, its level 1 does not.
+		// A climb written in the test: its levels 1 and 3 draw them, its level 2 does not.
 		const exercise = (id: string) => {
 			const definition = exerciseById(id);
 			if (id !== CLIMB) return definition;
@@ -1446,7 +1453,7 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 				...definition,
 				flow: undefined,
 				levels: [
-					{ aid: true as const, params: { tempo: 80, 'presentation.picture': 'admitted' } },
+					{ params: { tempo: 80, 'presentation.picture': 'admitted' } },
 					{ params: { tempo: 80 } },
 					{ params: { tempo: 80, 'presentation.picture': 'admitted' } }
 				]
@@ -1456,71 +1463,82 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			const ctx = gestureSeries(climbs(1), {
 				catalogLevels: true,
 				exercise,
-				levelStates: [
-					{
-						exerciseId: CLIMB,
-						scope: 'iohefy-a',
-						item: '',
-						level,
-						successes: 0,
-						failures: 0,
-						resumeAfter: null
-					}
-				]
+				levelStates: [heldAt(CLIMB, level)]
 			});
 			const seen = watching(ctx);
 			await ctx.controller.start();
 			await playAllRight(ctx, () => null, seen.watch);
-			return seen.shown.map((each) => each.aid);
+			return seen.shown.map((each) => each.picture);
 		};
-		expect((await at(-1)).every((aid) => aid !== null)).toBe(true);
-		expect(await at(0)).toEqual([null, null]);
-		expect((await at(1)).every((aid) => aid !== null)).toBe(true);
+		expect((await at(0)).every((picture) => picture !== null)).toBe(true);
+		expect(await at(1)).toEqual([null, null]);
+		expect((await at(2)).every((picture) => picture !== null)).toBe(true);
 	});
 
-	it('draws no aid at the first passage of an index', async () => {
-		const ctx = gestureSeries(climbs(1), { catalogLevels: true });
+	it('draws nothing at level 2, from the first passage of an index', async () => {
+		const ctx = gestureSeries(climbs(1), {
+			catalogLevels: true,
+			levelStates: [heldAt(CLIMB, 1)]
+		});
 		const seen = watching(ctx);
 		await ctx.controller.start();
 		await playAllRight(ctx, () => null, seen.watch);
-		expect(seen.shown.map((each) => each.aid)).toEqual([null, null]);
+		expect(seen.shown.map((each) => each.picture)).toEqual([null, null]);
 		expect((await ctx.stored()).every((attempt) => attempt.aids === undefined)).toBe(true);
 	});
 
-	it('misses in a row at level 1 keep it: nothing drawn, nothing announced, every passage played', async () => {
+	it('misses in a row at level 1 keep it: drawn, nothing announced, every passage played', async () => {
 		const ctx = gestureSeries(climbs(5), { catalogLevels: true });
 		const seen = watching(ctx);
 		await ctx.controller.start();
-		// Four misses, the first two passages whole, then everything right.
-		await playAllRight(ctx, (n, expected) => (n < 4 ? null : expected), seen.watch);
+		// Four misses, the first two passages whole, then two right: level 1 all along.
+		await playAllRight(ctx, (n, expected) => (n < 4 || n > 5 ? null : expected), seen.watch);
 
 		const attempts = await ctx.stored();
 		expect(attempts.map((attempt) => attempt.success)).toEqual([
 			...Array(4).fill(false),
-			...Array(6).fill(true)
+			true,
+			true,
+			...Array(4).fill(false)
 		]);
-		expect(seen.shown.map((each) => each.aid)).toEqual(Array(10).fill(null));
+		expect(seen.shown.every((each) => each.picture !== null)).toBe(true);
+		expect(seen.shown).toHaveLength(10);
 		expect(seen.announced).toEqual([]);
 		expect(attempts.every((attempt) => attempt.aids === undefined)).toBe(true);
-		expect(await levelOf(ctx)).toMatchObject({
-			level: 0,
-			successes: 6,
-			failures: 0,
-			resumeAfter: null
-		});
+		expect(await levelOf(ctx)).toMatchObject({ level: 0, successes: 0, failures: 4 });
 	});
 
-	it('the climb at its aid level draws every shape admitted now and next, three right take it to level 1', async () => {
-		const ctx = gestureSeries(climbs(5), {
+	it('three misses at level 2 take a climb back to level 1, its shapes drawn again', async () => {
+		const ctx = gestureSeries(climbs(3), {
 			catalogLevels: true,
-			levelStates: [atAidLevel(CLIMB)]
+			levelStates: [heldAt(CLIMB, 1)]
 		});
+		const seen = watching(ctx);
+		await ctx.controller.start();
+		await playAllRight(ctx, () => null, seen.watch);
+
+		// Level 2 drops after 3 misses: the second passage's last change settles it, the third
+		// passage is at level 1, drawn.
+		expect(seen.shown.map((each) => each.picture !== null)).toEqual([
+			false,
+			false,
+			false,
+			false,
+			true,
+			true
+		]);
+		expect(seen.announced).toEqual(['level-down 1']);
+		expect(await levelOf(ctx)).toMatchObject({ level: 0 });
+	});
+
+	it('a never-played climb draws every shape admitted now and next, three right take it to level 2', async () => {
+		const ctx = gestureSeries(climbs(5), { catalogLevels: true });
 		const seen = watching(ctx);
 		await ctx.controller.start();
 		await playAllRight(ctx, (_n, expected) => expected, seen.watch);
 
-		// The first two passages at the aid level, then level 1.
-		expect(seen.shown.map((each) => each.aid !== null)).toEqual([
+		// The first two passages at level 1, then level 2.
+		expect(seen.shown.map((each) => each.picture !== null)).toEqual([
 			...Array(4).fill(true),
 			...Array(6).fill(false)
 		]);
@@ -1533,36 +1551,25 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			'2:3',
 			'1:3'
 		]);
-		const aid = seen.shown[0].aid as Picture & { kind: 'neck' };
-		expect(aid).toMatchObject({ kind: 'neck', strings: [3, 2, 1] });
+		const picture = seen.shown[0].picture as Picture & { kind: 'neck' };
+		expect(picture).toMatchObject({ kind: 'neck', strings: [3, 2, 1] });
 		// Its places drawn (2-3, D, is Dm's too: drawn once, as a note of now).
-		expect(aid.notes.map(({ string, fret }) => `${string}:${fret}`)).toEqual(
+		expect(picture.notes.map(({ string, fret }) => `${string}:${fret}`)).toEqual(
 			expect.arrayContaining(['3:4', '2:3', '1:3'])
 		);
-		expect(aid.notes.some((note) => note.next)).toBe(true);
-		expect(aid.notes.some((note) => !note.next)).toBe(true);
+		expect(picture.notes.some((note) => note.next)).toBe(true);
+		expect(picture.notes.some((note) => !note.next)).toBe(true);
 		expect(seen.shown.every((each) => each.tempoBpm === 80)).toBe(true);
 		// Announced at the counted bar of the third passage.
-		expect(seen.announced).toEqual(['level-up']);
-		expect(await levelOf(ctx)).toMatchObject({ level: 0, successes: 6, failures: 0 });
+		expect(seen.announced).toEqual(['level-up 2']);
+		expect(await levelOf(ctx)).toMatchObject({ level: 1, successes: 6, failures: 0 });
 	});
 
-	it('link: a tour at the aid level draws the notes of its shapes, one at level 1 nothing', async () => {
+	it('link: a never-played tour draws the notes of its shapes, one at level 2 nothing', async () => {
 		const tour = (id: string): PlannedItem[] => [0, 1].map((index) => linkChange(index, id));
-		// Held at the aid level: two tours there (the third right change moves it up), then level 1.
+		// Two tours at level 1 (the third right change moves it up), then level 2.
 		const ctx = gestureSeries([...tour('s:0'), ...tour('s:1'), ...tour('s:2')], {
-			catalogLevels: true,
-			levelStates: [
-				{
-					exerciseId: 'inversion-run',
-					scope: '',
-					item: '',
-					level: -1,
-					successes: 0,
-					failures: 0,
-					resumeAfter: null
-				}
-			]
+			catalogLevels: true
 		});
 		const seen = watching(ctx);
 		await ctx.controller.start();
@@ -1578,21 +1585,26 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			{ string: 2, fret: 7, name: 'F#' },
 			{ string: 1, fret: 5, name: 'A' }
 		];
-		const aided = [
+		const drawnNotes = [
 			{ now: first, next: second },
 			{ now: second, next: [] }
 		];
-		/** The notes of the aid's neck, those of now and those of next. */
-		const notesOf = (aid: unknown) => {
-			if (aid === null) return null;
-			const { notes } = aid as Picture & { kind: 'neck' };
+		/** The notes of the picture's neck, those of now and those of next. */
+		const notesOf = (picture: unknown) => {
+			if (picture === null) return null;
+			const { notes } = picture as Picture & { kind: 'neck' };
 			const plain = (next: boolean) =>
 				notes
 					.filter((note) => (note.next === true) === next)
 					.map(({ string, fret, name }) => ({ string, fret, name }));
 			return { now: plain(false), next: plain(true) };
 		};
-		expect(seen.shown.map((each) => notesOf(each.aid))).toEqual([...aided, ...aided, null, null]);
+		expect(seen.shown.map((each) => notesOf(each.picture))).toEqual([
+			...drawnNotes,
+			...drawnNotes,
+			null,
+			null
+		]);
 		expect((await ctx.stored()).every((attempt) => attempt.aids === undefined)).toBe(true);
 	});
 

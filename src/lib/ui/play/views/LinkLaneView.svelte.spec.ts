@@ -11,15 +11,16 @@ afterEach(() => cleanup());
 
 /**
  * Round `index` of the tour of E on G-B-E (its four lowest shapes up, then down again), its
- * target on `anchorBeat` (null before its round opens), at the aid level when `aided`.
+ * target on `anchorBeat` (null before its round opens), at level 1, which draws the notes of its
+ * shapes, when `drawn`, else at level 2, which draws nothing.
  */
 function model(
 	index: number,
-	aided: boolean,
+	drawn: boolean,
 	anchorBeat: number | null = index * 4
 ): PassageStageModel {
 	return passageModel(GESTURE_LINK, 'chord=E;strings=3,2,1', index, {
-		exerciseLevel: aided ? -1 : 0,
+		exerciseLevel: drawn ? 0 : 1,
 		anchorBeat
 	});
 }
@@ -105,7 +106,7 @@ describe('LinkLaneView', () => {
 		expect(due[0].textContent?.trim()).toBe('↗');
 	});
 
-	it('draws no neck unaided, the notes in circles aided, each the colour of its tile, on the set’s strings', () => {
+	it('draws no neck at a level that names no picture, else the notes in circles, each the colour of its tile, on the set’s strings', () => {
 		render(LinkLaneView, { props: { controller: running(9), model: model(2, false) } });
 		expect(screen.queryByTestId('aid-neck')).toBeNull();
 		cleanup();

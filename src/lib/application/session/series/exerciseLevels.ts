@@ -11,7 +11,7 @@ import {
 	type SeriesRules,
 	type SeriesState
 } from '$lib/domain/session';
-import { levelRange, type LevelState } from '$lib/domain/time';
+import type { LevelState } from '$lib/domain/time';
 import type { LevelStateRepositoryPort } from '$lib/application/ports';
 import type { Announcement } from '../contract';
 import { listenOf, modelSoundsOf } from './compilePlan';
@@ -163,8 +163,6 @@ export class ExerciseLevels {
 		const reached = held.series.levelState.level;
 		if (reached === played) return null;
 		held.played = reached;
-		// An aid level is announced as one, never by a number below 1.
-		if (reached < 0) return 'aid-level';
 		return reached > played ? 'level-up' : 'level-down';
 	}
 
@@ -206,13 +204,16 @@ export class ExerciseLevels {
 		return held;
 	}
 
-	/** The stored state clamped into the exercise's levels; level 0 without one. */
+	/**
+	 * The stored state brought into the exercise's levels, `0..N-1` (a level below 0 the migration
+	 * did not shift, one above a top that came down), its runs started again; level 0 without one.
+	 */
 	private startOf(
 		exerciseId: ExerciseId,
 		scope: string | undefined,
 		stored: LevelState | undefined
 	): LevelState {
-		const { lowest, highest } = levelRange(exerciseLevelsOf(this.deps.exercise(exerciseId)));
+		const highest = exerciseLevelsOf(this.deps.exercise(exerciseId)).length - 1;
 		const state: LevelState = stored ?? {
 			exerciseId,
 			scope: scope ?? '',
@@ -222,7 +223,8 @@ export class ExerciseLevels {
 			failures: 0,
 			resumeAfter: null
 		};
-		return { ...state, level: Math.min(highest, Math.max(lowest, state.level)) };
+		const level = Math.min(highest, Math.max(0, state.level));
+		return level === state.level ? state : { ...state, level, successes: 0, failures: 0 };
 	}
 }
 

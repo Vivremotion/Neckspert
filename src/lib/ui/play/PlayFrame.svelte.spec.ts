@@ -351,7 +351,6 @@ describe('PlayFrame', () => {
 				// A level: only ever told before play (the breath, the listen-in, the count).
 				expect(shown(world, status, 'level-up')).toBe('field');
 				expect(shown(world, status, 'level-down')).toBe('field');
-				expect(shown(world, status, 'aid-level')).toBe('field');
 			}
 		}
 		const controller = new StageController();
@@ -401,7 +400,7 @@ describe('PlayFrame', () => {
 		expect(rules.some(([, , body]) => /position:\s*absolute/.test(body))).toBe(true);
 	});
 
-	it('tells the aid level, never a level below 1, and nothing of a remedy or a change of air', () => {
+	it('tells the first level by its number, as any other, and nothing of a remedy or a change of air', () => {
 		const told = (kind: Announcement, level = 0) => {
 			const controller = new StageController();
 			controller.view.status = 'awaiting';
@@ -410,15 +409,13 @@ describe('PlayFrame', () => {
 			const text = screen.getByRole('status').textContent?.trim();
 			const page = document.body.textContent ?? '';
 			cleanup();
-			expect(page).not.toMatch(/change d’air|réécoute|joue ensemble|aidé/);
+			expect(page).not.toMatch(/change d’air|réécoute|joue ensemble|aid/i);
 			return text;
 		};
-		// A deeper aid level too: never « Niveau -1 ».
-		expect(told('aid-level', -1)).toBe('Niveau d’aide · ♩ = 70');
-		expect(told('aid-level', -2)).toBe('Niveau d’aide · ♩ = 70');
+		expect(told('level-down', 0)).toBe('Niveau 1 sur 4 · ♩ = 70');
 		i18n.locale = 'en';
 		try {
-			expect(told('aid-level', -2)).toBe('Aid level · ♩ = 70');
+			expect(told('level-down', 0)).toBe('Level 1 of 4 · ♩ = 70');
 		} finally {
 			i18n.locale = 'fr';
 		}
@@ -646,7 +643,7 @@ describe('PlayFrame', () => {
 				const model: FigureStageModel = {
 					phase: 'play',
 					exerciseLabel: 'Contretemps',
-					level: { shown: 1, of: 4, aid: false },
+					level: { shown: 1, of: 4 },
 					tempo: { bpm: 80, unit: '♩' },
 					figure,
 					next: null,

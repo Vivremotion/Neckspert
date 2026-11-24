@@ -17,7 +17,6 @@ import { pacingOf } from '../pacing';
 import { ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
-import { levelRange } from '../../time/levels';
 import { selectionFieldProblem, type LevelSweep } from '../selection/validate';
 import { isSelectionTemplate } from '../selection/types';
 import { FIGURE_CONTENT } from './types';
@@ -375,10 +374,9 @@ function sensorProblem(check: Check, field: string, sensor: unknown): string | n
 	return null;
 }
 
-/** The exercise levels, from the lowest. */
+/** The exercise levels' indexes, from the first. */
 function exerciseLevelIndexes(definition: ExerciseDefinition): number[] {
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
-	return Array.from({ length: highest - lowest + 1 }, (_, i) => lowest + i);
+	return exerciseLevelsOf(definition).map((_, i) => i);
 }
 
 /** The figures a figure entry may name, or why it names none the exercise can play. */
@@ -782,8 +780,8 @@ function shapeProblem(check: Check, template: Record_): string | null {
 
 /** The first exercise level whose resolved params give no thresholds; null when every one does. */
 function levelWithoutThresholds(definition: ExerciseDefinition): number | null {
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
-	for (let level = lowest; level <= highest; level++) {
+	const count = exerciseLevelsOf(definition).length;
+	for (let level = 0; level < count; level++) {
 		const { thresholds } = resolvedParamsOf(definition, { exerciseLevel: level, itemLevel: null });
 		if (typeof thresholds !== 'object' || thresholds === null) return level;
 	}

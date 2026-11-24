@@ -92,6 +92,17 @@ describe('retiredProblem', () => {
 		).toBeNull();
 	});
 
+	it('refuses a level that writes aid: a level is its place in the list', () => {
+		expect(retiredProblem({ levels: [{ params: {} }, { aid: true, params: { tempo: 70 } }] })).toBe(
+			'levels[1].aid is no longer read: a level is its place in the list, the first is level 1; remove "aid"'
+		);
+		expect(
+			retiredProblem({ params: { ladder: [{ aid: true, params: {} }, { params: {} }] } })
+		).toBe(
+			'params.ladder[0].aid is no longer read: a level is its place in the list, the first is level 1; remove "aid"'
+		);
+	});
+
 	it.each(['presentAtOnce', 'aidFadeSuccesses'])('refuses params.learning.%s', (key) => {
 		expect(retiredProblem({ params: { learning: { [key]: 1 } } })).toBe(
 			`params.learning.${key} is no longer read: remove it`
@@ -100,6 +111,16 @@ describe('retiredProblem', () => {
 });
 
 describe('validateExercise on a retired key', () => {
+	it('refuses an exercise level that writes aid, naming the exercise', () => {
+		const definition = {
+			...LOCATE_NECK,
+			levels: [{ aid: true, params: {} }, { params: {} }]
+		} as unknown as ExerciseDefinition;
+		expect(validateExercise(definition)).toBe(
+			'locate-note-string: levels[0].aid is no longer read: a level is its place in the list, the first is level 1; remove "aid"'
+		);
+	});
+
 	it('refuses it first, naming the exercise', () => {
 		const definition = {
 			...LOCATE_NECK,
