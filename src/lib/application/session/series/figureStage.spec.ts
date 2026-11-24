@@ -541,7 +541,7 @@ describe('figureStage, a form moved to its chord', () => {
 
 	it('writes the spelling of its moved notes into the figure, for the staff', () => {
 		const flat = {
-			...planned(FORM_EXERCISE, { form: 'maj7', first: 'es', beats: 4 }),
+			...planned(FORM_EXERCISE, { shape: 'maj7', first: 'es', beats: 4 }),
 			exerciseLevel: -1
 		};
 		const notes = stage(FORM_EXERCISE, flat, 'round').figure.voices[0].elements.flatMap((e) =>
@@ -574,7 +574,7 @@ describe('figureStage, a form moved to its chord', () => {
 			}))
 		};
 		const aided = {
-			...planned(onFlats, { form: 'maj7', first: 'd', beats: 4 }),
+			...planned(onFlats, { shape: 'maj7', first: 'd', beats: 4 }),
 			exerciseLevel: -1
 		};
 		const engraved = stage(onFlats, aided, 'round').figure;
