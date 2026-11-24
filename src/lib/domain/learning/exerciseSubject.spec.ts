@@ -5,6 +5,7 @@ import { parseVoicingKey, voicingOccurrences } from '../music';
 import { graduateToReview } from '../progress/scheduling';
 import { occurrencePosition } from '../triads/position';
 import { cardKey, type Attempt, type CardKey, type CardState, type SkillId } from '../types';
+import type { LevelState } from '../time/levels';
 import { LOCATE_NECK, TRIADS_ZONE } from '$lib/testing/catalog';
 import {
 	registerTestSkills,
@@ -42,6 +43,19 @@ function exerciseOn(
 		items,
 		params: { ...LOCATE_NECK.params, learning: options.learning },
 		presentation: options.fading ? LOCATE_NECK.presentation : presentation
+	};
+}
+
+/** The top of the ladder locate writes, held by `item` in exercise `id`: where it reviews cold. */
+function topOf(id: string, item: string): LevelState {
+	return {
+		exerciseId: id as ExerciseId,
+		scope: '',
+		item,
+		level: ladderOf(LOCATE_NECK).length - 1,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
 	};
 }
 
@@ -204,7 +218,7 @@ describe('exerciseSubject', () => {
 			subject: exerciseSubject({ exercises: [entering], attempts: [] }),
 			cards: [card(B, '6:G', { learnedAt: 0, acquiredAt: 0, due: 0 }), card(A, '5:C')],
 			attempts: [],
-			levels: [],
+			levels: [topOf('entering', '6:G')],
 			sessionId: 'session',
 			random: () => 0
 		});
@@ -232,7 +246,7 @@ describe('exerciseSubject', () => {
 				subject: exerciseSubject({ exercises: [exerciseOn('first', A, items)], attempts: [] }),
 				cards: [due],
 				attempts: [],
-				levels: [],
+				levels: [topOf('first', '6:G')],
 				sessionId: 'session',
 				random: () => 0
 			});

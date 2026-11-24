@@ -25,6 +25,7 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 		temperature: 'cold',
 		aid: 'none',
 		leadBeats: 2,
+		level: 2,
 		...overrides
 	};
 }
@@ -71,7 +72,15 @@ describe('AttemptRecorder', () => {
 		};
 	}
 
-	function setupResponse(selector?: Partial<ItemSource>, withRecall = true) {
+	/**
+	 * `countsCold`: whether an item's level asks a direct recall; by default every level does,
+	 * null gives the recorder none.
+	 */
+	function setupResponse(
+		selector?: Partial<ItemSource>,
+		withRecall = true,
+		countsCold: ((planned: PlannedItem) => boolean) | null = () => true
+	) {
 		const clock = new FakeClock();
 		const attempts = new InMemoryAttemptRepository();
 		const cards = new InMemoryCardStateRepository();
@@ -100,7 +109,8 @@ describe('AttemptRecorder', () => {
 			selector: source,
 			sessionId: 'sess-1',
 			recall: withRecall ? () => directRecallWithin(THRESHOLD_MS) : undefined,
-			levels
+			levels,
+			...(countsCold && { countsCold })
 		});
 		return { recorder, attempts, cards, levels, told };
 	}
@@ -231,6 +241,69 @@ describe('AttemptRecorder', () => {
 		expect(attempt.temperature).toBe('cold');
 		expect(changed).toEqual([card.scheduling.reps + 1]);
 		expect((await cards.get(LOCATE_KEY))?.scheduling.reps).toBe(card.scheduling.reps + 1);
+	});
+
+	describe('only at a level that asks a direct recall', () => {
+		/** A learned card, its last attempt two hours before the prompt (`promptedAt` 1 000). */
+		async function learnedAndRested(setup: ReturnType<typeof setupResponse>) {
+			const card = { ...learnedLongAgo(), acquiredAt: -8_000_000, masteredAt: -7_000_000 };
+			await setup.cards.put(card);
+			const before = noteAttempt(item({ phase: 'review' }));
+			await setup.attempts.add({ ...before, sessionId: 'old', promptedAt: 1_000 - 7_200_000 });
+			return card;
+		}
+
+		for (const phase of ['review', 'free'] as const) {
+			it(`counts a ${phase} attempt cold at such a level, and keeps it hot elsewhere, its card untouched`, async () => {
+				const atTop = (planned: PlannedItem) => planned.level === 2;
+				const cold = setupResponse(undefined, true, atTop);
+				const coldCard = await learnedAndRested(cold);
+				const top = item({ phase, temperature: phase === 'review' ? 'cold' : 'hot', level: 2 });
+				const recalled = noteAttempt(top);
+				await cold.recorder.recordResponse(recalled, span(top), top);
+				await cold.recorder.settled();
+				expect(recalled.temperature).toBe('cold');
+				const graded = await cold.cards.get(LOCATE_KEY);
+				expect(graded?.scheduling.reps).toBe(coldCard.scheduling.reps + 1);
+
+				const hot = setupResponse(undefined, true, atTop);
+				const hotCard = await learnedAndRested(hot);
+				const below = item({ phase, temperature: phase === 'review' ? 'cold' : 'hot', level: 1 });
+				const shown = noteAttempt(below);
+				await hot.recorder.recordResponse(shown, span(below), below);
+				await hot.recorder.settled();
+				expect(shown.temperature).toBe('hot');
+				expect((await hot.attempts.listByCard(LOCATE_KEY)).at(-1)?.temperature).toBe('hot');
+				// Neither its schedule, nor `acquiredAt`, nor `masteredAt` rewritten.
+				expect(await hot.cards.get(LOCATE_KEY)).toEqual(hotCard);
+			});
+		}
+
+		it('never counts cold without the rule, or on an item without a level', async () => {
+			const without = setupResponse(undefined, true, null);
+			const card = await learnedAndRested(without);
+			const review = item({ phase: 'review', temperature: 'cold' });
+			const attempt = noteAttempt(review);
+			await without.recorder.recordResponse(attempt, span(review), review);
+			await without.recorder.settled();
+			expect(attempt.temperature).toBe('hot');
+			expect(await without.cards.get(LOCATE_KEY)).toEqual(card);
+
+			const unleveled = setupResponse();
+			await learnedAndRested(unleveled);
+			const { level: _level, ...noLevel } = item({ phase: 'free', temperature: 'hot' });
+			const free = noteAttempt(noLevel);
+			await unleveled.recorder.recordResponse(free, span(noLevel), noLevel);
+			await unleveled.recorder.settled();
+			expect(free.temperature).toBe('hot');
+		});
+
+		it('tells the source a hot provisional temperature for a review at another level', () => {
+			const { recorder, told } = setupResponse(undefined, true, () => false);
+			const review = item({ phase: 'review', temperature: 'cold', level: 1 });
+			void recorder.recordResponse(noteAttempt(review), span(review), review);
+			expect(told).toEqual([expect.objectContaining({ temperature: 'hot' })]);
+		});
 	});
 
 	it('keeps free play hot on a note without a learned card, its card untouched', async () => {

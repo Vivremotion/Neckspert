@@ -71,14 +71,14 @@ describe('buildFreePlan', () => {
 			.slice(0, 10)
 			.map((item) => [item.exerciseId, item.item, item.leadBeats, item.level ?? null]);
 		expect(drawn).toEqual([
-			['identify-note', { string: 1, fret: 2 }, null, null],
-			['identify-note', { string: 3, fret: 7 }, null, null],
+			['identify-note', { string: 1, fret: 2 }, null, 0],
+			['identify-note', { string: 3, fret: 7 }, null, 0],
 			['locate-note-string', { string: 4, pitch: 'D#' }, 8, 0],
 			['locate-note-string', { string: 5, pitch: 'G' }, 8, 0],
-			['identify-note', { string: 4, fret: 2 }, null, null],
+			['identify-note', { string: 4, fret: 2 }, null, 0],
 			['locate-note-string', { string: 1, pitch: 'G#' }, 8, 0],
-			['identify-note', { string: 6, fret: 6 }, null, null],
-			['identify-note', { string: 6, fret: 7 }, null, null],
+			['identify-note', { string: 6, fret: 6 }, null, 0],
+			['identify-note', { string: 6, fret: 7 }, null, 0],
 			['locate-note-string', { string: 4, pitch: 'A' }, 8, 0],
 			['locate-note-string', { string: 2, pitch: 'G' }, 8, 0]
 		]);
@@ -156,16 +156,27 @@ describe('freeLeadOf', () => {
 		expect(plan.find((item) => keyOf(item) === 'locate-note-string:5:C')?.leadBeats).toBe(8);
 	});
 
-	it('serves a free plan at those levels, the identified notes without one', () => {
+	it('serves a free plan at those levels, the identified notes too', () => {
 		expect(freeLevelOf({ subject, levels: [level('6:G', 5)] })(L1)).toBe(2);
 		const plan = buildFreePlan({ exercises: NOTES, subject, levels, count: 1000, random: () => 0 });
 		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.level).toBe(2);
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.level).toBe(1);
 		expect(plan.find((item) => keyOf(item) === 'locate-note-string:5:C')?.level).toBe(0);
+		// An item answered in free time is played at its level too: its screen, its temperature.
 		expect(
-			plan.filter((item) => item.skill === 'identify-note').every((item) => !('level' in item))
+			plan.filter((item) => item.skill === 'identify-note').every((item) => item.level === 0)
 		).toBe(true);
+		const named = buildFreePlan({
+			exercises: NOTES,
+			subject,
+			levels: [{ ...level('6:3', 1), exerciseId: 'identify-note' }],
+			count: 1000,
+			random: () => 0
+		});
+		expect(
+			named.find((item) => neckCardKey(asNeckCard(item)) === 'identify-note:6:3')
+		).toMatchObject({ level: 1, leadBeats: null });
 		expect(plan.every((item) => item.exerciseLevel === 0)).toBe(true);
 	});
 });

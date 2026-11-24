@@ -13,7 +13,7 @@ import {
 	type PlannedItem,
 	type Temperature
 } from '../types';
-import { ladderLevel, passesTop } from './ladder';
+import { asksDirectRecall, ladderLevel, passesTop } from './ladder';
 import {
 	DEFAULT_SET_LEARNING,
 	type ItemLearning,
@@ -393,15 +393,29 @@ class Procedure implements LearningProcedure {
 		return entry;
 	}
 
+	/**
+	 * A due card, once in the session: reviewed cold, within the cap, at a level that asks a direct
+	 * recall; at another level caught up hot in place of its review, outside the cap and within the
+	 * working set (decision 12 of issue #19).
+	 */
 	private review(now: number): { planned: PlannedItem; ref: CardRef } | null {
-		if (this.reviews >= this.set.coldCap) return null;
-		const candidates = reviewableCards(this.owned(), this.last, now).filter(
-			(card) => !this.servedAt.has(card.key)
-		);
+		const candidates = reviewableCards(this.owned(), this.last, now).filter((card) => {
+			if (this.servedAt.has(card.key)) return false;
+			return this.countsCold(refOf(card))
+				? this.reviews < this.set.coldCap
+				: this.fitsWorkingSet(card.key);
+		});
 		const card = this.draw(candidates, refOf);
 		if (!card) return null;
+		const ref = refOf(card);
+		if (!this.countsCold(ref)) return this.serve(ref, 'consolidation', 'hot');
 		this.reviews++;
-		return this.serve(refOf(card), 'review', 'cold');
+		return this.serve(ref, 'review', 'cold');
+	}
+
+	/** The item's level, brought into today's ladder, asks a direct recall. */
+	private countsCold(ref: CardRef): boolean {
+		return asksDirectRecall(this.ladderOf(ref), this.ladderLevelOf(ref));
 	}
 
 	private resume(): { planned: PlannedItem; ref: CardRef } | null {

@@ -203,7 +203,7 @@ describe('createLearningProcedure record', () => {
 		expect(source.record(played(0, 'consolidation', { leadMs: 6000 }), 0)?.level?.level).toBe(1);
 		expect(source.levelOf(ref(1)).level).toBe(0);
 		// A cold review is served at the level the attempts moved it to.
-		const reviewed = procedure({ cards: [reviewable(0)] });
+		const reviewed = procedure({ cards: [reviewable(0)], levels: [levelAt(0, TOP)] });
 		reviewed.record(played(0, 'consolidation'), 0);
 		reviewed.record(played(0, 'consolidation'), 0);
 		// Long after those attempts: the review is due.
@@ -438,8 +438,18 @@ describe('createLearningProcedure record', () => {
 		source.record(answer(missed), 0);
 		expect(nextOf(1).stringAid ?? false).toBe(false);
 
-		// Never on a cold review.
-		const reviewed = procedure({ cards: [reviewable(0)] });
+		// Never on a cold review (its top kept through one miss, so the item is still reviewed cold).
+		const reviewed = procedure({
+			subject: fakeSubject({
+				ladder: [
+					rung(8, { aided: true }),
+					rung(4),
+					rung(2, { pass: 2, drop: 2, success: 'direct-recall' })
+				]
+			}),
+			cards: [reviewable(0)],
+			levels: [levelAt(0, TOP)]
+		});
 		reviewed.record(played(0, 'consolidation', { success: false }), 0);
 		const review = reviewed.next(at(1e12))!;
 		expect(review).toMatchObject({ item: 0, phase: 'review' });

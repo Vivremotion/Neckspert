@@ -41,6 +41,7 @@ import {
 	summarizeSession
 } from '$lib/domain/progress';
 import {
+	asksDirectRecall,
 	createLearningProcedure,
 	DEFAULT_SET_LEARNING,
 	exerciseLearningOf,
@@ -60,6 +61,7 @@ import {
 	type LevelState,
 	type CardKey,
 	type CardState,
+	type PlannedItem,
 	type SessionSummary,
 	type SessionOrigin,
 	type SkillId,
@@ -76,11 +78,15 @@ export function createAppServices(
 		development?: boolean;
 	}
 ): AppServices {
-	/** What a series prepares: its source, its length, and its skills' direct recall. */
+	/**
+	 * What a series prepares: its source, its length, its skills' direct recall, and whether an
+	 * item's level asks one (only there may its attempt count cold).
+	 */
 	type PreparedSeries = {
 		source: ItemSource;
 		durationMs: number;
 		recall?: (skill: SkillId) => DirectRecall;
+		countsCold?: (item: PlannedItem) => boolean;
 	};
 
 	const exerciseOf = deps.exercise ?? exerciseById;
@@ -180,7 +186,8 @@ export function createAppServices(
 					now: deps.now,
 					selector: series.source,
 					sessionId,
-					...(series.recall && { recall: series.recall, levels: deps.levels })
+					...(series.recall && { recall: series.recall, levels: deps.levels }),
+					...(series.countsCold && { countsCold: series.countsCold })
 				});
 			},
 			exercise: exerciseOf,
@@ -241,7 +248,13 @@ export function createAppServices(
 						// The session's settings for the whole set: today's, until written as data.
 						set: DEFAULT_SET_LEARNING
 					});
-			return { source, durationMs: SESSION_MS, recall: (skill) => subject.recall(skill) };
+			return {
+				source,
+				durationMs: SESSION_MS,
+				recall: (skill) => subject.recall(skill),
+				countsCold: (item) =>
+					item.level !== undefined && asksDirectRecall(subject.ladder(item.skill), item.level)
+			};
 		});
 
 	/**

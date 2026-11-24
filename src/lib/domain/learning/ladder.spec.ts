@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LevelState } from '../time/levels';
-import { ladderLevel, passesTop } from './ladder';
+import { asksDirectRecall, ladderLevel, passesTop } from './ladder';
 import type { Ladder } from './subject';
 
 /** The name shown, then unaided: two levels, the top passed after 2 successes. */
@@ -36,5 +36,19 @@ describe('passesTop', () => {
 		expect(passesTop(state({ level: 1, successes: 1 }), ladder, false)).toBe(false);
 		expect(passesTop(state({ level: 1, successes: 0 }), ladder, true)).toBe(false);
 		expect(passesTop(state({ level: 0, successes: 5 }), ladder, true)).toBe(false);
+	});
+});
+
+describe('asksDirectRecall', () => {
+	it('reads the mark of the level, wherever it stands on the ladder', () => {
+		const middle: Ladder = [
+			{ params: { leadBeats: 8, aided: false } },
+			{ params: { leadBeats: 4, aided: false }, success: 'direct-recall' },
+			{ params: { leadBeats: 2, aided: false } }
+		];
+		expect([0, 1, 2].map((level) => asksDirectRecall(middle, level))).toEqual([false, true, false]);
+		expect(asksDirectRecall(TWO, 1)).toBe(false);
+		// A level the ladder does not hold asks nothing.
+		expect(asksDirectRecall(middle, 3)).toBe(false);
 	});
 });

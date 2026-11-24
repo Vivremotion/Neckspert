@@ -291,9 +291,11 @@ describe('a learn session of the notes', () => {
 	});
 
 	it('answers identify by a tap, silently, and counts a sounding bar back to the guitar', async () => {
-		// Two names to tap due, then a new note to play: identify, identify, locate.
+		// Two names to tap due, at the top of their ladder, then a new note to play: identify,
+		// identify, locate.
 		const app = await notesApp({
-			cards: [learnedCard(identify(5, 3)), learnedCard(identify(4, 5))]
+			cards: [learnedCard(identify(5, 3)), learnedCard(identify(4, 5))],
+			levels: [levelOf(identify(5, 3), 1), levelOf(identify(4, 5), 1)]
 		});
 		const controller = await startNotes(app, 'learn');
 		// A tap during the (silent) count before the first name is no answer.
@@ -447,7 +449,11 @@ describe('a learn session of the notes', () => {
 	it('writes attempts the summary and the neck map read as before', async () => {
 		const note = locate(5, 'C');
 		const name = identify(4, 5);
-		const app = await notesApp({ cards: [learnedCard(note), learnedCard(name)] });
+		// Both at the top of their ladder, so both are reviewed cold.
+		const app = await notesApp({
+			cards: [learnedCard(note), learnedCard(name)],
+			levels: [levelOf(note, 2), levelOf(name, 1)]
+		});
 		const controller = await startNotes(app, 'learn');
 		const rounds = await playRounds(
 			app,
@@ -516,7 +522,8 @@ describe('the notes on the subject the catalog writes', () => {
 			's-old'
 		);
 		const app = await notesApp({
-			cards: [learnedCard(locate(6, 'G')), notDue(locate(5, 'C')), resumed]
+			cards: [learnedCard(locate(6, 'G')), notDue(locate(5, 'C')), resumed],
+			levels: [levelOf(locate(6, 'G'), 2)]
 		});
 		const controller = await startNotes(app, 'learn');
 		await playRounds(app, controller, allRight, { rounds: 6 });
@@ -585,6 +592,34 @@ describe('notes across sessions', () => {
 		expect(second.sessionId).not.toBe(first.sessionId);
 		expect(keyOf(after.card)).toBe(keyOf(card));
 		expect((after.anchorBeat as number) - (after.promptBeat as number)).toBe(2);
+	});
+});
+
+describe('a note forgotten', () => {
+	it('keeps a named note hot once a missed review has brought it down to the name shown, even fast', async () => {
+		const card = identify(5, 3);
+		// The ladder of identify: the name shown, then the top, which asks a direct recall.
+		const app = await notesApp({ cards: [learnedCard(card)], levels: [levelOf(card, 1)] });
+		const first = await startNotes(app, 'learn');
+		await playRounds(app, first, () => ({ play: 'wrong' }), { rounds: 1 });
+		await runUntil(app, () => first.view.status === 'verdict');
+		const [missed] = await quitAndRead(app, first);
+		expect(missed).toMatchObject({ phase: 'review', temperature: 'cold', success: false });
+		expect(await app.deps.levels.get(levelOf(card, 0))).toMatchObject({ level: 0 });
+		const forgotten = await app.deps.cards.get(keyOf(card));
+
+		// Due again a month later: asked at the name shown, answered right well within 3 s.
+		app.clock.advance(30 * 24 * 3600);
+		const second = await startNotes(app, 'learn');
+		const [round] = await playRounds(app, second, allRight, { rounds: 1 });
+		await runUntil(app, () => second.view.status === 'verdict');
+		const [again] = await quitAndRead(app, second);
+		expect(keyOf(round.card)).toBe(keyOf(card));
+		expect(again).toMatchObject({ phase: 'consolidation', temperature: 'hot', success: true });
+		expect(again.reactionMs).toBeLessThan(3_000);
+		// It climbs back a level; its card is as the miss left it.
+		expect(await app.deps.levels.get(levelOf(card, 0))).toMatchObject({ level: 1 });
+		expect(await app.deps.cards.get(keyOf(card))).toEqual(forgotten);
 	});
 });
 

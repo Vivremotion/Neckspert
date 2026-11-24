@@ -42,6 +42,11 @@ export interface AttemptRecorderDeps {
 	/** The direct-recall rule of a skill (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
 	recall?: (skill: SkillId) => DirectRecall;
 	levels?: LevelStateRepositoryPort;
+	/**
+	 * The item's level asks a direct recall: only then may a review or free attempt count cold.
+	 * Absent, or for an item without a level: never cold (decision 12 of issue #19).
+	 */
+	countsCold?: (item: PlannedItem) => boolean;
 }
 
 /** How `store` learns from an attempt. */
@@ -53,15 +58,20 @@ interface Learning {
 
 /**
  * Before history is read, for fatigue and the source: the item's own temperature in learning,
- * consolidation, free play and probes; otherwise cold on the series' first attempt at the card.
+ * consolidation, free play and probes; otherwise cold on the series' first attempt at the card,
+ * at a level that may count cold (`countsCold`).
  */
-function provisionalTemperature(item: PlannedItem, attemptedInSession: boolean): Temperature {
+function provisionalTemperature(
+	item: PlannedItem,
+	attemptedInSession: boolean,
+	countsCold: boolean
+): Temperature {
 	return item.phase === 'learning' ||
 		item.phase === 'consolidation' ||
 		item.phase === 'free' ||
 		item.phase === 'probe'
 		? item.temperature
-		: attemptedInSession
+		: attemptedInSession || !countsCold
 			? 'hot'
 			: 'cold';
 }
@@ -105,7 +115,7 @@ export class AttemptRecorder {
 		// The caller's object is the one kept, so `completeObservations` and `contest` find it.
 		const stored = attempt as Attempt<AttemptData>;
 		const attemptedInSession = this.attempts.some((a) => a.cardKey === stored.cardKey);
-		stored.temperature = provisionalTemperature(item, attemptedInSession);
+		stored.temperature = provisionalTemperature(item, attemptedInSession, this.countsCold(item));
 		stored.observations = span.snapshot();
 
 		// Fatigue and the source must see the attempt before any await, so the next round
@@ -245,8 +255,9 @@ export class AttemptRecorder {
 	}
 
 	/**
-	 * Learning and consolidation stay hot. Free play counts cold only on a learned card.
-	 * Reviews follow the cold-delay rule; probes are judged by probeTemperature.
+	 * Learning and consolidation stay hot. Free play counts cold only on a learned card. Reviews
+	 * and free play count cold only at a level that asks a direct recall, then follow the
+	 * cold-delay rule; probes are judged by probeTemperature.
 	 */
 	private temperatureFor(
 		item: PlannedItem,
@@ -255,6 +266,12 @@ export class AttemptRecorder {
 	): Temperature {
 		if (item.phase === 'learning' || item.phase === 'consolidation') return item.temperature;
 		if (item.phase === 'free' && (!card || card.learnedAt === null)) return item.temperature;
+		if (!this.countsCold(item)) return 'hot';
 		return classifyTemperature(input);
+	}
+
+	/** The item is played at a level that asks a direct recall (`countsCold`); never without a level. */
+	private countsCold(item: PlannedItem): boolean {
+		return item.level !== undefined && (this.deps.countsCold?.(item) ?? false);
 	}
 }

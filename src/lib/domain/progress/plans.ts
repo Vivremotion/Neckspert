@@ -61,9 +61,10 @@ export function freeLeadOf(input: {
 
 /**
  * Free-play prompts drawn among the items the given exercises list (`definition.items`, read by
- * their skill's set), with or without a card. An item whose level gives a lead is played at that
- * lead and that level (`freeLeadOf`, `freeLevelOf`); one answered in free time at none. A prompt
- * that asks a member of its item (`subject.promptItem`) is drawn once the plan is.
+ * their skill's set), with or without a card. Every item is played at its level (`freeLevelOf`):
+ * its screen, and whether its attempt may count cold, are that level's; at that level's lead
+ * (`freeLeadOf`), none for an item answered in free time. A prompt that asks a member of its item
+ * (`subject.promptItem`) is drawn once the plan is.
  */
 export function buildFreePlan(input: {
 	exercises: readonly ExerciseDefinition[];
@@ -88,9 +89,8 @@ export function buildFreePlan(input: {
 		.slice(0, count)
 		.map(({ exerciseId, skill, item }) => {
 			const card = { skill, item };
-			const leadBeats = leadOf(card);
-			const level = leadBeats === null ? null : levelOf(card);
-			const asked = input.subject.promptItem?.(card, random, level ?? 0) ?? item;
+			const level = levelOf(card);
+			const asked = input.subject.promptItem?.(card, random, level) ?? item;
 			return {
 				exerciseId,
 				skill,
@@ -98,8 +98,8 @@ export function buildFreePlan(input: {
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'none',
-				leadBeats,
-				...(level !== null && { level }),
+				leadBeats: leadOf(card),
+				level,
 				exerciseLevel: 0
 			};
 		});
