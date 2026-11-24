@@ -51,13 +51,6 @@ export function introScheduling(now: number): SchedulingState {
 	return { ...state, due: now + MIN_COLD_DELAY_MS };
 }
 
-/** Probe success: one internal Easy grade to enter Review immediately. */
-export function graduateToReview(now: number): SchedulingState {
-	const empty = createEmptyCard(new Date(now));
-	const { card } = scheduler.next(empty, new Date(now), Rating.Easy);
-	return toScheduling(card);
-}
-
 export function reviewScheduling(
 	state: SchedulingState,
 	grade: Grade,

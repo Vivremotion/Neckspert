@@ -1,5 +1,5 @@
 import type { SkillId } from '../types';
-import { introduceCard, markLearned, probeCard } from '../progress/cards';
+import { introduceCard, markLearned } from '../progress/cards';
 import { lastAttemptByCard, reviewableCards } from '../progress/review';
 import type { RecordOutcome, SelectorContext, ItemSource } from '../progress/selector';
 import { cardSuccessRate, successRate } from '../progress/success';
@@ -31,7 +31,7 @@ export interface LearningProcedure extends ItemSource {
 /** An item presented in this session and not learned yet. */
 interface LearningEntry {
 	ref: CardRef;
-	/** Prompt count from which its next retest is due; -Infinity: before any other. */
+	/** Prompt count from which its next retest is due. */
 	dueAt: number;
 }
 
@@ -59,8 +59,6 @@ class Procedure implements LearningProcedure {
 	private readonly servedCount = new Map<CardKey, number>();
 	private readonly recent: CardKey[] = [];
 	private served = 0;
-	/** Probe served and not recorded yet; still set at the next `next()`: abandoned (pause). */
-	private unansweredProbe: CardKey | null = null;
 	private reviews = 0;
 	/** The item last served: the next one is never it. */
 	private previous: CardRef | null = null;
@@ -70,7 +68,7 @@ class Procedure implements LearningProcedure {
 	private readonly workingSet = new Set<CardKey>();
 	/** Items whose fading aid is drawn on their next hot prompts, with their successes since. */
 	private readonly fadingAid = new Map<CardKey, number>();
-	/** Misses in a row, probes and recoveries left out. */
+	/** Misses in a row, recoveries left out. */
 	private missStreak = 0;
 	/** The last miss calls for a solid item of this skill on the next prompt. */
 	private pendingRecovery: SkillId | null = null;
@@ -101,7 +99,6 @@ class Procedure implements LearningProcedure {
 	}
 
 	next(context: SelectorContext): PlannedItem | null {
-		this.dropAbandonedProbe();
 		const recovery = context.fatigued ? null : this.recovery(context.now);
 		this.pendingRecovery = null;
 		this.servedRecovery = recovery !== null;
@@ -120,9 +117,9 @@ class Procedure implements LearningProcedure {
 	}
 
 	/**
-	 * A probe goes to review when recalled directly, or is presented aided next; any other attempt
-	 * moves its item's level (C1), learns it at the top's pass, spaces its next retest, may call a
-	 * recovery and draws or fades the aid. An attempt of a card the subject does not own: null.
+	 * An attempt moves its item's level (C1), learns it at the top's pass, spaces its next retest,
+	 * may call a recovery and draws or fades the aid. An attempt of a card the subject does not
+	 * own: null.
 	 */
 	record(attempt: Attempt, now: number): RecordOutcome {
 		if (!this.plays(attempt)) return null;
@@ -136,11 +133,6 @@ class Procedure implements LearningProcedure {
 		const card = this.cards.get(attempt.cardKey);
 		if (!card) return null;
 		const ref = refOf(card);
-		if (attempt.phase === 'probe') {
-			if (attempt.cardKey === this.unansweredProbe) this.unansweredProbe = null;
-			return this.recordProbe(card, attempt, now);
-		}
-
 		const ladder = this.ladderOf(ref);
 		const state = ladderLevel(this.levelOf(ref), ladder);
 		const servedAided = this.levelParams(ref).aided;
@@ -197,34 +189,13 @@ class Procedure implements LearningProcedure {
 		);
 	}
 
-	/** A passed probe goes to review at the level served; a missed one is presented aided next, at level 0. */
-	private recordProbe(card: CardState, attempt: Attempt, now: number): RecordOutcome {
-		const ref = refOf(card);
-		const probed = probeCard(card, attempt, now, this.sessionId, this.subject.recall(ref.skill));
-		if (probed) {
-			this.cards.set(probed.key, probed);
-			const level = this.setLevel({
-				...this.levelOf(ref),
-				level: levelRange(this.ladderOf(ref)).highest,
-				successes: 0,
-				failures: 0
-			});
-			return { card: probed, level };
-		}
-		const level = this.setLevel({ ...this.levelOf(ref), level: 0, successes: 0, failures: 0 });
-		// Ahead of any other due retest: the aid must follow the miss directly.
-		this.present(ref).dueAt = -Infinity;
-		return { card, level };
-	}
-
 	private setLevel(state: LevelState): LevelState {
 		this.levels.set(levelKey(state.exerciseId, state.item), state);
 		return state;
 	}
 
-	/** A miss (probes and recoveries left out) calls for a solid item next; a success clears it. */
+	/** A miss (recoveries left out) calls for a solid item next; a success clears it. */
 	private countMiss(attempt: Attempt): void {
-		if (attempt.phase === 'probe') return;
 		if (attempt.success) {
 			this.missStreak = 0;
 			this.pendingRecovery = null;
@@ -286,20 +257,6 @@ class Procedure implements LearningProcedure {
 		return [...this.cards.values()].filter((card) => this.subject.owns(card));
 	}
 
-	/** Forgets the card of a probe nobody answered: never played, it is neither previous nor counted. */
-	private dropAbandonedProbe(): void {
-		const key = this.unansweredProbe;
-		if (key === null) return;
-		this.unansweredProbe = null;
-		this.cards.delete(key);
-		this.servedAt.delete(key);
-		this.servedCount.delete(key);
-		const index = this.recent.lastIndexOf(key);
-		if (index >= 0) this.recent.splice(index, 1);
-		this.served--;
-		this.previous = null;
-	}
-
 	/** Never the card served last. */
 	private allowedAfter(ref: CardRef): boolean {
 		const previous = this.previous;
@@ -351,16 +308,9 @@ class Procedure implements LearningProcedure {
 		}
 	}
 
-	/** A due retest; the aided presentation after a missed probe comes first (see `presentsAtOnce`). */
+	/** A due retest. */
 	private dueRetest(): LearningEntry | null {
 		const due = [...this.learning.values()].filter((entry) => entry.dueAt <= this.served);
-		// The aided presentation after a missed probe comes first. With `presentsAtOnce` it follows
-		// the miss directly, even after itself (the probe being the previous item); without, it
-		// waits for a prompt after another card.
-		const afterProbe = due.find((entry) => entry.dueAt === -Infinity);
-		if (afterProbe && (this.subject.presentsAtOnce || this.allowedAfter(afterProbe.ref))) {
-			return afterProbe;
-		}
 		return this.draw(due, (entry) => entry.ref);
 	}
 
@@ -432,7 +382,12 @@ class Procedure implements LearningProcedure {
 		return card ? this.retest(this.present(refOf(card))) : null;
 	}
 
-	/** `gated` false: past the success thresholds, only when nothing else can be served. */
+	/**
+	 * A new item, served in learning at level 0, the first of its ladder (decision 5 of issue #19);
+	 * its card stays in memory until the recorder makes it at its first attempt, so an item a pause
+	 * cut comes again without being introduced twice. `gated` false: past the success thresholds,
+	 * only when nothing else can be served.
+	 */
 	private introduce(now: number, gated: boolean): { planned: PlannedItem; ref: CardRef } | null {
 		const owned = this.owned();
 		const beingLearned = owned.filter((card) => card.learnedAt === null);
@@ -457,19 +412,18 @@ class Procedure implements LearningProcedure {
 		if (!this.subject.owns({ skill: ref.skill, key }) || !this.allowedAfter(ref)) return null;
 		const card = introduceCard({ key, skill: ref.skill, item: ref.item }, now, this.sessionId);
 		this.cards.set(key, card);
-		this.unansweredProbe = key;
-		return { planned: this.plan(ref, 'probe', 'cold', this.topLevel(ref), false), ref };
+		this.setLevel({ ...this.levelOf(ref), level: 0, successes: 0, failures: 0 });
+		return this.retest(this.present(ref));
 	}
 
 	/**
 	 * New items wait until every item being learned is mostly right lately and the session's
-	 * rolling success (probes left out) is high enough.
+	 * rolling success is high enough.
 	 */
 	private readyForNew(beingLearned: readonly CardState[]): boolean {
-		const recent = this.played.filter((attempt) => attempt.phase !== 'probe');
 		const { successWindow, newItemMinSessionSuccess, newItemCardWindow, newItemMinCardSuccess } =
 			this.set;
-		const session = successRate(recent.slice(-successWindow));
+		const session = successRate(this.played.slice(-successWindow));
 		if (session !== null && session < newItemMinSessionSuccess) return false;
 		return beingLearned.every(
 			(card) =>
@@ -534,11 +488,6 @@ class Procedure implements LearningProcedure {
 	/** The params of the item's level, brought into today's ladder. */
 	private levelParams(ref: CardRef): LadderParams {
 		return this.paramsAt(ref, this.ladderLevelOf(ref));
-	}
-
-	/** The top of the item's ladder. */
-	private topLevel(ref: CardRef): number {
-		return levelRange(this.ladderOf(ref)).highest;
 	}
 
 	/** An item served at its level; aided only while learning, at the aided level. */

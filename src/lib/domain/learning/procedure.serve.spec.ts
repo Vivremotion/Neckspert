@@ -91,7 +91,7 @@ describe('createLearningProcedure due cards', () => {
 		const first = source.next(at(0));
 		expect(first).toMatchObject({ phase: 'review', temperature: 'cold', level: TOP });
 		// The cap is reached: the other due card waits for another session.
-		expect(source.next(at(0))).toMatchObject({ phase: 'probe' });
+		expect(source.next(at(0))).toMatchObject({ phase: 'learning', level: 0 });
 	});
 
 	it('serves a due card below a direct-recall level once, hot, in place of its review and outside the cap', () => {
@@ -108,7 +108,7 @@ describe('createLearningProcedure due cards', () => {
 			]
 		);
 		// Once each: then a new item.
-		expect(source.next(at(0))).toMatchObject({ item: 2, phase: 'probe' });
+		expect(source.next(at(0))).toMatchObject({ item: 2, phase: 'learning', level: 0 });
 	});
 
 	it('serves a due card below a direct-recall level only within the working set', () => {
@@ -191,19 +191,20 @@ describe('createLearningProcedure due cards', () => {
 });
 
 describe('createLearningProcedure next', () => {
-	it('probes a new item first, unaided and cold, at the top of its ladder', () => {
+	it('serves a new item first in learning, hot, at the first level of its ladder', () => {
 		const item = procedure({ subject: fakeSubject({ ladder: SHORT }) }).next(at(0));
 		expect(item).toMatchObject({
 			exerciseId: EXERCISE,
 			skill: FAKE,
 			item: 0,
-			phase: 'probe',
-			temperature: 'cold',
-			aid: 'none',
-			// The top of its written ladder: 4 beats.
-			leadBeats: 4
+			phase: 'learning',
+			temperature: 'hot',
+			level: 0,
+			// The first level of its written ladder: 8 beats, as that level shows it.
+			leadBeats: 8,
+			aid: 'show-position',
+			stringAid: true
 		});
-		expect(item?.stringAid ?? false).toBe(false);
 	});
 
 	it('serves the categories in their order', () => {
@@ -236,11 +237,11 @@ describe('createLearningProcedure next', () => {
 			phase: 'learning',
 			temperature: 'hot'
 		});
-		expect(withResume.next(at(0))).toMatchObject({ item: 1, phase: 'probe' });
+		expect(withResume.next(at(0))).toMatchObject({ item: 1, phase: 'learning', level: 0 });
 
 		// A new item before a consolidation.
 		const withNew = procedure({ cards: [learned(0), learned(1)] });
-		expect(withNew.next(at(0))).toMatchObject({ item: 2, phase: 'probe' });
+		expect(withNew.next(at(0))).toMatchObject({ item: 2, phase: 'learning', level: 0 });
 		const withNothingNew = procedure({
 			subject: fakeSubject({ items: 2 }),
 			cards: [learned(0), learned(1)]
@@ -300,7 +301,7 @@ describe('createLearningProcedure next', () => {
 		const newComesAfter = (attempts: Attempt[]) => {
 			const source = procedure({ cards: [learning(0), learned(1)], attempts });
 			expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
-			return source.next(at(0))?.phase === 'probe';
+			return source.next(at(0))?.item === 2;
 		};
 		// The item being learned at 0.6, the session at 0.8 over its last ten.
 		expect(
@@ -357,12 +358,27 @@ describe('createLearningProcedure next', () => {
 		expect(new Set(tired.map((item) => item?.item))).toEqual(new Set([0, 1]));
 	});
 
-	it('forgets a probe abandoned by a pause', () => {
-		const source = procedure();
-		const probe = source.next(at(0));
-		expect(probe).toMatchObject({ item: 0, phase: 'probe' });
-		// Not recorded: the card is forgotten and the item is not the previous one.
-		expect(source.next(at(1))).toMatchObject({ item: 0, phase: 'probe' });
+	it('keeps a new item cut by a pause: played later, it is learned on, never introduced twice', () => {
+		const source = procedure({ subject: fakeSubject({ items: 2 }) });
+		const cut = source.next(at(0))!;
+		expect(cut).toMatchObject({ item: 0, phase: 'learning', level: 0 });
+		// The pause gives it back to the series; meanwhile the source serves the next item.
+		const other = source.next(at(1))!;
+		expect(other).toMatchObject({ item: 1, phase: 'learning', level: 0 });
+		// Played once play goes on: its card is still there, its level moves.
+		expect(source.record(attemptOf(cut, { success: true }), 2)?.level).toMatchObject({
+			item: '0',
+			level: 1
+		});
+		source.record(attemptOf(other, { success: true }), 3);
+		// Nothing new is left: only these two come again, item 0 at the level it reached.
+		const later = Array.from({ length: 6 }, () => {
+			const item = source.next(at(4));
+			if (item) source.record(attemptOf(item, { success: true }), 4);
+			return item;
+		});
+		expect(new Set(later.map((item) => item?.item))).toEqual(new Set([0, 1]));
+		expect(later.find((item) => item?.item === 0)).toMatchObject({ phase: 'learning', level: 1 });
 	});
 
 	it('serves an item at its stored level, brought into today’s ladder', () => {
@@ -411,7 +427,7 @@ describe('createLearningProcedure next', () => {
 			}).next(at(0));
 		expect(DEFAULT_SET_LEARNING.learningSlots).toBe(3);
 		expect(firstAfter([0, 1, 2])).toMatchObject({ item: 5, phase: 'consolidation' });
-		expect(firstAfter([0, 1])).toMatchObject({ item: 2, phase: 'probe' });
+		expect(firstAfter([0, 1])).toMatchObject({ item: 2, phase: 'learning', level: 0 });
 	});
 
 	it('keeps new items out once too many learned items are not yet acquired', () => {
@@ -420,7 +436,8 @@ describe('createLearningProcedure next', () => {
 		expect(firstAfter(DEFAULT_SET_LEARNING.maxUnconsolidated)?.phase).toBe('consolidation');
 		expect(firstAfter(DEFAULT_SET_LEARNING.maxUnconsolidated - 1)).toMatchObject({
 			item: DEFAULT_SET_LEARNING.maxUnconsolidated - 1,
-			phase: 'probe'
+			phase: 'learning',
+			level: 0
 		});
 	});
 
@@ -436,13 +453,13 @@ describe('createLearningProcedure next', () => {
 		expect(items.map((item) => item?.item)).toEqual([0, 1, 0, 1, 0, 1]);
 	});
 
-	it('probes a new item past the thresholds when nothing else can be served', () => {
+	it('serves a new item past the thresholds when nothing else can be served', () => {
 		const source = procedure({
 			cards: [learned(0)],
 			attempts: played(0, [false, false, false, false, false])
 		});
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'consolidation' });
-		expect(source.next(at(0))).toMatchObject({ item: 1, phase: 'probe' });
+		expect(source.next(at(0))).toMatchObject({ item: 1, phase: 'learning', level: 0 });
 	});
 
 	it('serves a retest early before falling back on anything else', () => {
@@ -537,21 +554,21 @@ describe('createLearningProcedure next', () => {
 				const source = procedure({
 					cards: [learning(0)],
 					attempts: played(0, [true, true, true, true, true]),
-					...(order && { set: { order } })
+					set: { learningSlots: 4, ...(order && { order }) }
 				});
 				return Array.from({ length: 4 }, () => {
 					const item = source.next(at(0))!;
 					source.record(attemptOf(item, { success: true }), 0);
-					return `${item.phase}:${item.item}`;
+					return `${item.phase}:${item.item}@${item.level}`;
 				});
 			};
 			// Today: item 0 resumed, two new items, then item 0's retest, due.
-			expect(run()).toEqual(['learning:0', 'probe:1', 'probe:2', 'learning:0']);
+			expect(run()).toEqual(['learning:0@0', 'learning:1@0', 'learning:2@0', 'learning:0@1']);
 			expect(run(['resumed', 'new', 'retest', 'cold-review', 'consolidation'])).toEqual([
-				'learning:0',
-				'probe:1',
-				'probe:2',
-				'probe:3'
+				'learning:0@0',
+				'learning:1@0',
+				'learning:2@0',
+				'learning:3@0'
 			]);
 		});
 	});

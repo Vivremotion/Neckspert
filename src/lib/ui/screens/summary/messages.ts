@@ -12,7 +12,6 @@ export const summaryMessages = defineMessages({
 		learned: 'Notes apprises',
 		pending: (n: number) =>
 			n === 1 ? '1 note reprendra la prochaine fois' : `${n} notes reprendront la prochaine fois`,
-		known: (n: number) => (n === 1 ? '1 note déjà sue' : `${n} notes déjà sues`),
 		noCold: 'Aucune révision à froid cette fois',
 		fatigue: 'Fatigue détectée',
 		next: 'Prochaines révisions',
@@ -28,7 +27,6 @@ export const summaryMessages = defineMessages({
 			n === 1
 				? '1 triade reprendra la prochaine fois'
 				: `${n} triades reprendront la prochaine fois`,
-		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`),
 		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages réussis`,
 		changes: (percent: number) => `${percent} % justes et à temps`,
 		tempos: (first: number, last: number) =>
@@ -112,7 +110,6 @@ export const summaryMessages = defineMessages({
 		learned: 'Notes learned',
 		pending: (n: number) =>
 			n === 1 ? '1 note will resume next time' : `${n} notes will resume next time`,
-		known: (n: number) => (n === 1 ? '1 note already known' : `${n} notes already known`),
 		noCold: 'No cold review this time',
 		fatigue: 'Fatigue detected',
 		next: 'Next reviews',
@@ -126,7 +123,6 @@ export const summaryMessages = defineMessages({
 		learnedTriads: 'Triads learned',
 		pendingTriads: (n: number) =>
 			n === 1 ? '1 triad will resume next time' : `${n} triads will resume next time`,
-		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`),
 		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages succeeded`,
 		changes: (percent: number) => `${percent} % right and in time`,
 		tempos: (first: number, last: number) =>

@@ -6,7 +6,7 @@ import type {
 	PlannedItem,
 	SchedulingState
 } from '../../types';
-import { graduateToReview, introScheduling } from '../../progress/scheduling';
+import { Rating, introScheduling, reviewScheduling } from '../../progress/scheduling';
 import { cardKey } from '../../types';
 import type { ExerciseId } from '../../exercise/types';
 import type { SkillId } from '../../types';
@@ -55,7 +55,7 @@ export function fakeSubject(
 		ladder?: Ladder;
 		/** Prerequisite: an item not ready is skipped by `nextNew`. */
 		ready?: (item: number, cards: readonly CardState[]) => boolean;
-		/** Default true: the aided presentation follows its missed probe at once. */
+		/** Default true; read by nothing since the probe went (issue #19). */
 		presentsAtOnce?: boolean;
 		/** What each skill's exercise writes of its items' settings; the defaults otherwise. */
 		learning?: Readonly<Record<string, Partial<ItemLearning>>>;
@@ -149,7 +149,7 @@ export function attemptOf(
 
 /**
  * A card of the fake subject. Default: being learned (`introScheduling`); `learnedAt` set gives it
- * a review scheduling (`graduateToReview`). `scheduling` overrides fields of that state.
+ * a review scheduling (one Easy grade from new). `scheduling` overrides fields of that state.
  */
 export function fakeCard(
 	item: number,
@@ -160,7 +160,10 @@ export function fakeCard(
 ): CardState {
 	const { scheduling, skill = FAKE_SKILL, ...fields } = overrides;
 	const learned = fields.learnedAt !== undefined && fields.learnedAt !== null;
-	const base = learned ? graduateToReview(fields.learnedAt as number) : introScheduling(0);
+	const learnedAt = fields.learnedAt as number;
+	const base = learned
+		? reviewScheduling(introScheduling(learnedAt), Rating.Easy, learnedAt)
+		: introScheduling(0);
 	return {
 		key: cardKey(skill, String(item)),
 		skill,

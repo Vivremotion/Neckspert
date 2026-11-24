@@ -23,7 +23,6 @@ const summary: SessionSummary = {
 	identifyMedianReactionMs: 640,
 	learnedCount: 2,
 	pendingCount: 0,
-	knownCount: 0,
 	fatigueDetected: true,
 	nextReviewAt: 2 * 60 * 60 * 1000,
 	grade: null,
@@ -106,17 +105,7 @@ describe('SummaryScreen', () => {
 		expect(screen.getByText('3 notes reprendront la prochaine fois')).toBeTruthy();
 	});
 
-	it('counts the notes already known, only when there are some', () => {
-		render(SummaryScreen, {
-			props: { summary: { ...summary, knownCount: 2 }, now: 0, onhome: () => {}, onmap: () => {} }
-		});
-		expect(screen.getByText('2 notes déjà sues')).toBeTruthy();
-		cleanup();
-		render(SummaryScreen, {
-			props: { summary: { ...summary, knownCount: 1 }, now: 0, onhome: () => {}, onmap: () => {} }
-		});
-		expect(screen.getByText('1 note déjà sue')).toBeTruthy();
-		cleanup();
+	it('never tells notes already known: nothing is probed any more', () => {
 		render(SummaryScreen, { props: { summary, now: 0, onhome: () => {}, onmap: () => {} } });
 		expect(screen.queryByText(/déjà su/)).toBeNull();
 	});
@@ -171,7 +160,6 @@ describe('SummaryScreen', () => {
 			...summary,
 			identifyMedianReactionMs: null,
 			learnedCount: 1,
-			knownCount: 2,
 			chords: true
 		};
 
@@ -180,7 +168,7 @@ describe('SummaryScreen', () => {
 				props: { summary: triads, now: 0, onhome: () => {}, onmap: () => {} }
 			});
 			expect(screen.getByText(/triades apprises/i)).toBeTruthy();
-			expect(screen.getByText('2 triades déjà sues')).toBeTruthy();
+			expect(screen.queryByText(/déjà su/)).toBeNull();
 			expect(screen.queryByText(/nommer/i)).toBeNull();
 		});
 

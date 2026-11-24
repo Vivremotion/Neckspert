@@ -131,32 +131,6 @@ describe('AttemptRecorder', () => {
 		expect(await attempts.all()).toHaveLength(2);
 	});
 
-	it('stores a missed probe hot and a recalled probe cold, by the given recall rule', async () => {
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		const passed = setupResponse();
-		const recalled = noteAttempt(probe);
-		await passed.recorder.recordResponse(recalled, span(probe), probe);
-		expect(recalled.temperature).toBe('cold');
-
-		const slow = setupResponse();
-		const late = noteAttempt(probe, { reactionMs: THRESHOLD_MS + 500 });
-		(late.verdict.value as { leadMs: number }).leadMs = THRESHOLD_MS + 500;
-		await slow.recorder.recordResponse(late, span(probe), probe);
-		expect(late.temperature).toBe('hot');
-
-		const missed = setupResponse();
-		const wrong = noteAttempt(probe, { success: false });
-		await missed.recorder.recordResponse(wrong, span(probe), probe);
-		expect(wrong.temperature).toBe('hot');
-		expect((await missed.attempts.all())[0].temperature).toBe('hot');
-	});
-
-	it('refuses a probe without a recall rule', () => {
-		const { recorder } = setupResponse(undefined, false);
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		expect(() => recorder.recordResponse(noteAttempt(probe), span(probe), probe)).toThrow(/recall/);
-	});
-
 	it('refuses an attempt of a memory skill without a recall rule', () => {
 		const { recorder } = setupResponse(undefined, false);
 		const review = item({ phase: 'review', temperature: 'cold' });
@@ -341,17 +315,12 @@ describe('AttemptRecorder', () => {
 		expect(await cards.get(LOCATE_KEY)).toEqual(card);
 	});
 
-	it('stores the card the source reports for a probe and for a learning prompt', async () => {
-		const known = {
-			...introduceCard({ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B }, 0, 'sess-1'),
-			acquiredAt: 456
-		};
-		const probed = setupResponse({ record: () => ({ card: known }) });
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		await probed.recorder.recordResponse(noteAttempt(probe), span(probe), probe);
-		await probed.recorder.settled();
-		expect((await probed.cards.get(LOCATE_KEY))?.acquiredAt).toBe(456);
-
+	it('stores the card the source reports for a learning prompt', async () => {
+		const known = introduceCard(
+			{ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B },
+			0,
+			'sess-1'
+		);
 		const learned = markLearned(known, 123);
 		const taught = setupResponse({ record: () => ({ card: learned }) });
 		const learning = item({ phase: 'learning', temperature: 'hot' });

@@ -34,7 +34,8 @@ function playedOf(
 				skill: attempt.skill,
 				exerciseLevel: attempt.data.level,
 				item: attempt.data.item,
-				phase: attempt.phase,
+				// The figure reads no phase; an exercise session serves its rounds free.
+				phase: 'free',
 				temperature: attempt.temperature,
 				aid: 'none',
 				leadBeats: null

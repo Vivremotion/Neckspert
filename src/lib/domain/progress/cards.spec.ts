@@ -11,9 +11,7 @@ import {
 	introduceCard,
 	isAcquired,
 	isMastered,
-	markLearned,
-	probeCard,
-	probeTemperature
+	markLearned
 } from './cards';
 
 const NOW = Date.parse('2026-04-01T10:00:00.000Z');
@@ -70,65 +68,6 @@ describe('markLearned', () => {
 		expect(card.learnedAt).toBe(NOW);
 		expect(card.scheduling.due).toBe(NOW + MIN_COLD_DELAY_MS);
 		expect(card.scheduling.state).toBe(State.New);
-	});
-});
-
-describe('probeCard', () => {
-	it('returns null when the answer is wrong or not direct recall', () => {
-		expect(
-			probeCard(LOCATE, attempt({ correct: false, leadBeats: 2 }), NOW, 's-p', recall)
-		).toBeNull();
-		expect(
-			probeCard(LOCATE, attempt({ correct: true, leadBeats: 4 }), NOW, 's-p', recall)
-		).toBeNull();
-	});
-
-	it('creates an acquired Review card on direct-recall success', () => {
-		const card = probeCard(
-			LOCATE,
-			attempt({ correct: true, leadBeats: 2, sessionId: 's-p' }),
-			NOW,
-			's-p',
-			recall
-		);
-		expect(card).not.toBeNull();
-		expect(card!.scheduling.state).toBe(State.Review);
-		expect(card!.acquiredAt).toBe(NOW);
-		expect(card!.learnedAt).toBe(NOW);
-		expect(card!.introducedInSession).toBe('s-p');
-	});
-
-	it('creates an identify card on a name tapped within the naming threshold', () => {
-		const tapped = (reactionMs: number) =>
-			attempt({
-				exerciseId: 'identify-note',
-				skill: 'identify-note',
-				cardKey: IDENTIFY.key,
-				tempoBpm: null,
-				leadBeats: null,
-				timingOffsetMs: null,
-				data: { item: IDENTIFY.item, answer: { pitch: 'G' }, confusion: null },
-				reactionMs
-			});
-		const card = probeCard(IDENTIFY, tapped(3000), NOW, 's-p', naming);
-		expect(card?.key).toBe('identify-note:6:3');
-		expect(card?.acquiredAt).toBe(NOW);
-		expect(probeCard(IDENTIFY, tapped(3001), NOW, 's-p', naming)).toBeNull();
-	});
-});
-
-describe('probeTemperature', () => {
-	it('records a passed probe cold and a missed probe hot', () => {
-		expect(probeTemperature(attempt({ correct: true, leadBeats: 2 }), recall)).toBe('cold');
-		expect(probeTemperature(attempt({ correct: false, leadBeats: 2 }), recall)).toBe('hot');
-		const named = {
-			success: true,
-			leadBeats: null,
-			tempoBpm: null,
-			verdict: { relation: 'free', version: 1, value: 'perfect' }
-		} as const;
-		expect(probeTemperature({ ...named, reactionMs: 3000 }, naming)).toBe('cold');
-		expect(probeTemperature({ ...named, reactionMs: 3001 }, naming)).toBe('hot');
 	});
 });
 

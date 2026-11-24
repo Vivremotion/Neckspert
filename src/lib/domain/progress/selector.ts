@@ -10,7 +10,7 @@ export interface SelectorContext {
 }
 
 /**
- * What an attempt just changed: its card (a note learned, a probe passed or missed), its level
+ * What an attempt just changed: its card (a note learned), its level
  * (the learning procedure moves it), or both; null when nothing changed.
  */
 export type RecordOutcome = { card?: CardState; level?: LevelState } | null;

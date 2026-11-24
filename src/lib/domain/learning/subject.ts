@@ -24,9 +24,8 @@ export interface LearningSubject {
 		blocked: (card: CardRef) => boolean
 	): CardRef | null;
 	/**
-	 * true: the aided presentation follows its missed probe at once, even right after itself;
-	 * false: it is due first but waits for a prompt after another card (a chord still ringing
-	 * cannot be judged).
+	 * What the exercise writes as `params.learning.presentAtOnce`. Read by nothing since the probe
+	 * went (issue #19): a new item is served at its first level, and never right after itself.
 	 */
 	presentsAtOnce: boolean;
 	/** The ladder of a skill, as its exercise writes it. */

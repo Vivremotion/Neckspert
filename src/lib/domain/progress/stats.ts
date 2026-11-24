@@ -92,7 +92,8 @@ export function summarizeSession(input: {
 }): SessionSummary {
 	const played = sessionPlayed(input.record, input.attempts);
 	const pool = input.record.free === true ? 'all' : 'cold';
-	// Cold figures measure reviews: probes are shown apart, as notes already known.
+	// Cold figures measure reviews. Nothing serves a probe any more (issue #19), but attempts stored
+	// before kept their phase: a passed probe measured no forgetting, so it stays out.
 	const scored =
 		pool === 'all' ? input.attempts : input.attempts.filter((attempt) => attempt.phase !== 'probe');
 	const counted =
@@ -118,9 +119,6 @@ export function summarizeSession(input: {
 		).length,
 		pendingCount: input.cards.filter((card) => card.learnedAt === null && presented.has(card.key))
 			.length,
-		knownCount: input.attempts.filter(
-			(attempt) => attempt.phase === 'probe' && attempt.temperature === 'cold'
-		).length,
 		fatigueDetected: input.record.fatigueDetected,
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null,

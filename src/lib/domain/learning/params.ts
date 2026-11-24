@@ -29,7 +29,7 @@ export interface SetLearning {
 	newItemCardWindow: number;
 	/** A new item enters only when the session's rolling success is at least this… */
 	newItemMinSessionSuccess: number;
-	/** …over its last prompts, this many (probes left out). */
+	/** …over its last prompts, this many. */
 	successWindow: number;
 	/** Consolidation draws among this many weakest items… */
 	consolidationPool: number;
@@ -39,7 +39,7 @@ export interface SetLearning {
 	confusionLookback: number;
 	/** The order categories are served in. */
 	order: readonly LearningCategory[];
-	/** Misses in a row over the whole set (probes left out) after which a solid item comes next. */
+	/** Misses in a row over the whole set after which a solid item comes next. */
 	recoveryAfterMisses: number;
 }
 
@@ -81,7 +81,7 @@ export interface EntryCondition {
 /** What an exercise writes of its learning (`params.learning`), over the defaults. */
 export interface ExerciseLearning extends ItemLearning {
 	enter?: EntryCondition;
-	/** true by default: the aided presentation follows its missed probe at once. */
+	/** true by default; read by nothing since the probe went (issue #19). */
 	presentAtOnce: boolean;
 	/**
 	 * What a prompt asks of a card's item: a member drawn among those this selection admits for

@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Rating, State } from 'ts-fsrs';
 import { MIN_COLD_DELAY_MS } from './constants';
-import {
-	fromScheduling,
-	graduateToReview,
-	introScheduling,
-	reviewScheduling,
-	toScheduling
-} from './scheduling';
+import { fromScheduling, introScheduling, reviewScheduling, toScheduling } from './scheduling';
 
 const NOW = Date.parse('2026-03-01T12:00:00.000Z');
+/** A card in Review: a new card's first Good, once its cold delay has passed. */
+const inReview = () => reviewScheduling(introScheduling(NOW), Rating.Good, NOW + MIN_COLD_DELAY_MS);
 
 describe('introScheduling', () => {
 	it('starts in New with due after the cold delay', () => {
@@ -18,15 +14,6 @@ describe('introScheduling', () => {
 		expect(state.due).toBe(NOW + MIN_COLD_DELAY_MS);
 		expect(state.reps).toBe(0);
 		expect(state.lastReview).toBeNull();
-	});
-});
-
-describe('graduateToReview', () => {
-	it('lands in Review via an internal Easy grade', () => {
-		const state = graduateToReview(NOW);
-		expect(state.state).toBe(State.Review);
-		expect(state.reps).toBe(1);
-		expect(state.due).toBeGreaterThan(NOW);
 	});
 });
 
@@ -52,7 +39,7 @@ describe('reviewScheduling', () => {
 	});
 
 	it('sends a missed Review card into Relearning due about one hour later', () => {
-		const review = graduateToReview(NOW);
+		const review = inReview();
 		const missed = reviewScheduling(review, Rating.Again, NOW + 8 * 24 * 60 * 60 * 1000);
 		expect(missed.state).toBe(State.Relearning);
 		expect(missed.lapses).toBe(1);
@@ -60,7 +47,7 @@ describe('reviewScheduling', () => {
 	});
 
 	it('round-trips through fromScheduling / toScheduling', () => {
-		const state = graduateToReview(NOW);
+		const state = inReview();
 		expect(toScheduling(fromScheduling(state))).toEqual(state);
 	});
 });

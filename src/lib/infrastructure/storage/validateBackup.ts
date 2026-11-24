@@ -10,7 +10,7 @@ import {
 	parseCardKey,
 	responseVerdictOf,
 	type BackupFile,
-	type ItemPhase,
+	type RecordedPhase,
 	type Locale,
 	type Temperature
 } from '$lib/domain/types';
@@ -38,7 +38,14 @@ type Check = (entry: Fields) => string | null;
 const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
-const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
+/** The phases an attempt may carry: `probe` stays readable on attempts stored before issue #19. */
+const ITEM_PHASES: readonly RecordedPhase[] = [
+	'probe',
+	'review',
+	'learning',
+	'consolidation',
+	'free'
+];
 /** The kinds of session files 1 to 8 recorded (frozen: version 9 records what a session played). */
 const SESSION_KINDS: readonly string[] = [
 	'learn',

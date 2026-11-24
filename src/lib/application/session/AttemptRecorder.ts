@@ -4,7 +4,6 @@ import {
 	applyColdAttempt,
 	classifyTemperature,
 	introduceCard,
-	probeTemperature,
 	type ItemSource,
 	type RecordOutcome
 } from '$lib/domain/progress';
@@ -39,7 +38,7 @@ export interface AttemptRecorderDeps {
 	now: () => number;
 	selector: ItemSource;
 	sessionId: string;
-	/** The direct-recall rule of a skill (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
+	/** The direct-recall rule of a skill (`LearningSubject.recall`): FSRS grades. */
 	recall?: (skill: SkillId) => DirectRecall;
 	levels?: LevelStateRepositoryPort;
 	/**
@@ -58,7 +57,7 @@ interface Learning {
 
 /**
  * Before history is read, for fatigue and the source: the item's own temperature in learning,
- * consolidation, free play and probes; otherwise cold on the series' first attempt at the card,
+ * consolidation and free play; otherwise cold on the series' first attempt at the card,
  * at a level that may count cold (`countsCold`).
  */
 function provisionalTemperature(
@@ -66,10 +65,7 @@ function provisionalTemperature(
 	attemptedInSession: boolean,
 	countsCold: boolean
 ): Temperature {
-	return item.phase === 'learning' ||
-		item.phase === 'consolidation' ||
-		item.phase === 'free' ||
-		item.phase === 'probe'
+	return item.phase === 'learning' || item.phase === 'consolidation' || item.phase === 'free'
 		? item.temperature
 		: attemptedInSession || !countsCold
 			? 'hot'
@@ -97,10 +93,10 @@ export class AttemptRecorder {
 	/**
 	 * Writes an attempt (`recordedAttempt`) with what its span heard so far
 	 * and learns from it: synchronously, the source is told (`selector.record`) with the item's
-	 * provisional temperature; then the temperature is settled from the card's history (a probe
-	 * by `probeTemperature` and `recall`), the attempt written, and for a memory skill the card
-	 * stored (a cold review or free attempt through FSRS, a probe or a learning prompt as the
-	 * source returned it, a learning prompt's card introduced) and the level the source moved
+	 * provisional temperature; then the temperature is settled from the card's history, the
+	 * attempt written, and for a memory skill the card stored (a cold review or free attempt
+	 * through FSRS, a learning prompt as the source returned it, or its card introduced at a new
+	 * item's first attempt) and the level the source moved
 	 * written. Its observations are completed when the span closes. Resolves with the attempt's id.
 	 */
 	recordResponse(
@@ -109,7 +105,7 @@ export class AttemptRecorder {
 		item: PlannedItem
 	): Promise<number> {
 		const recall = this.deps.recall?.(item.skill);
-		if (!recall && (item.phase === 'probe' || hasCards(item.skill))) {
+		if (!recall && hasCards(item.skill)) {
 			throw new Error(`No direct-recall rule for skill ${item.skill}`);
 		}
 		// The caller's object is the one kept, so `completeObservations` and `contest` find it.
@@ -136,7 +132,7 @@ export class AttemptRecorder {
 		id.catch(() => {});
 		this.ids.set(stored, id);
 		const learning: Learning = {
-			// A skill without memory and without a rule never asks it: it has no probe and no card.
+			// A skill without memory and without a rule never asks it: it has no card.
 			recall: recall ?? (() => false),
 			levels: this.deps.levels
 		};
@@ -199,16 +195,11 @@ export class AttemptRecorder {
 		const history = await attempts.listByCard(key);
 		const existing = await cards.get(key);
 		const lastAttemptAt = history.length > 0 ? history[history.length - 1].promptedAt : null;
-		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
-		const temperature =
-			item.phase === 'probe'
-				? probeTemperature(attempt, learning.recall)
-				: this.temperatureFor(item, existing, {
-						lastAttemptAt,
-						attemptedInSession,
-						now: attempt.promptedAt
-					});
-		attempt.temperature = temperature;
+		attempt.temperature = this.temperatureFor(item, existing, {
+			lastAttemptAt,
+			attemptedInSession,
+			now: attempt.promptedAt
+		});
 
 		attemptId(await attempts.add(attempt));
 
@@ -234,8 +225,6 @@ export class AttemptRecorder {
 				const applied = applyColdAttempt(existing, attempt, fullHistory, now, learning.recall);
 				await this.storeCard(applied);
 			}
-		} else if (item.phase === 'probe') {
-			if (outcome?.card) await this.storeCard(outcome.card);
 		} else if (item.phase === 'learning') {
 			if (outcome?.card) await this.storeCard(outcome.card);
 			else if (!existing) {
@@ -257,7 +246,7 @@ export class AttemptRecorder {
 	/**
 	 * Learning and consolidation stay hot. Free play counts cold only on a learned card. Reviews
 	 * and free play count cold only at a level that asks a direct recall, then follow the
-	 * cold-delay rule; probes are judged by probeTemperature.
+	 * cold-delay rule.
 	 */
 	private temperatureFor(
 		item: PlannedItem,

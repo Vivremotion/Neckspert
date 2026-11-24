@@ -246,15 +246,16 @@ describe('createAppServices', () => {
 		}
 	});
 
-	it('the notes probe the first note of the queue without aid', async () => {
+	it('the notes present the first note of the queue at level 1, its position shown', async () => {
 		const { services, deps } = harness();
 		const controller = await services.startRoutine('notes');
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		const lane = noteLane(controller);
 		expect(controller.view.stage?.view).toBe('lane');
-		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave', aid: null });
-		expect(lead(lane)).toBe(2);
+		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave' });
+		expect(lane?.prompt.aid).not.toBeNull();
+		expect(lead(lane)).toBe(8);
 		controller.quit();
 	});
 
@@ -402,8 +403,9 @@ describe('createAppServices', () => {
 		});
 		const attempts = await deps.attempts.listBySession(controller.sessionId);
 		expect(attempts.length).toBeGreaterThan(0);
-		// The first note was probed and played right: it is a card now, its level stored.
-		expect(attempts[0]).toMatchObject({ phase: 'probe', success: true });
+		// The first note was presented and played right: it is a card now, its level stored.
+		expect(attempts[0]).toMatchObject({ phase: 'learning', temperature: 'hot', success: true });
+		expect(await deps.cards.get(attempts[0].cardKey)).toBeDefined();
 		expect(await deps.levels.all()).not.toHaveLength(0);
 		const summary = await services.sessionSummary(controller.sessionId);
 		expect(summary.sessionId).toBe(controller.sessionId);

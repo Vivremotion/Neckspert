@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ladderOf } from '../exercise/ladder';
 import type { ExerciseDefinition, ExerciseId } from '../exercise/types';
 import { parseVoicingKey, voicingOccurrences } from '../music';
-import { graduateToReview } from '../progress/scheduling';
+import { Rating, introScheduling, reviewScheduling } from '../progress/scheduling';
 import { occurrencePosition } from '../triads/position';
 import { cardKey, type Attempt, type CardKey, type CardState, type SkillId } from '../types';
 import type { LevelState } from '../time/levels';
@@ -80,7 +80,10 @@ function card(
 		learnedAt,
 		acquiredAt: fields.acquiredAt ?? null,
 		masteredAt: null,
-		scheduling: { ...graduateToReview(0), due: fields.due ?? 1e15 }
+		scheduling: {
+			...reviewScheduling(introScheduling(0), Rating.Easy, 0),
+			due: fields.due ?? 1e15
+		}
 	};
 }
 
@@ -228,7 +231,7 @@ describe('exerciseSubject', () => {
 			phase: 'review'
 		});
 		for (let prompt = 0; prompt < 5; prompt++) {
-			expect(procedure.next(at(1000))?.phase ?? null).not.toBe('probe');
+			expect(procedure.next(at(1000))?.item ?? null).not.toEqual(note('5:C'));
 		}
 	});
 
@@ -253,7 +256,8 @@ describe('exerciseSubject', () => {
 		// Removed from the list, its due card is not served; put back, it is reviewed first.
 		expect(procedureOf(['5:C']).next(at(1000))).toMatchObject({
 			item: note('5:C'),
-			phase: 'probe'
+			phase: 'learning',
+			level: 0
 		});
 		expect(procedureOf(['5:C', '6:G']).next(at(1000))).toMatchObject({
 			item: note('6:G'),

@@ -6,12 +6,12 @@ export function successRate(attempts: readonly Attempt[]): number | null {
 	return attempts.filter((attempt) => attempt.success).length / attempts.length;
 }
 
-/** Success of one card over its last `window` attempts of the session, probe left out. */
+/** Success of one card over its last `window` attempts of the session. */
 export function cardSuccessRate(
 	attempts: readonly Attempt[],
 	key: CardKey,
 	window: number
 ): number | null {
-	const own = attempts.filter((attempt) => attempt.cardKey === key && attempt.phase !== 'probe');
+	const own = attempts.filter((attempt) => attempt.cardKey === key);
 	return successRate(own.slice(-window));
 }

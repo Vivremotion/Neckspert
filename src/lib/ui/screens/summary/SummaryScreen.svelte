@@ -197,11 +197,6 @@
 					<span>{triads ? t.learnedTriads : t.learned}</span>
 					<strong>{summary.learnedCount}</strong>
 				</li>
-				{#if summary.knownCount > 0}
-					<li>
-						<span>{triads ? t.knownTriads(summary.knownCount) : t.known(summary.knownCount)}</span>
-					</li>
-				{/if}
 				{#if summary.pendingCount > 0}
 					<li>
 						<span

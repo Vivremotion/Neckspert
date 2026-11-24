@@ -75,8 +75,14 @@ export type Temperature = 'cold' | 'hot';
 export type SessionOrigin =
 	{ routine: string; free?: true } | { exercise: ExerciseId; free?: true };
 
-/** Where an attempt happened inside a session. */
-export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
+/** Where an item is served inside a session. */
+export type ItemPhase = 'review' | 'learning' | 'consolidation' | 'free';
+
+/**
+ * Where an attempt happened, as it was recorded: a served phase, or `'probe'`, which attempts
+ * stored before issue #19 keep (a new item was first asked once at the top of its ladder).
+ */
+export type RecordedPhase = ItemPhase | 'probe';
 
 /** Help shown with a mode 1 prompt: the fret, or nothing. */
 export type AidLevel = 'show-position' | 'none';
@@ -94,7 +100,7 @@ export interface Attempt<D = unknown> {
 	/** The skill its exercise practises. */
 	skill: SkillId;
 	cardKey: CardKey;
-	phase: ItemPhase;
+	phase: RecordedPhase;
 	temperature: Temperature;
 	/** What the round showed or played for the player (`AidLevel` is the planned aid). */
 	aids: Aid[];
@@ -167,7 +173,7 @@ export interface CardState<I = unknown> {
 	key: CardKey;
 	skill: SkillId;
 	item: I;
-	/** Epoch ms of the learning (or probe) that introduced the card. */
+	/** Epoch ms of the attempt that introduced the card (before issue #19, maybe a probe). */
 	introducedAt: number;
 	introducedInSession: string;
 	scheduling: SchedulingState;
@@ -359,8 +365,6 @@ export interface SessionSummary {
 	learnedCount: number;
 	/** Cards presented in this session and still being learned. */
 	pendingCount: number;
-	/** Probes passed in this session. */
-	knownCount: number;
 	fatigueDetected: boolean;
 	/** Earliest time a learned card can be reviewed cold. Informational. */
 	nextReviewAt: number | null;
