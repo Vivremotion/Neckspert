@@ -7,6 +7,7 @@
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
+	import { provideInfoLine } from './infoLine.svelte';
 	import { playMessages } from './messages';
 	import PixelWord from './PixelWord.svelte';
 	import QuietField from './QuietField.svelte';
@@ -30,6 +31,8 @@
 	const t = $derived(playMessages());
 	const view = $derived(controller.view);
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
+	/** What the view on stage adds to the info line (its exercise, its level, its bar). */
+	const infoLine = provideInfoLine();
 	/** The world of the last view shown: the frame keeps it when the stage empties (the end). */
 	let shownWorld: PlayWorld | null = null;
 	/**
@@ -53,6 +56,15 @@
 		const title = origin.title[i18n.locale];
 		if (!origin.free) return [title];
 		return origin.alone ? [t.freePlay, title] : [t.freePlay];
+	});
+	/**
+	 * The info line: what plays, what its view adds (a part the name already says is not said
+	 * twice), the tempo.
+	 */
+	const infoParts = $derived.by(() => {
+		const added = infoLine.parts.filter((part) => !named.includes(part));
+		const parts = [...named, ...added];
+		return view.tempoBpm > 0 ? [...parts, t.tempo(view.tempoBpm)] : parts;
 	});
 	/**
 	 * Before the start: the first exercise's instruction, else the routine's, else the general
@@ -192,7 +204,7 @@
 {#if world === 'quiet'}
 	<QuietField {light} data-world="quiet" data-status={view.status}>
 		<QuietTop
-			parts={view.tempoBpm > 0 ? [...named, t.tempo(view.tempoBpm)] : named}
+			parts={infoParts}
 			playing={running}
 			{light}
 			onpause={() => controller.pause()}

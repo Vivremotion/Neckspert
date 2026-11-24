@@ -290,7 +290,7 @@
 				? { kind: 'level-up', level: 3, of: 6, tempoBpm: 80 }
 				: null;
 
-	const controller = new DevRhythmController();
+	const controller = new DevRhythmController(shown ? { exercise: shown.id } : undefined);
 	controller.view.status = 'awaiting';
 	controller.view.stage = { view: 'figure', model };
 	controller.view.announcement = announcement;

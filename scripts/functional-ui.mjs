@@ -767,9 +767,9 @@ try {
 		noteTiny('settings', run.texts);
 	}
 
-	// The figure view (`/dev/rhythm`, a still model in the play frame): the embedded Bravura font
-	// is loaded and draws, the run played and the next figure are engraved at the breath, and the
-	// cursor shows on a clicked bar but never on a muted one.
+	// The figure view (`/dev/rhythm`, a still model in the play frame, in the quiet world): the
+	// embedded Bravura font is loaded and draws, the figure to play and the run played under it
+	// are engraved at the breath, and the cursor shows on a clicked bar but never on a muted one.
 	const RHYTHM_URL = process.env.RHYTHM_URL ?? 'http://localhost:5201/dev/rhythm';
 	// A text of an engraving is drawn at its own size times the drawing's zoom (its view box):
 	// its size on screen is what is checked, the tab's fret numbers included.
@@ -799,13 +799,16 @@ try {
 				const box = head?.getBBox?.();
 				const faces = [...document.fonts].filter((face) => face.family.replaceAll('"', '') === 'Bravura');
 				const played = document.querySelector('[data-testid="figure-played"]');
-				const next = document.querySelector('[data-testid="figure-next"]');
+				const next = document.querySelector('[data-testid="figure-score"][data-shows="next"]');
 				return {
+					quiet: document.querySelector('[data-world="quiet"] .figure-view') !== null,
+					pixel: getComputedStyle(document.documentElement).getPropertyValue('--np-bg').trim(),
 					check: document.fonts.check('30px Bravura'),
 					loaded: faces.length > 0 && faces.every((face) => face.status === 'loaded'),
 					head: box ? box.width : 0,
 					svgs: document.querySelectorAll('svg').length,
-					order: Boolean(played && next && played.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING),
+					order: Boolean(played && next && next.compareDocumentPosition(played) & Node.DOCUMENT_POSITION_FOLLOWING),
+					words: ['Joué', 'À jouer', 'Respiration'].filter((word) => document.body.textContent.includes(word)),
 					marks: document.querySelectorAll('[data-testid="figure-mark"]').length,
 					texts: ${texts}
 				};
@@ -814,8 +817,13 @@ try {
 		check(assert(run.check, 'document.fonts.check(« 30px Bravura ») est vrai'));
 		check(assert(run.loaded, 'la police Bravura embarquée est chargée'));
 		check(assert(run.head > 0, `la tête de note a une largeur (${run.head})`));
-		check(assert(run.svgs >= 2, `la suite jouée et la figure à jouer sont gravées (${run.svgs})`));
-		check(assert(run.order, 'la suite jouée précède la figure à jouer'));
+		check(assert(run.quiet, 'la vue figure est dans le monde calme'));
+		check(
+			assert(run.pixel === '', `aucun token Game Boy n’est déclaré (--np-bg « ${run.pixel} »)`)
+		);
+		check(assert(run.svgs >= 2, `la figure à jouer et la suite jouée sont gravées (${run.svgs})`));
+		check(assert(run.order, 'la figure à jouer précède la suite jouée, à sa place de jeu'));
+		check(assert(run.words.length === 0, `aucun mot explicatif à la respiration (${run.words})`));
 		check(assert(run.marks > 0, `les marques de la suite sont dessinées (${run.marks})`));
 		noteTiny('figure-breath', run.texts);
 	}

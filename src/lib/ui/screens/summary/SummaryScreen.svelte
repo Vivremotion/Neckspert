@@ -10,7 +10,7 @@
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
 	import type { PlayedExercise, SessionSummary } from '$lib/domain/types';
-	import PlayedCycle, { CYCLE_COLUMN_PX } from '$lib/ui/play/views/PlayedCycle.svelte';
+	import PlayedCycle from '$lib/ui/play/views/PlayedCycle.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import Page from '$lib/ui/primitives/Page.svelte';
 	import { coldAccuracyRatio } from '$lib/ui/screens/home/coldAccuracy';
@@ -358,12 +358,10 @@
 						<PlayedCycle
 							figure={played.figure}
 							cycleBars={played.cycleBars}
-							reports={[last.report]}
+							strips={[{ cycle: 0, report: last.report }]}
 							feedback="every-cycle"
 							beatMs={60000 / played.tempoBpm}
-							maxWidth={playedWidth > CYCLE_COLUMN_PX
-								? playedWidth - CYCLE_COLUMN_PX
-								: FALLBACK_WIDTH}
+							maxWidth={playedWidth > 0 ? playedWidth : FALLBACK_WIDTH}
 						/>
 					</div>
 				{/if}
@@ -474,12 +472,6 @@
 
 	.played-cycle {
 		min-width: 0;
-		/* Bridge until plan 3: PlayedCycle still reads the old names. */
-		--np-ink: var(--np-text);
-		--np-shade: var(--np-muted);
-		--np-bg: var(--np-ground);
-		--np-type-body: var(--np-size-body);
-		--np-type-meta: var(--np-size-meta);
 	}
 
 	.report {

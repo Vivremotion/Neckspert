@@ -62,11 +62,13 @@
 </div>
 
 <style>
+	/* Themed by its view through --neck-* (tile, size, gap, ink, ground, muted, next, next-text);
+	   unset, the Game Boy tones of the gesture's views, which still draw it. */
 	.neck {
-		--row: calc(var(--np-tile) * 6);
+		--row: calc(var(--neck-tile, var(--np-tile)) * 6);
 		/* A fret never narrower than its note and its number (two digits at the meta size): the
 		numbers never run into each other, a wide span takes room instead. */
-		--fret-min: calc(var(--np-tile) * 4);
+		--fret-min: calc(var(--neck-tile, var(--np-tile)) * 4);
 		display: grid;
 		align-items: center;
 		min-width: 0;
@@ -74,23 +76,23 @@
 
 	.name,
 	.fret {
-		font-size: var(--np-type-meta);
+		font-size: var(--neck-size, var(--np-type-meta));
 		line-height: 1;
 		text-align: center;
 	}
 
 	.name {
-		padding-inline-end: var(--np-space-1, 8px);
+		padding-inline-end: var(--neck-gap, var(--np-space-1, 8px));
 	}
 
 	.fret {
-		color: var(--np-shade);
+		color: var(--neck-muted, var(--np-shade));
 		padding-block-start: 4px;
 	}
 
 	.string {
-		block-size: calc(var(--np-tile) / 2);
-		background: var(--np-shade);
+		block-size: calc(var(--neck-tile, var(--np-tile)) / 2);
+		background: var(--neck-muted, var(--np-shade));
 	}
 
 	/* The one exception to the square world: a note is a circle, the colour of its tile. */
@@ -100,20 +102,20 @@
 		display: grid;
 		place-items: center;
 		box-sizing: border-box;
-		inline-size: min(calc(var(--np-tile) * 5), 90%);
+		inline-size: min(calc(var(--neck-tile, var(--np-tile)) * 5), 90%);
 		aspect-ratio: 1;
 		border-radius: 50%;
-		font-size: var(--np-type-meta);
+		font-size: var(--neck-size, var(--np-type-meta));
 		line-height: 1;
 	}
 
 	.note.now {
-		background: var(--np-ink);
-		color: var(--np-bg);
+		background: var(--neck-ink, var(--np-ink));
+		color: var(--neck-ground, var(--np-bg));
 	}
 
 	.note.next {
-		background: var(--np-mid);
-		color: var(--np-ink);
+		background: var(--neck-next, var(--np-mid));
+		color: var(--neck-next-text, var(--np-ink));
 	}
 </style>

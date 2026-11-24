@@ -23,6 +23,7 @@ import {
 	cursorX,
 	cycleFigure,
 	cycleMarks,
+	cyclesOnFigure,
 	feedbackLine,
 	labelRows,
 	liveMarks,
@@ -846,5 +847,45 @@ describe('toldCycle', () => {
 		const last = passed(3);
 		expect(toldCycle([passed(1), last])).toBe(last);
 		expect(toldCycle([])).toBeNull();
+	});
+});
+
+describe('cyclesOnFigure', () => {
+	/** A settled cycle of `attacks` expectations, all on time. */
+	const settledOf = (attacks: number): SettledCycle => ({
+		report: {
+			expectations: Array.from({ length: attacks }, (_, index) => ({
+				index,
+				verdict: 'on-time' as const,
+				offsetMs: 0
+			})),
+			dropped: [],
+			extra: 0,
+			shift: null,
+			measures: {},
+			latency: null
+		},
+		verdict: { passed: true },
+		wrongNotes: [],
+		expected: null
+	});
+
+	it('keeps the cycles whose expectations are the attacks engraved, numbered as in the run', () => {
+		const four = settledOf(4);
+		const eight = settledOf(8);
+		expect(cyclesOnFigure([four, eight, four], 4)).toEqual([
+			{ cycle: 0, settled: four },
+			{ cycle: 2, settled: four }
+		]);
+		expect(cyclesOnFigure([four, eight], 8)).toEqual([{ cycle: 1, settled: eight }]);
+	});
+
+	it('keeps every cycle of a run that played one figure', () => {
+		const cycles = [settledOf(5), settledOf(5), settledOf(5)];
+		expect(cyclesOnFigure(cycles, 5).map((c) => c.cycle)).toEqual([0, 1, 2]);
+	});
+
+	it('leaves a cycle whose round was cut inside the figure to its words', () => {
+		expect(cyclesOnFigure([settledOf(3)], 4)).toEqual([]);
 	});
 });

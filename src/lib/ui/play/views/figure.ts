@@ -536,6 +536,22 @@ export function cycleFigure(figure: Figure, cycleBars: number): Figure {
 	});
 }
 
+/**
+ * The cycles of a run that played the figure engraved at the breath (`attacks` attacks, as
+ * `cycleFigure` gives them), each with its number in the run (from 0): their marks fall on the
+ * notes they judged. A cycle of another length (a sequence whose changes last 2, 4 or 8 beats)
+ * is left out: drawn over this figure, its marks would land on notes that were not theirs; its
+ * wrong notes stay told in words.
+ */
+export function cyclesOnFigure<T extends { report: CycleReport }>(
+	cycles: readonly T[],
+	attacks: number
+): { cycle: number; settled: T }[] {
+	return cycles.flatMap((settled, cycle) =>
+		settled.report.expectations.length === attacks ? [{ cycle, settled }] : []
+	);
+}
+
 /** The cycle the breath tells in words: the last one that failed, else the last one. */
 export function toldCycle(settled: readonly SettledCycle[]): SettledCycle | null {
 	for (let i = settled.length - 1; i >= 0; i--) {

@@ -521,7 +521,7 @@ describe('PlayFrame', () => {
 			expect(VIEW_WORLDS['answer-keys']).toBe('quiet');
 			expect(VIEW_WORLDS['link-lane']).toBe('pixel');
 			expect(VIEW_WORLDS['grid-scroll']).toBe('pixel');
-			expect(VIEW_WORLDS['figure']).toBe('pixel');
+			expect(VIEW_WORLDS['figure']).toBe('quiet');
 		});
 
 		it('shows no tempo while the series has not set one', () => {

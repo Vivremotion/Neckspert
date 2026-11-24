@@ -8,8 +8,9 @@ import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import type { PlannedItem } from '$lib/domain/types';
 import { figureStage } from '$lib/application/session/series/figureStage';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
-import { PLAY_VIEWS } from './index';
+import { PLAY_VIEWS, VIEW_WORLDS } from './index';
 import FigureView from './FigureView.svelte';
+import PlayFrame from '../PlayFrame.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
@@ -153,11 +154,36 @@ describe('FigureView', () => {
 		expect(PLAY_VIEWS['figure']).toBe(FigureView);
 	});
 
-	it('names the exercise, its level and its tempo with its unit', () => {
+	it('is drawn in the quiet world', () => {
+		expect(VIEW_WORLDS['figure']).toBe('quiet');
+	});
+
+	it('without a frame, says its parts itself: the exercise, its level, the bar played', () => {
 		render(FigureView, { props: { controller: running(), model: model() } });
 		expect(screen.getByTestId('figure-header').textContent?.trim()).toBe(
-			'Contretemps · niveau 3 sur 6 · ♩ = 90 bpm'
+			'Contretemps · niveau 3 sur 6 · mesure 1 / 1'
 		);
+	});
+
+	it('in its frame, adds its parts to the info line, before the tempo, and says nothing twice', () => {
+		const controller = running();
+		controller.view.tempoBpm = 90;
+		controller.view.stage = { view: 'figure', model: model({ barInCycle: 1, cycleBars: 4 }) };
+		const { container } = render(PlayFrame, { props: { controller } });
+		expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
+		expect(container.querySelector('.info-line')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+			'Contretemps · niveau 3 sur 6 · mesure 2 / 4 · ♩ = 90 Pause Quitter'
+		);
+		expect(screen.queryByTestId('figure-header')).toBeNull();
+	});
+
+	it('counts the bar down in the prompt’s row, as large as a prompt line', () => {
+		const controller = running();
+		controller.view.status = 'count-in';
+		controller.view.countdown = 3;
+		render(FigureView, { props: { controller, model: model({ phase: 'count-in' }) } });
+		expect(screen.getByTestId('figure-countdown').textContent?.trim()).toBe('3');
+		expect(screen.queryByText('On compte')).toBeNull();
 	});
 
 	it('shows the prompt above the figure', async () => {
@@ -180,13 +206,13 @@ describe('FigureView', () => {
 		expect(screen.queryByTestId('figure-prompt')).toBeNull();
 	});
 
-	it('engraves the figure large while it is played, with its bar and the click in words', async () => {
+	it('engraves the figure large while it is played, with its bar in the info line and no word for the click', async () => {
 		render(FigureView, {
 			props: { controller: running(), model: model({ barInCycle: 1, cycleBars: 4 }) }
 		});
 		await engraved();
-		expect(screen.getByTestId('figure-bar').textContent).toContain('mesure 2 / 4');
-		expect(screen.getByTestId('figure-bar').textContent).toContain('clic');
+		expect(screen.getByTestId('figure-header').textContent).toContain('mesure 2 / 4');
+		expect(screen.getByTestId('figure-header').textContent).not.toContain('clic');
 		expect(screen.getByTestId('figure-cursor')).toBeTruthy();
 		// Nothing about the player's attacks while playing.
 		expect(screen.queryAllByTestId('figure-mark')).toHaveLength(0);
@@ -309,16 +335,21 @@ describe('FigureView', () => {
 		});
 		await engraved();
 		expect(screen.queryByTestId('figure-cursor')).toBeNull();
-		expect(screen.getByTestId('figure-bar').textContent).toContain('silence');
+		expect(screen.getByTestId('figure-header').textContent).toContain('silence');
 	});
 
-	it('at the breath, puts the run played (faded, with its marks) before the figure to play', async () => {
+	it('at the breath, keeps the figure to play where the figure played stood, the run played (faded, with its marks) under it', async () => {
 		render(FigureView, { props: { controller: running(), model: breath() } });
+		const score = screen.getByTestId('figure-score');
 		const played = screen.getByTestId('figure-played');
-		const next = screen.getByTestId('figure-next');
-		expect(played.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(played.classList.contains('faded')).toBe(true);
-		expect(next.classList.contains('faded')).toBe(false);
+		expect(score.dataset.shows).toBe('next');
+		expect(score.compareDocumentPosition(played) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(played.querySelector('.played.faded')).toBeTruthy();
+		expect(score.querySelector('.faded')).toBeNull();
+		// No word says which is which, and no cycle number: the strip is named for assistive technology only.
+		expect(screen.queryByText('Joué')).toBeNull();
+		expect(screen.queryByText('À jouer')).toBeNull();
+		expect(screen.queryByText('Respiration')).toBeNull();
 		await engraved(2);
 		await vi.waitFor(() => expect(screen.getAllByTestId('figure-mark')).toHaveLength(5));
 		const kinds = screen.getAllByTestId('figure-mark').map((m) => m.dataset.kind);
@@ -398,7 +429,7 @@ describe('FigureView', () => {
 			}
 		});
 		await engraved(2);
-		const next = screen.getByTestId('figure-next');
+		const next = screen.getByTestId('figure-score');
 		await vi.waitFor(() => expect(next.querySelectorAll('.vf-tabnote')).toHaveLength(4));
 		expect(screen.getByTestId('figure-played').querySelectorAll('.vf-tabnote')).toHaveLength(0);
 	});
@@ -444,7 +475,7 @@ describe('FigureView', () => {
 				expect(document.querySelectorAll('.vf-tabnote')).toHaveLength(tabNotes)
 			);
 			expect(screen.queryByRole('alert')).toBeNull();
-			expect(screen.getByTestId('figure-bar').textContent).toContain(bar);
+			expect(screen.getByTestId('figure-header').textContent).toContain(bar);
 			cleanup();
 		}
 	});
@@ -492,6 +523,41 @@ describe('FigureView', () => {
 			true
 		);
 		expect(screen.getAllByTestId('figure-mark')).toHaveLength(192);
+	});
+
+	it('gives no strip to a cycle of another length than the figure played: its marks would lie', async () => {
+		const shorter: SettledCycle = {
+			report: { ...REPORT, expectations: REPORT.expectations.slice(0, 3) },
+			verdict: { passed: true },
+			wrongNotes: [],
+			expected: null
+		};
+		render(FigureView, {
+			props: { controller: running(), model: breath({ settled: [shorter, FAILED, shorter] }) }
+		});
+		await engraved(2);
+		await vi.waitFor(() => expect(screen.getAllByTestId('figure-strip')).toHaveLength(1));
+		// The strip keeps its number in the run.
+		expect(screen.getByRole('group', { name: 'cycle 2' })).toBeTruthy();
+		expect(screen.getAllByTestId('figure-mark')).toHaveLength(5);
+	});
+
+	it('marks the strip of the cycle the words are about, the others stepping back', async () => {
+		const passed: SettledCycle = {
+			report: { ...REPORT, expectations: ALL_PLAYED },
+			verdict: { passed: true },
+			wrongNotes: [],
+			expected: null
+		};
+		render(FigureView, {
+			props: { controller: running(), model: breath({ settled: [passed, FAILED, passed] }) }
+		});
+		await engraved(2);
+		await vi.waitFor(() => expect(screen.getAllByTestId('figure-strip')).toHaveLength(3));
+		const strips = screen.getAllByTestId('figure-strip');
+		// The last failed cycle is told: its strip is full, the two passed ones step back.
+		expect(strips.map((strip) => strip.dataset.told ?? null)).toEqual([null, 'true', null]);
+		expect(strips.map((strip) => strip.classList.contains('dim'))).toEqual([true, false, true]);
 	});
 
 	it('tells the cycle in plain words, the term as a label', () => {

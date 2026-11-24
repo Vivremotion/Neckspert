@@ -112,25 +112,23 @@ describe('contrastRatio', () => {
 const GAME_BOY_TOKEN = /--np-(?:bg|mid|shade|ink|tile|font-pixel|type-[a-z]+|space-\d+)\b/;
 
 /**
- * The files still drawn in the pixel world, or bridging it in a migrated screen. The list only
- * shrinks: a migrated view leaves it, and the last one takes the Game Boy tokens with it.
+ * The files still drawn in the pixel world (the gesture's views and their frame), or bridging it
+ * in a migrated screen (`ChordShape`, `Term` and the neck diagram read the Game Boy tokens as
+ * fallbacks only). The list only shrinks: a migrated view leaves it, and the last one takes the
+ * Game Boy tokens with it.
  */
 const PIXEL_WORLD_FILES = [
 	'/src/lib/ui/play/PixelWord.svelte',
 	'/src/lib/ui/play/PlayFrame.svelte',
 	'/src/lib/ui/play/views/DrawnMiss.svelte',
-	'/src/lib/ui/play/views/FigureView.svelte',
 	'/src/lib/ui/play/views/GridScrollView.svelte',
 	'/src/lib/ui/play/views/LinkLaneView.svelte',
-	'/src/lib/ui/play/views/MarkShape.svelte',
 	'/src/lib/ui/play/views/NeckDiagram.svelte',
 	'/src/lib/ui/play/views/NeckPicture.svelte',
-	'/src/lib/ui/play/views/PlayedCycle.svelte',
 	'/src/lib/ui/primitives/ChordShape.svelte',
 	'/src/lib/ui/primitives/PixelButton.svelte',
 	'/src/lib/ui/primitives/Term.svelte',
 	'/src/lib/ui/primitives/VerdictSprite.svelte',
-	'/src/lib/ui/screens/summary/SummaryScreen.svelte',
 	'/src/lib/ui/tokens.css'
 ];
 

@@ -50,7 +50,7 @@
 	its width (`--neck-max`). A span too wide for the room scrolls in its row rather than
 	squeezing its frets. */
 	.neck-picture {
-		max-inline-size: var(--neck-max, calc(var(--np-tile) * 72));
+		max-inline-size: var(--neck-max, calc(var(--neck-tile, var(--np-tile)) * 72));
 		overflow-x: auto;
 	}
 </style>
