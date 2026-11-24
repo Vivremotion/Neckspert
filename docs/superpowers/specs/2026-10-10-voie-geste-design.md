@@ -1,5 +1,7 @@
 # Design — voie du geste (D)
 
+Les passages sur l'aide sont remplacés par le ticket #19 (novembre 2026).
+
 Sous-projet D de l’étape 3 (`docs/feuille-de-route.md`). Conçu dans la conversation du 2026-10-10, à partir du cours du 2026-09-24 (`docs/projet.md`) et de ses devoirs : la grille d’« I Only Have Eyes for You », lignes 1 et 2, en montant le manche puis, à la reprise, en descendant ; retrouver plusieurs formes d’un même accord. Specs liées : `2026-10-06-accords-voicings-design.md` (A), `2026-10-07-capteur-accords-design.md` (B1), `2026-10-08-voie-memoire-triades-design.md` (C1), `2026-10-09-retours-voie-memoire-design.md`.
 
 ## Décisions de pédagogie

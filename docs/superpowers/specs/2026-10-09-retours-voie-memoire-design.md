@@ -1,5 +1,7 @@
 # Design — retours de la voie de la mémoire
 
+Les passages sur la présentation aidée sont remplacés par le ticket #19 (novembre 2026).
+
 Date : 2026-10-09. Statut : approuvé dans la conversation du 2026-10-09, en deux parties (jugement, écran).
 
 Suite de C1 (`2026-10-08-voie-memoire-triades-design.md`), avant sa fusion. Vient des premières sessions « Triades » jouées le 2026-10-08. L’amélioration de la reconnaissance elle-même (justesse du capteur) vient après la fusion ; ici on ne change que le moment des lectures, la règle du premier accord et ce que l’écran montre.

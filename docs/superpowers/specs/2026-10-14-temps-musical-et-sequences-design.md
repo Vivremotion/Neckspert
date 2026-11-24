@@ -1,5 +1,7 @@
 # Design — temps musical et séquences (chantier 1, tranche « rythme pur »)
 
+Les passages sur l'aide, les niveaux d'aide et l'anti-blocage sont remplacés par le ticket #19 (novembre 2026).
+
 Chantier 1 de `docs/feuille-de-route.md`. Conçu dans la conversation du 2026-10-14 à partir du test du langage sur deux ans de cours (15 exercices du corpus demandent des séquences, 8 du rythme, 5 un clic paramétrable), puis relu (section « Revue »). Specs liées : `2026-10-10-voie-geste-design.md` (passages enchaînés, vue choisie par l’exercice), `2026-10-06-journal-observations-design.md` (enveloppes d’observations), `2026-10-07-capteur-accords-design.md` (variantes en ombre, vérification par candidats).
 
 ## Décisions

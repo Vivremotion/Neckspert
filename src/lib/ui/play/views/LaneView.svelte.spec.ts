@@ -11,7 +11,6 @@ import { StageController } from './testing/StageController.svelte';
 afterEach(() => cleanup());
 
 const F_ON_B = presented({ primary: 'F', secondary: 'corde de B', preview: 'corde de B' });
-/** The string drawn while it carries the aid. */
 /** F# diminished: its root string and the strings it takes, the chord on its band. */
 const CHORD = presented({
 	primary: 'F#dim',
@@ -37,6 +36,7 @@ const SHAPE_B: Picture = {
 		{ string: 1, fret: 2 }
 	]
 };
+/** The string the prompt's picture draws, at a level that writes it. */
 const B_DRAWN = [{ kind: 'string' as const, string: 2 as const, label: 'B' }];
 
 /** F on B, prompted on beat 0 for beat 8; `nowBeat` 1 unless said. */

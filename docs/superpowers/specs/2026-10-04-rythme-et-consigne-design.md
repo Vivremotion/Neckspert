@@ -1,5 +1,7 @@
 # Design — rythme, consigne et pilotage de l’Apprentissage
 
+Les passages sur le sondage, la présentation aidée et la corde dessinée qui revient puis s'efface sont remplacés par le ticket #19 (novembre 2026).
+
 Date : 2026-10-04. Statut : approuvé dans la conversation de recherche (analyse de l’export du 2026-10-04), rédigé à la planification.
 
 Cette spec corrige ce que l’export du 2026-10-04 a montré : FSRS bloqué en apprentissage, une grille rythmique qui dérive, des consignes mal lues, des échecs en cascade, un ordre prévisible et une surcharge. Elle complète les specs `2026-10-02-apprentissage-design.md` et `2026-10-03-sondage-avant-apprentissage-design.md`, dont les principes restent valables (froid seul compté, sondage, file d’introduction).

@@ -1,5 +1,7 @@
 # Design — mécanique, exercice et exécution
 
+Les passages sur le sondage et la corde dessinée sont remplacés par le ticket #19 (novembre 2026).
+
 Date : 2026-10-05. Statut : approuvé dans la conversation de développement du 2026-10-05.
 
 Étape 1 de `docs/feuille-de-route.md` ; cette spec reprend le vocabulaire de `docs/projet.md` (mécanique, exercice, progression, session, exécution, carte, essai) et les décisions sans les répéter. Refactor sans nouvelle fonctionnalité : les modes 1 (localiser) et 2 (identifier) deviennent les deux premières mécaniques, chacune avec un seul exercice sans paramètre. Le comportement observable ne change pas, sauf les deux exceptions de la section 9.
