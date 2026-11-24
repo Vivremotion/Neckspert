@@ -40,6 +40,24 @@ const AID_LEVELS: ExerciseDefinition = {
 	]
 };
 
+/**
+ * A figure that sounds: played along everywhere but at level 2, which writes `playAlong: false`;
+ * heard first at level 3 only.
+ */
+const SOUNDING: ExerciseDefinition = {
+	...RHYTHM_OFFBEATS,
+	id: 'sounding',
+	params: { ...RHYTHM_OFFBEATS.params, playAlong: true, pacing: { roundsPerBreath: 2 } },
+	levels: [{ params: {} }, { params: { playAlong: false } }, { params: { listenFirst: true } }]
+};
+
+/** No figure to sound, its levels writing both all the same. */
+const SILENT: ExerciseDefinition = {
+	...CLIMB,
+	id: 'silent',
+	levels: [{ params: { listenFirst: true, playAlong: true } }]
+};
+
 /** The next round goes on without a gap. */
 const CHAINS = { chains: true, countIn: false };
 /** The next round comes after the breath of its plan, no count. */
@@ -52,7 +70,7 @@ function stored(exerciseId: string, scope: string, level: number): LevelState {
 async function setup(states: LevelState[] = []) {
 	const repository = new InMemoryLevelStateRepository();
 	for (const state of states) await repository.put(state);
-	const definitions = [CLIMB, PLAIN, RUNS, AID_LEVELS, RHYTHM_OFFBEATS];
+	const definitions = [CLIMB, PLAIN, RUNS, AID_LEVELS, RHYTHM_OFFBEATS, SOUNDING, SILENT];
 	const levels = new ExerciseLevels({
 		levels: repository,
 		exercise: (id) => {
@@ -146,7 +164,10 @@ describe('ExerciseLevels', () => {
 		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
 		for (let i = 0; i < 6; i++) {
 			expect(await levels.settle(round(false))).toBeNull();
-			expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'round' });
+			expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
+				role: 'round',
+				playAlong: false
+			});
 		}
 		expect(levels.apply('climb', 'blues-f')).toBeNull();
 		expect(await repository.get({ exerciseId: 'climb', scope: 'blues-f', item: '' })).toEqual({
@@ -207,7 +228,7 @@ describe('ExerciseLevels', () => {
 		// The count that opens the series is not a breath.
 		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true })).toEqual({
 			breath: false,
-			next: { role: 'round' }
+			next: { role: 'round', playAlong: false }
 		});
 		expect(levels.boundary(at, 0, 1000, FOLLOWS).breath).toBe(false);
 		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true }).breath).toBe(true);
@@ -264,8 +285,45 @@ describe('ExerciseLevels', () => {
 		// A new run, no breath before it, and the listen forgotten.
 		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true })).toEqual({
 			breath: false,
-			next: { role: 'round' }
+			next: { role: 'round', playAlong: false }
 		});
+	});
+
+	it('plays the model along at every level that writes it, the exercise’s params included', async () => {
+		const along = async (level: number) => {
+			const { levels } = await setup([stored('sounding', '', level)]);
+			const at = { exerciseId: 'sounding' };
+			return [
+				levels.boundary(at, 0, 1000, { chains: false, countIn: true }),
+				levels.boundary(at, 0, 1000, CHAINS),
+				levels.boundary(at, 0, 1000, CHAINS)
+			].map(({ breath, next }) => (breath ? `breath+` : '') + JSON.stringify(next));
+		};
+		const round = (playAlong: boolean) => JSON.stringify({ role: 'round', playAlong });
+		expect(await along(0)).toEqual([round(true), round(true), `breath+${round(true)}`]);
+		expect(await along(1)).toEqual([round(false), round(false), `breath+${round(false)}`]);
+		// Level 3 hears the model before each run, then plays along with it.
+		expect(await along(2)).toEqual([JSON.stringify({ role: 'listen' }), round(true), round(true)]);
+	});
+
+	it('hears the model again when play goes on after a stop during the heard cycle', async () => {
+		const { levels } = await setup([stored('sounding', '', 2)]);
+		const at = { exerciseId: 'sounding' };
+		const opening = { chains: false, countIn: true };
+		expect(levels.boundary(at, 0, 1000, opening).next).toEqual({ role: 'listen' });
+		levels.interrupt();
+		expect(levels.boundary(at, 0, 1000, opening).next).toEqual({ role: 'listen' });
+		expect(levels.boundary(at, 0, 1000, CHAINS).next.role).toBe('round');
+	});
+
+	it('neither hears nor plays along an exercise with no figure to sound', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: 'silent' };
+		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true }).next).toEqual({
+			role: 'round',
+			playAlong: false
+		});
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'round', playAlong: false });
 	});
 });
 

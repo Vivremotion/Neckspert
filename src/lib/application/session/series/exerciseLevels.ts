@@ -14,7 +14,7 @@ import {
 import { levelRange, type LevelState } from '$lib/domain/time';
 import type { LevelStateRepositoryPort } from '$lib/application/ports';
 import type { Announcement } from '../contract';
-import { listenOf } from './compilePlan';
+import { listenOf, modelSoundsOf } from './compilePlan';
 
 /** The key of an exercise level: its exercise and its scope (empty for none). */
 function keyOf(exerciseId: ExerciseId, scope: string | undefined): string {
@@ -233,14 +233,17 @@ function writesLevels(definition: ExerciseDefinition): boolean {
 
 /**
  * What the policy reads of an exercise: its levels, the runs of each (`pacing.roundsPerBreath`,
- * none when absent), whether its levels let the player ask to hear the content, with the series'
- * length.
+ * none when absent), whether its levels let the player ask to hear the content, and what of it
+ * they make sound (`modelSoundsOf`: nothing for an exercise whose content cannot sound), with the
+ * series' length.
  */
 function rulesOf(definition: ExerciseDefinition, budgetMs: number): SeriesRules {
 	return {
 		levels: exerciseLevelsOf(definition),
 		roundsPerBreath: (level) => pacingAt(definition, level).roundsPerBreath ?? null,
 		listen: (level) => listenOf(definition, level) === 'free',
+		listenFirst: (level) => modelSoundsOf(definition, level).listenFirst,
+		playAlong: (level) => modelSoundsOf(definition, level).playAlong,
 		budgetMs
 	};
 }

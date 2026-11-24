@@ -55,6 +55,7 @@ import { START_DELAY_S, Transport, TransportStopped } from './transport';
 import {
 	compilePlan,
 	contentFigure,
+	modelSoundsOf,
 	roundAttempt,
 	roundGiven,
 	runSetup,
@@ -217,8 +218,10 @@ function silentCountOr(
  * once its last cycle has settled, at the level it reached, announced at once and until its first
  * round opens (`PlayView.announcement`), its tempo changed after the breath with a listen-in and
  * its count. An exercise that can make its content sound (`contentFigure`) has it
- * demonstrated over a longer listen-in the first time the player meets it, heard on demand
- * (`listen`, a heard cycle the policy places). Decided ahead (a breath, an instruction) the
+ * demonstrated over a longer listen-in the first time the player meets it (unless its level hears
+ * it before each run), heard on demand (`listen`, a heard cycle the policy places), heard before
+ * each run of a level that writes `listenFirst` and sounding along every round of a level that
+ * writes `playAlong`, as the policy decides. Decided ahead (a breath, an instruction) the
  * policy is only asked, so a run and a listen asked are taken once. A pause cuts the round under way, which comes again
  * first; the last run is heard again from the pause or the breath, its muted bars clicked. It
  * judges nothing and knows no exercise: what it plays comes from its data.
@@ -734,8 +737,9 @@ export class SessionController implements PlaySessionController {
 	/**
 	 * Begins the transport at `item`'s tempo: its exercise's listen-in (none for most), its content
 	 * demonstrated over more bars of it the first time the player meets an exercise that can make
-	 * it sound, a counted bar unless its run starts without one, then its round. A level its
-	 * exercise reached applies here: the transport begins at its tempo.
+	 * it sound, a counted bar unless its run starts without one, then its round. A level that hears
+	 * the content before each run (`listenFirst`) has no demonstration: the run opens with it. A
+	 * level its exercise reached applies here: the transport begins at its tempo.
 	 */
 	private async beginWith(waiting: PlannedItem, generation: number): Promise<void> {
 		// A level reached is told from the listen-in on.
@@ -748,8 +752,13 @@ export class SessionController implements PlaySessionController {
 		const setup = this.runSetupOf(item);
 		const met = this.met.has(item.exerciseId) || this.demonstrated.has(item.exerciseId);
 		const definition = this.items.definitionOf(item);
+		// Heard before its run already: demonstrated by it, not twice in a row.
+		const heardFirst = modelSoundsOf(definition, item.exerciseLevel).listenFirst;
+		if (heardFirst) this.demonstrated.add(item.exerciseId);
 		const demonstration =
-			met || definition.flow?.demonstration === false ? null : contentFigure(definition, item);
+			met || heardFirst || definition.flow?.demonstration === false
+				? null
+				: contentFigure(definition, item);
 		const demoBars = demonstration?.bars ?? 0;
 		let playFrom: number;
 		try {
@@ -796,15 +805,24 @@ export class SessionController implements PlaySessionController {
 	/**
 	 * Lays `item`'s round (or its heard cycle) on bar `at` before it begins, so its first beat is
 	 * not already past when it opens: its accompaniment, muted bars silent, and its content when it
-	 * is heard. For a round judged whole and every chained one.
+	 * sounds (heard, or played along). For a round judged whole and every chained one.
 	 */
 	private layAhead(item: PlannedItem, plan: RoundPlan, at: Fraction): void {
 		if (this.clicksOn(item)) this.accompanyRound(at, plan);
-		if (this.placed?.role === 'listen') this.playContent(item, plan, at);
+		const placed = this.placed;
+		if (placed?.role === 'listen') this.playContent(item, plan, at, 'demo');
+		else if (placed?.role === 'round' && placed.playAlong) {
+			this.playContent(item, plan, at, 'play-along');
+		}
 	}
 
-	/** `item`'s content heard over its round on bar `at`, from each loop of its figure that fits. */
-	private playContent(item: PlannedItem, plan: RoundPlan, at: Fraction): void {
+	/** `item`'s content sounds over its round on bar `at`, from each loop of its figure that fits. */
+	private playContent(
+		item: PlannedItem,
+		plan: RoundPlan,
+		at: Fraction,
+		sound: 'demo' | 'play-along'
+	): void {
 		const figure = contentFigure(this.items.definitionOf(item), item);
 		if (!figure) return;
 		const bars = plan.length.div(this.transport.barLength).toNumber();
@@ -812,7 +830,7 @@ export class SessionController implements PlaySessionController {
 		const fromRunStart = this.fromRunStart(at) ?? 0;
 		for (let bar = 0; bar < bars; bar++) {
 			if ((fromRunStart + bar) % figure.bars !== 0 || bar + figure.bars > bars) continue;
-			this.transport.playFigure(figure, 'demo', first + bar);
+			this.transport.playFigure(figure, sound, first + bar);
 		}
 	}
 

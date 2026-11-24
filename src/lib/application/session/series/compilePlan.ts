@@ -102,6 +102,20 @@ export function listenOf(definition: ExerciseDefinition, level: number): FigureP
 	return figureParamsOf(definition, level).listen;
 }
 
+/**
+ * What of its content the exercise level `level` makes sound: the model heard before each run
+ * (`listenFirst`), the model sounding with the player (`playAlong`); neither for an exercise whose
+ * content cannot sound (`canSound`).
+ */
+export function modelSoundsOf(
+	definition: ExerciseDefinition,
+	level: number
+): { listenFirst: boolean; playAlong: boolean } {
+	if (!canSound(definition)) return { listenFirst: false, playAlong: false };
+	const { listenFirst, playAlong } = figureParamsOf(definition, level);
+	return { listenFirst, playAlong };
+}
+
 /** How a run of an exercise opens and what plays under it. */
 export interface RunSetup {
 	/** What the listen-in plays: the accompaniment with no bar muted; null: the series' click. */

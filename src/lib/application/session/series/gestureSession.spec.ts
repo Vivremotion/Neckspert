@@ -40,6 +40,7 @@ import {
 	FakeDefinitionsService
 } from '$lib/testing/fakes';
 import {
+	BENCH_LEVELS,
 	change,
 	clicksBetween,
 	drain,
@@ -50,6 +51,7 @@ import {
 	model,
 	passage,
 	rightShape,
+	roles,
 	ScriptedSource,
 	type Ctx
 } from '$lib/testing/gestureSeries';
@@ -655,6 +657,47 @@ describe('rounds handing over without a gap (chainedRounds)', () => {
 		await drain();
 		expect(ctx.controller.view.status).toBe('finished');
 		expect((await ctx.stored()).map((a) => a.tempoBpm)).toEqual([120, 120, 60, 60]);
+	});
+});
+
+describe('a level that writes listenFirst and playAlong, on an exercise with no figure', () => {
+	/** A grid passage played right, its exercise's levels writing both params or neither. */
+	async function playedWith(written: boolean) {
+		const ctx = gestureSeries(passage(), {
+			catalogLevels: true,
+			exercise: (id) => {
+				const definition = exerciseById(id);
+				const params = written ? { listenFirst: true, playAlong: true } : {};
+				return {
+					...definition,
+					levels: BENCH_LEVELS.map((level) => ({
+						...level,
+						params: { ...level.params, ...params }
+					}))
+				};
+			}
+		});
+		await ctx.controller.start();
+		ctx.runTo(ctx.bar(1));
+		ctx.play(ctx.bar(1), rightShape(change(0)));
+		ctx.runTo(ctx.bar(2));
+		ctx.play(ctx.bar(2), rightShape(change(1)));
+		ctx.runTo(ctx.bar(3));
+		await drain();
+		// Read before quitting: stopping empties the journal of the sounds.
+		const sounds = ctx.sounds.emitted().map(({ sound, time }) => ({ sound, time }));
+		const attempts = (await ctx.stored()).map((a) => [a.promptedAt, a.success]);
+		ctx.controller.quit();
+		await drain();
+		return { sounds, attempts, trace: roles(ctx.memory.get('series-1')?.trace ?? null) };
+	}
+
+	it('plays as without them: nothing heard first, nothing sounds along, nothing breaks', async () => {
+		const without = await playedWith(false);
+		const withBoth = await playedWith(true);
+		expect(withBoth.sounds.some((s) => s.sound === 'demo' || s.sound === 'play-along')).toBe(false);
+		expect(withBoth.attempts).toHaveLength(2);
+		expect(withBoth).toEqual(without);
 	});
 });
 

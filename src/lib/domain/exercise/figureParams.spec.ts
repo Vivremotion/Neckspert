@@ -48,7 +48,9 @@ describe('figureParamsOf', () => {
 			notation: null,
 			neck: false,
 			liveMarks: false,
-			nextBeats: 0
+			nextBeats: 0,
+			listenFirst: false,
+			playAlong: false
 		});
 		expect(figureParamsOf(LOCATE_NECK, 0)).toEqual({
 			feedback: 'every-cycle',
@@ -58,7 +60,9 @@ describe('figureParamsOf', () => {
 			notation: null,
 			neck: false,
 			liveMarks: false,
-			nextBeats: 0
+			nextBeats: 0,
+			listenFirst: false,
+			playAlong: false
 		});
 	});
 
@@ -71,7 +75,9 @@ describe('figureParamsOf', () => {
 			notation: null,
 			neck: false,
 			liveMarks: false,
-			nextBeats: 0
+			nextBeats: 0,
+			listenFirst: false,
+			playAlong: false
 		});
 		expect(figureParamsOf(RHYTHM_SILENT_BARS, 5)).toEqual({
 			feedback: 'out-of-tolerance',
@@ -81,9 +87,26 @@ describe('figureParamsOf', () => {
 			notation: null,
 			neck: false,
 			liveMarks: false,
-			nextBeats: 0
+			nextBeats: 0,
+			listenFirst: false,
+			playAlong: false
 		});
 		expect(figureParamsOf(RHYTHM_TWO_FOUR, 0)).toMatchObject({ listen: 'free', cursor: true });
+	});
+
+	it('reads listenFirst and playAlong at any level, false by default or when not a boolean', () => {
+		const sounding: ExerciseDefinition = {
+			...bare,
+			params: { playAlong: true },
+			levels: [
+				{ params: {} },
+				{ params: { playAlong: false } },
+				{ params: { listenFirst: true, playAlong: 'yes' } }
+			]
+		};
+		expect(figureParamsOf(sounding, 0)).toMatchObject({ listenFirst: false, playAlong: true });
+		expect(figureParamsOf(sounding, 1)).toMatchObject({ listenFirst: false, playAlong: false });
+		expect(figureParamsOf(sounding, 2)).toMatchObject({ listenFirst: true, playAlong: false });
 	});
 
 	it('refuses a level the exercise does not have', () => {

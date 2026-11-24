@@ -1022,6 +1022,149 @@ describe('the rhythm on the series, listening to the figure', () => {
 	});
 });
 
+/** `exercise` with `params` written at its exercise level `level` (0 = level 1), and nowhere else. */
+function writingAt(
+	exercise: ExerciseDefinition,
+	level: number,
+	params: Record<string, unknown>
+): ExerciseDefinition {
+	const levels = exercise.levels ?? [];
+	const first = levels.findIndex((written) => !written.aid);
+	return {
+		...exercise,
+		levels: levels.map((written, index) =>
+			index === first + level ? { ...written, params: { ...written.params, ...params } } : written
+		)
+	};
+}
+
+/** The bars (from the map's origin `origin`) on which a sound of kind `sound` was scheduled. */
+function barsOf(
+	emitted: readonly { sound: string; time: number }[],
+	sound: string,
+	barS: number,
+	origin = ORIGIN
+): number[] {
+	return emitted
+		.filter((s) => s.sound === sound)
+		.map((s) => Math.floor((s.time - origin) / barS + 1e-9));
+}
+
+/** The number of each item in `values`, by value. */
+function countsOf(values: number[]): Record<number, number> {
+	const counts: Record<number, number> = {};
+	for (const value of values) counts[value] = (counts[value] ?? 0) + 1;
+	return counts;
+}
+
+describe('the rhythm on the series, a level that plays the model', () => {
+	/** Offbeats whose level 1 hears the model before each run and plays along with it. */
+	const MODELLED = writingAt(RHYTHM_OFFBEATS, 0, { listenFirst: true, playAlong: true });
+
+	it('hears a cycle first, plays the model along every cycle, and moves up after three successes', async () => {
+		const { controller, stored, sounds, memory, levels, advance } = await rhythmSeries(MODELLED, {
+			met: true
+		});
+		await controller.start();
+		// listen-in 0-1, count 2, the heard cycle 3, cycles 4-7, breath 8-9, level 2 from bar 10
+		await advance(ORIGIN + 3.5 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('listening');
+		await advance(ORIGIN + 13.6 * OFFBEATS_BAR_S);
+		const emitted = sounds.emitted();
+		// The figure's five attacks: heard on bar 3, along with each cycle of the run.
+		expect(countsOf(barsOf(emitted, 'demo', OFFBEATS_BAR_S))).toEqual({ 3: 5 });
+		expect(countsOf(barsOf(emitted, 'play-along', OFFBEATS_BAR_S))).toEqual({
+			4: 5,
+			5: 5,
+			6: 5,
+			7: 5
+		});
+		const attempts = await stored();
+		// No attempt for the heard cycle; the run's four, then level 2's first (bars 10-11).
+		expect(attempts.map((a) => a.promptedAt)).toEqual(
+			[4, 5, 6, 7, 10].map((bar) => epochOfBar(bar, OFFBEATS_BAR_S))
+		);
+		expect(attempts.slice(0, 4).every((a) => a.success && a.data)).toBe(true);
+		expect(attempts.map((a) => (a.data as FigureAttemptData).level)).toEqual([0, 0, 0, 0, 1]);
+		// Three successes played along are three successes: the level went up.
+		const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
+		expect(state?.level).toBe(1);
+		controller.quit();
+		await settled();
+		const runs = runsOf(memory);
+		expect(roles(runs[0])).toEqual(['listen', 'round', 'round', 'round', 'round']);
+		// Level 2 writes neither: its run opens with a round, nothing heard nor played along.
+		expect(roles(runs[1])[0]).toBe('round');
+	});
+
+	it('hears the model again on resume after a pause during the heard cycle', async () => {
+		const { controller, stored, sounds, memory, clock, advance } = await rhythmSeries(MODELLED, {
+			met: true
+		});
+		await controller.start();
+		await advance(ORIGIN + 3.5 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('listening');
+		controller.pause();
+		controller.resume();
+		await settled();
+		const origin = clock.now() + ORIGIN;
+		// listen-in 0-1, count 2, the heard cycle 3 again, the first cycle played on 4
+		await advance(origin + 5.6 * OFFBEATS_BAR_S);
+		const emitted = sounds.emitted();
+		expect(countsOf(barsOf(emitted, 'demo', OFFBEATS_BAR_S, origin))).toEqual({ 3: 5 });
+		expect(barsOf(emitted, 'play-along', OFFBEATS_BAR_S, origin)).toContain(4);
+		const attempts = await stored();
+		expect(attempts.map((a) => a.promptedAt)).toEqual([
+			clock.toEpochMs(origin + 4 * OFFBEATS_BAR_S)
+		]);
+		controller.quit();
+		await settled();
+		const runs = runsOf(memory);
+		expect(roles(runs[0])).toEqual(['listen']);
+		expect(roles(runs.at(-1) as Segment).slice(0, 2)).toEqual(['listen', 'round']);
+	});
+
+	it('adds no demonstration at a first encounter: the heard cycle opens the run', async () => {
+		const { controller, sounds, advance } = await rhythmSeries(MODELLED);
+		await controller.ready();
+		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
+		await controller.start();
+		// No longer listen-in: listen-in 0-1, count 2, the heard cycle 3.
+		await advance(ORIGIN + 2.5 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('count-in');
+		await advance(ORIGIN + 4.5 * OFFBEATS_BAR_S);
+		expect(countsOf(barsOf(sounds.emitted(), 'demo', OFFBEATS_BAR_S))).toEqual({ 3: 5 });
+		controller.quit();
+	});
+
+	it('plays along at the level that writes it, not at the one below', async () => {
+		const second = writingAt(RHYTHM_OFFBEATS, 1, { playAlong: true });
+		const atFirst = await rhythmSeries(second, { met: true });
+		await atFirst.controller.start();
+		await atFirst.advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+		expect(barsOf(atFirst.sounds.emitted(), 'play-along', OFFBEATS_BAR_S)).toEqual([]);
+		atFirst.controller.quit();
+		const atSecond = await rhythmSeries(second, { met: true });
+		await atSecond.levels.put({
+			exerciseId: RHYTHM_OFFBEATS.id,
+			scope: '',
+			item: '',
+			level: 1,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		await atSecond.controller.start();
+		// listen-in 0-1, count 2, two-bar cycles from bar 3, played along from their first bar
+		await atSecond.advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+		const along = barsOf(atSecond.sounds.emitted(), 'play-along', OFFBEATS_BAR_S);
+		expect(along.length).toBeGreaterThan(0);
+		expect(Math.min(...along)).toBe(3);
+		expect(barsOf(atSecond.sounds.emitted(), 'demo', OFFBEATS_BAR_S)).toEqual([]);
+		atSecond.controller.quit();
+	});
+});
+
 describe('the rhythm on the series, failures in a row', () => {
 	const ways = [
 		['a note missed at the same spot', (player: { skip: number | null }) => (player.skip = 3)],
