@@ -32,7 +32,7 @@
 	const late = $derived(Number(page.url.searchParams.get('late') ?? 0) || 0);
 	const beat = $derived(page.url.searchParams.get('beat'));
 
-	/** F# diminished on the G, B and E strings, the shape the aid draws. */
+	/** F# diminished on the G, B and E strings, the shape the prompt draws. */
 	const F_SHARP_DIM: Picture = {
 		kind: 'shape',
 		notes: [

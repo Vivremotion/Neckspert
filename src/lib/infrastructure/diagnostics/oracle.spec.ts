@@ -58,7 +58,6 @@ function cycle(id: number, sessionId: string, promptedAt: number, contested = fa
 		cardKey: `${RHYTHM_OFFBEATS.practices}:offbeats-1@0`,
 		phase: 'free',
 		temperature: 'hot',
-		aids: [],
 		promptedAt,
 		tempoBpm: 80,
 		leadBeats: null,

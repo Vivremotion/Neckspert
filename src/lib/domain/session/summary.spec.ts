@@ -93,11 +93,11 @@ describe('summarizeSeries', () => {
 				{ level: 0, attempts: [] },
 				{ level: 0, attempts: [] },
 				{ level: 1, attempts: [] },
-				{ level: -1, attempts: [] }
+				{ level: 0, attempts: [] }
 			]),
 			attempts: []
 		});
-		expect(summary.levels).toEqual([0, 1, -1]);
+		expect(summary.levels).toEqual([0, 1, 0]);
 	});
 
 	it('playedShare is round time over series time', () => {

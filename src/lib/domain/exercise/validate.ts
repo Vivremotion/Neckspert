@@ -275,9 +275,9 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
  * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, an
  * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
  * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
- * its level in `levels` or on its ladder, a run a level could not start or
- * end (`runProblem`), a presentation path on an exercise without one (`presentationPathsProblem`). A path no piece reads at a level passes, the learning settings among them:
- * it is without effect.
+ * its level in `levels` or on its ladder, a run a level could not start or end (`runProblem`), a
+ * presentation path on an exercise without one (`presentationPathsProblem`). A path no piece reads
+ * at a level passes, the learning settings among them: it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
 	const { levels } = definition;

@@ -45,7 +45,6 @@ describe('AttemptRecorder', () => {
 			cardKey: LOCATE_KEY,
 			phase: planned.phase,
 			temperature: 'hot',
-			aids: [],
 			promptedAt: 1_000,
 			tempoBpm: 80,
 			leadBeats: planned.leadBeats,

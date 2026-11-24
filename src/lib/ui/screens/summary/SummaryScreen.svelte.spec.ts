@@ -373,7 +373,7 @@ describe('SummaryScreen of a series in memory', () => {
 				{
 					id: 7,
 					exerciseId: 'rhythm-offbeats',
-					level: -1,
+					level: 1,
 					ended: 'interrupted',
 					rounds: 4,
 					successes: 0,

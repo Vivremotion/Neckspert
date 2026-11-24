@@ -39,7 +39,7 @@ const series = (level = 1) =>
 	sequenceSeries(ARPEGGIO_EXERCISE, { pattern: ARPEGGIO_PATTERN, met: true, level });
 
 describe('a sequence of chord shapes on the series', () => {
-	it('is an exercise the engine runs, its unread aid path included', () => {
+	it('is an exercise the engine runs and its screens accept', () => {
 		expect(validateExercise(ARPEGGIO_EXERCISE, { sensors: ['note'] })).toBeNull();
 		expect(presentationProblem(ARPEGGIO_EXERCISE)).toBeNull();
 		expect(

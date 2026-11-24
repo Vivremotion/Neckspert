@@ -189,41 +189,41 @@ function silentCountOr(
  * its source, has its plan compiled (`compilePlan`: from its exercise's round template, or a cycle
  * of its figure), opens a `RoundRunner` on it, and places the rounds on the transport: the next
  * round at the handover of the one before when it goes on without a counted bar at the same tempo
- * and on the same scene (chained); after a round without a handover, once it settles, on the
- * first place its plan allows (`timedStart`, L4) or on the beat after the answer in free time
- * (D3), shown `previewBeats` before its prompt (D5); else after a counted bar (silent bars first
- * when the item asks), the tempo changed first for an item of another tempo. At each boundary the
- * policy decides (`next`, through `ExerciseLevels`): another round, a breath (a run played out:
- * the next round after a counted bar), or the end (past the series' length where the next round
- * does not chain, or the source has nothing more). An exercise met for the first time in the
- * series stops on its instruction, as its flow says (`briefing`: in each series, or only until it
- * was played once). Each settled round is written (`roundAttempt`, through the recorder, which
- * tells the source first), and moves its exercise's level (`ExerciseLevels`); a level reached
- * applies at the next round that does not chain, announced, its tempo the new level's. It keeps
- * the trace of the series (count-in, run › round, pause, instruction; a run is the rounds between
- * two counted bars) and the take of each run (`SeriesTakes`), hands both to the session memory at
- * the end, and plays the last run again from the pause (`replay`), with the latency of the sensor
- * that run listened to; the session keeps the latency of its first rounds' sensor.
+ * and on the same scene (chained); after a round without a handover, once it settles, on the first
+ * place its plan allows (`timedStart`, L4) or on the beat after the answer in free time (D3), shown
+ * `previewBeats` before its prompt (D5); else after a counted bar (silent bars first when the item
+ * asks), the tempo changed first for an item of another tempo. At each boundary the policy decides
+ * (`next`, through `ExerciseLevels`): another round, a breath (a run played out: the next round
+ * after a counted bar), or the end (past the series' length where the next round does not chain, or
+ * the source has nothing more). An exercise met for the first time in the series stops on its
+ * instruction, as its flow says (`briefing`: in each series, or only until it was played once).
+ * Each settled round is written (`roundAttempt`, through the recorder, which tells the source
+ * first), and moves its exercise's level (`ExerciseLevels`); a level reached applies at the next
+ * round that does not chain, announced, its tempo the new level's. It keeps the trace of the series
+ * (count-in, run › round, pause, instruction; a run is the rounds between two counted bars) and the
+ * take of each run (`SeriesTakes`), hands both to the session memory at the end, and plays the last
+ * run again from the pause (`replay`), with the latency of the sensor that run listened to; the
+ * session keeps the latency of its first rounds' sensor.
  *
  * A round may be a cycle of a figure (plan H6, D8): `compilePlan` compiles it and writes its
  * attempt, `stage` builds its screen model, shown again on every beat. A run then opens with its
- * exercise's listen-in (and its counted bar, unless it has none: then the last listen-in bar
- * shows the count, silently), plays its accompaniment, muted bars silent, and its entry bars
- * before its first cycle; cycles chain at their end, what follows each decided a beat before so
- * its first bar is scheduled in time, and each keeps taking what it captured but was heard late
- * until it settles, `settleAfter` past its end. A run that ends there has its breath scheduled
- * ahead (`pacing.breathMinMs`, its accompaniment with no bar muted, the last bar counted, heard
- * only where the level has a counted bar), shown with the run's marks; the next run is decided
- * once its last cycle has settled, at the level it reached, announced at once and until its first
- * round opens (`PlayView.announcement`), its tempo changed after the breath with a listen-in and
- * its count. An exercise that can make its content sound (`contentFigure`) has it
- * demonstrated over a longer listen-in the first time the player meets it (unless its level hears
- * it before each run), heard on demand (`listen`, a heard cycle the policy places), heard before
- * each run of a level that writes `listenFirst` and sounding along every round of a level that
- * writes `playAlong`, as the policy decides. Decided ahead (a breath, an instruction) the
- * policy is only asked, so a run and a listen asked are taken once. A pause cuts the round under way, which comes again
- * first; the last run is heard again from the pause or the breath, its muted bars clicked. It
- * judges nothing and knows no exercise: what it plays comes from its data.
+ * exercise's listen-in (and its counted bar, unless it has none: then the last listen-in bar shows
+ * the count, silently), plays its accompaniment, muted bars silent, and its entry bars before its
+ * first cycle; cycles chain at their end, what follows each decided a beat before so its first bar
+ * is scheduled in time, and each keeps taking what it captured but was heard late until it settles,
+ * `settleAfter` past its end. A run that ends there has its breath scheduled ahead
+ * (`pacing.breathMinMs`, its accompaniment with no bar muted, the last bar counted, heard only
+ * where the level has a counted bar), shown with the run's marks; the next run is decided once its
+ * last cycle has settled, at the level it reached, announced at once and until its first round
+ * opens (`PlayView.announcement`), its tempo changed after the breath with a listen-in and its
+ * count. An exercise that can make its content sound (`contentFigure`) has it demonstrated over a
+ * longer listen-in the first time the player meets it (unless its level hears it before each run),
+ * heard on demand (`listen`, a heard cycle the policy places), heard before each run of a level
+ * that writes `listenFirst` and sounding along every round of a level that writes `playAlong`, as
+ * the policy decides. Decided ahead (a breath, an instruction) the policy is only asked, so a run
+ * and a listen asked are taken once. A pause cuts the round under way, which comes again first; the
+ * last run is heard again from the pause or the breath, its muted bars clicked. It judges nothing
+ * and knows no exercise: what it plays comes from its data.
  */
 export class SessionController implements PlaySessionController {
 	/** A new one for each series: a start after the end begins another (`deps.newId`). */

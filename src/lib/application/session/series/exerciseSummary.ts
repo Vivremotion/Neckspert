@@ -75,15 +75,17 @@ export function summarizeExercise(input: {
 		typeof value === 'object' && value !== null && 'passed' in value ? value : undefined;
 	const played = last ? playedOf(exercise, last) : null;
 	const readable = Array.isArray(last?.data.report?.expectations);
+	// A stored level may lie outside the levels (an old session, or an exercise that lost some).
+	const within = (level: number) => Math.min(levels.length - 1, Math.max(0, level));
 	return {
-		level: levelView(levels, Math.min(levels.length - 1, Math.max(0, held))),
+		level: levelView(levels, within(held)),
 		...(last?.data.report &&
 			verdict &&
 			readable && {
 				lastCycle: {
 					report: last.data.report,
 					verdict,
-					thresholds: figureParamsOf(exercise, last.data.level).thresholds,
+					thresholds: figureParamsOf(exercise, within(last.data.level)).thresholds,
 					...(played && { played })
 				}
 			})

@@ -112,4 +112,21 @@ describe('summarizeExercise', () => {
 				.lastCycle
 		).not.toHaveProperty('played');
 	});
+
+	it('tells the last cycle of a level stored outside the levels, read at the nearest level', () => {
+		const last = (level: number) =>
+			({
+				...cycle(level, false),
+				verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: [] } },
+				data: { level, report: { expectations: [], extra: 0 } }
+			}) as unknown as Attempt<FigureAttemptData>;
+		for (const level of [-1, 99]) {
+			const summary = summarizeExercise({
+				exercise: RHYTHM_OFFBEATS,
+				attempts: [last(level)],
+				state: undefined
+			});
+			expect(summary.lastCycle?.verdict).toEqual({ passed: false, reasons: [] });
+		}
+	});
 });

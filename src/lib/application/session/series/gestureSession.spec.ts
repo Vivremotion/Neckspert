@@ -1383,7 +1383,7 @@ describe('the first level of the changes (D12, Review Focus 4)', () => {
 				params: { tempo: 80, 'presentation.picture': 'admitted' }
 			});
 			expect(definition.presentation?.picture).toBeUndefined();
-			expect(definition.levels?.slice(1).every((level) => !('aid' in level))).toBe(true);
+			expect(definition.levels?.every((level) => !('aid' in level))).toBe(true);
 			expect(definition.flow).toBeUndefined();
 		}
 	});

@@ -139,7 +139,8 @@ export class ExerciseLevels {
 	}
 
 	/**
-	 * Play stops (a pause): every run under way ends, and a listen asked is forgotten. Play goes on with a new run, after a counted bar.
+	 * Play stops (a pause): every run under way ends, and a listen asked is forgotten. Play goes on
+	 * with a new run, after a counted bar.
 	 */
 	interrupt(): void {
 		for (const held of this.held.values()) {
