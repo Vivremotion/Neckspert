@@ -198,19 +198,24 @@ describe('presentPrompt', () => {
 
 	it('shows the aided presentation at an aid level of the exercise as when the item is served aided, on the lane too', () => {
 		const item = { voicingKey: D_ON_B, position: 14, fret: 15 };
+		// Two aid levels below two levels: the prompt is read at the level it is played at.
+		const levels: ExerciseDefinition['levels'] = [
+			{ aid: true, params: {} },
+			{ aid: true, params: {} },
+			{ params: {} },
+			{ params: {} }
+		];
+		const zone: ExerciseDefinition = { ...TRIADS_ZONE, levels };
 		const at = (over: Partial<PlannedItem>) =>
-			presentPrompt(TRIADS_ZONE, planned(TRIADS_ZONE, item, over), 'en', () => 0);
+			presentPrompt(zone, planned(zone, item, over), 'en', () => 0);
 		expect(at({ exerciseLevel: -1 }).aid).toBe('root on B');
 		expect(at({ exerciseLevel: -2 }).aid).toBe('root on B');
 		expect(at({ exerciseLevel: 0 }).aid).toBeNull();
 		expect(at({ exerciseLevel: 1 }).aid).toBeNull();
+		const anchored: ExerciseDefinition = { ...TRIADS_ANCHOR, levels };
 		const anchor = (over: Partial<PlannedItem>) =>
-			presentPrompt(
-				TRIADS_ANCHOR,
-				planned(TRIADS_ANCHOR, { voicingKey: D_ON_B }, over),
-				'fr',
-				() => 0
-			).pictures.length;
+			presentPrompt(anchored, planned(anchored, { voicingKey: D_ON_B }, over), 'fr', () => 0)
+				.pictures.length;
 		expect(anchor({ exerciseLevel: -1 })).toBe(1);
 		expect(anchor({ exerciseLevel: 0 })).toBe(0);
 	});
@@ -247,6 +252,94 @@ describe('presentPrompt', () => {
 		expect(count({ aid: 'show-position' })).toBe(1);
 		expect(count({ stringAid: true })).toBe(1);
 		expect(count({ aid: 'show-position', stringAid: true })).toBe(2);
+	});
+
+	describe('at a level that rewrites the prompt', () => {
+		const item = { string: 2, pitch: 'F' };
+		const BASE = { primary: '{note}', secondary: '{string}' };
+		const REWRITES = { 'presentation.detail': '{fret}', 'presentation.picture': 'string' };
+		const STRING_B = { kind: 'string', string: 2, label: 'B' };
+		const atLevel = (definition: ExerciseDefinition, exerciseLevel: number) =>
+			presentPrompt(definition, planned(definition, item, { exerciseLevel }), 'fr', () => 0);
+
+		it('shows the detail and the picture at the first level that writes them, not at the next', () => {
+			const definition: ExerciseDefinition = {
+				...LOCATE_NECK,
+				presentation: BASE,
+				levels: [{ params: REWRITES }, { params: {} }]
+			};
+			expect(atLevel(definition, 0)).toMatchObject({
+				primary: 'F',
+				detail: 'case 6',
+				pictures: [STRING_B]
+			});
+			expect(atLevel(definition, 1)).toMatchObject({ primary: 'F', detail: null, pictures: [] });
+		});
+
+		it('shows them at the top of three levels only, the level that writes them', () => {
+			const definition: ExerciseDefinition = {
+				...LOCATE_NECK,
+				presentation: BASE,
+				levels: [{ params: {} }, { params: {} }, { params: REWRITES }]
+			};
+			expect([0, 1, 2].map((level) => atLevel(definition, level).detail)).toEqual([
+				null,
+				null,
+				'case 6'
+			]);
+			expect([0, 1, 2].map((level) => atLevel(definition, level).pictures)).toEqual([
+				[],
+				[],
+				[STRING_B]
+			]);
+		});
+
+		it('reads an item level of its ladder after its exercise level', () => {
+			const definition: ExerciseDefinition = {
+				...LOCATE_NECK,
+				presentation: BASE,
+				params: {
+					...LOCATE_NECK.params,
+					ladder: [
+						{ params: { leadBeats: 4, aided: false } },
+						{ params: { leadBeats: 2, aided: false, 'presentation.detail': '{fret}' } }
+					]
+				}
+			};
+			const at = (level: number) =>
+				presentPrompt(definition, planned(definition, item, { level }), 'fr', () => 0).detail;
+			expect([at(0), at(1)]).toEqual([null, 'case 6']);
+		});
+
+		it('draws the picture its base presentation names at every level but the one that rewrites it', () => {
+			const voicing = { voicingKey: D_ON_B, position: 14, fret: 15 };
+			const definition: ExerciseDefinition = {
+				...TRIADS_ZONE,
+				presentation: { primary: '{chord}', picture: 'lowest-shape' },
+				levels: [
+					{ params: {} },
+					{ params: { 'presentation.picture': 'shape-at-position' } },
+					{ params: {} }
+				]
+			};
+			const drawn = (exerciseLevel: number) =>
+				presentPrompt(definition, planned(definition, voicing, { exerciseLevel }), 'fr', () => 0)
+					.pictures;
+			const lowest = drawn(0);
+			expect(lowest).toEqual([
+				{
+					kind: 'shape',
+					notes: [
+						{ string: 3, fret: 2 },
+						{ string: 2, fret: 3 },
+						{ string: 1, fret: 2 }
+					]
+				}
+			]);
+			expect(drawn(2)).toEqual(lowest);
+			expect(drawn(1)).toHaveLength(1);
+			expect(drawn(1)).not.toEqual(lowest);
+		});
 	});
 
 	it('leaves a presentation written wrongly to the check at load', () => {

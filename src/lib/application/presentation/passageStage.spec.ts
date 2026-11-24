@@ -295,6 +295,49 @@ describe('passageStage: the aid', () => {
 	});
 });
 
+describe('passageStage: a level that names the picture of the members admitted', () => {
+	const { aided: _aided, ...bare } = LINK_PRESENTATION;
+	const at = (levels: ExerciseDefinition['levels']): ExerciseDefinition => ({
+		...LINK,
+		presentation: bare,
+		levels
+	});
+	const PICTURED = { tempo: 80, 'presentation.picture': 'admitted' };
+
+	it('draws it at the first level that names it, not at the next', () => {
+		const definition = at([{ params: PICTURED }, { params: { tempo: 80 } }]);
+		const [first] = passageOf(definition, 'chord=D;strings=3,2,1');
+		expect(notesOf(show(definition, first).aid).length).toBeGreaterThan(0);
+		expect(show(definition, { ...first, exerciseLevel: 1 }).aid).toBeNull();
+	});
+
+	it('draws it at the top of three levels only, the level that names it', () => {
+		const definition = at([
+			{ params: { tempo: 80 } },
+			{ params: { tempo: 85 } },
+			{ params: { ...PICTURED, tempo: 90 } }
+		]);
+		const [first] = passageOf(definition, 'chord=D;strings=3,2,1');
+		const drawn = [0, 1, 2].map(
+			(exerciseLevel) => show(definition, { ...first, exerciseLevel }).aid !== null
+		);
+		expect(drawn).toEqual([false, false, true]);
+	});
+
+	it("writes a round's words on the line at the level played", () => {
+		const definition = at([
+			{ params: { tempo: 80 } },
+			{ params: { tempo: 80, 'presentation.target': '{quality}' } }
+		]);
+		const [first] = passageOf(definition, 'chord=D;strings=3,2,1');
+		const labels = (exerciseLevel: number) =>
+			show(definition, { ...first, exerciseLevel }).rounds.map((round) => round.label);
+		expect(labels(0)[0]).toBe('D');
+		expect(labels(1)[0]).not.toBe('D');
+		expect(labels(1)[0]).toBe(show(definition, { ...first, exerciseLevel: 1 }).prompt.secondary);
+	});
+});
+
 describe('passageStage: the aid of the grids', () => {
 	const aided = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
 	const positionOf = (shape: Member) => GUITAR_ATTRIBUTES.position(shape as never) as number;

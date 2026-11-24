@@ -3,7 +3,7 @@ import { levelRange, type Level } from '../time/levels';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
 import { DEFAULT_TEMPO_BPM } from './tempo';
-import type { ExerciseDefinition, ExercisePacing } from './types';
+import type { ExerciseDefinition, ExercisePacing, PromptPresentation } from './types';
 import { windowsOf } from './windows';
 
 /** Dotted paths of the resolved params and the values that replace them. */
@@ -107,17 +107,21 @@ function directRecallParamsOf(definition: ExerciseDefinition): {
 
 /**
  * The params the exercise alone gives: its own, its windows and pacing over their defaults, its
- * `tempo` (the one it writes, else `DEFAULT_TEMPO_BPM`), and the `directRecall` its skill writes.
+ * `tempo` (the one it writes, else `DEFAULT_TEMPO_BPM`), its `presentation` when it writes one, and
+ * the `directRecall` its skill writes.
  */
 export function exerciseParamsOf(
 	definition: ExerciseDefinition
 ): Readonly<Record<string, unknown>> {
+	// One source of the presentation: the definition's, never a `presentation` of its params.
+	const { presentation: _unread, ...own } = definition.params;
 	return {
-		...definition.params,
+		...own,
 		// One source of the tempo: the definition's, never a `tempo` of its params.
 		tempo: definition.tempo ?? DEFAULT_TEMPO_BPM,
 		windows: windowsOf(definition),
 		pacing: pacingOf(definition),
+		...(definition.presentation !== undefined && { presentation: definition.presentation }),
 		...directRecallParamsOf(definition)
 	};
 }
@@ -136,6 +140,42 @@ export function resolvedParamsOf(
 	const ladder = ladderOf(definition);
 	const itemLevel = levelAt(ladder, at.itemLevel, `${definition.id} item`);
 	return overrideParams(params, itemLevel.params as LevelOverrides);
+}
+
+/** The key of the presentation in the resolved params (`exerciseParamsOf`). */
+const PRESENTATION = 'presentation';
+
+/** Whether a dotted path writes the presentation or a slot of it (`presentation.*`). */
+export function isPresentationPath(path: string): boolean {
+	return path === PRESENTATION || path.startsWith(`${PRESENTATION}.`);
+}
+
+/** The paths of `overrides` that write the presentation (`isPresentationPath`). */
+function presentationOverrides(overrides: LevelOverrides): LevelOverrides {
+	return Object.fromEntries(Object.entries(overrides).filter(([path]) => isPresentationPath(path)));
+}
+
+/**
+ * What the screen says of a prompt at a level: the exercise's `presentation`, then the
+ * `presentation.*` paths of its exercise level, then those of its item level, each replacing what
+ * it writes; undefined when the exercise writes none. The `presentation` of `resolvedParamsOf`,
+ * resolved over the presentation alone, so a prompt does not copy the other params.
+ */
+export function presentationOf(
+	definition: ExerciseDefinition,
+	at: { exerciseLevel: number; itemLevel: number | null }
+): PromptPresentation | undefined {
+	if (definition.presentation === undefined) return undefined;
+	const exerciseLevel = levelAt(exerciseLevelsOf(definition), at.exerciseLevel, definition.id);
+	let params = overrideParams(
+		{ [PRESENTATION]: definition.presentation },
+		presentationOverrides(exerciseLevel.params)
+	);
+	if (at.itemLevel !== null) {
+		const itemLevel = levelAt(ladderOf(definition), at.itemLevel, `${definition.id} item`);
+		params = overrideParams(params, presentationOverrides(itemLevel.params as LevelOverrides));
+	}
+	return params[PRESENTATION] as PromptPresentation;
 }
 
 /** The tempo an exercise level plays at. */

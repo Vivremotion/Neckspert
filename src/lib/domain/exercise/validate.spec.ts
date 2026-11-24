@@ -341,6 +341,65 @@ describe('validateExercise on how a run starts', () => {
 	});
 });
 
+describe('validateExercise on a presentation written in levels', () => {
+	const unpresented: ExerciseDefinition = { ...LOCATE_NECK, presentation: undefined };
+
+	it('refuses a presentation path at an exercise level of an exercise that writes none, naming the level', () => {
+		expect(
+			validateExercise({
+				...unpresented,
+				levels: [{ params: {} }, { params: { 'presentation.detail': '{fret}' } }]
+			})
+		).toBe(
+			'locate-note-string: levels[1] writes "presentation.detail", and the exercise writes no presentation'
+		);
+		expect(
+			validateExercise({ ...unpresented, levels: [{ params: { presentation: { primary: 'x' } } }] })
+		).toBe(
+			'locate-note-string: levels[0] writes "presentation", and the exercise writes no presentation'
+		);
+	});
+
+	it('refuses a presentation path at an item level of an exercise that writes none, naming the level', () => {
+		expect(
+			validateExercise({
+				...unpresented,
+				params: {
+					...LOCATE_NECK.params,
+					ladder: [
+						{ params: { leadBeats: 4, aided: false, 'presentation.picture': 'string' } },
+						{ params: { leadBeats: 2, aided: false } }
+					]
+				}
+			})
+		).toBe(
+			'locate-note-string: params.ladder[0] writes "presentation.picture", and the exercise writes no presentation'
+		);
+	});
+
+	it('accepts presentation paths at any level of an exercise that writes one', () => {
+		expect(
+			validateExercise({
+				...LOCATE_NECK,
+				levels: [{ params: {} }, { params: {} }, { params: { 'presentation.detail': '{fret}' } }],
+				params: {
+					...LOCATE_NECK.params,
+					ladder: [
+						{ params: { leadBeats: 4, aided: false } },
+						{ params: { leadBeats: 2, aided: false, 'presentation.picture': 'string' } }
+					]
+				}
+			})
+		).toBeNull();
+	});
+
+	it('refuses a presentation written in the params, which nothing reads', () => {
+		expect(validateExercise(withParams({ presentation: { primary: '{note}' } }))).toBe(
+			'locate-note-string: params.presentation is not read: write presentation at the exercise\'s root, or "presentation.<slot>" in a level'
+		);
+	});
+});
+
 describe('validateExercise on levels a file writes wrong', () => {
 	it('refuses a level that is not an object', () => {
 		expect(

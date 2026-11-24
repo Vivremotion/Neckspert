@@ -59,7 +59,8 @@ export type Slot = string | { fr: string; en: string };
 /**
  * What the screen says of a prompt, as data: each slot is text with `{field}` placeholders, the
  * fields being those its set's items offer (`ITEM_FIELDS`). Pictures are named
- * (`PICTURES`). Read by `presentPrompt`.
+ * (`PICTURES`). A level rewrites any of them by its `presentation.*` paths (`presentationOf`).
+ * Read by `presentPrompt`.
  */
 export interface PromptPresentation {
 	primary: Slot;
@@ -72,6 +73,8 @@ export interface PromptPresentation {
 	band?: Slot;
 	/** While the item waits for its prompt; absent: nothing. */
 	preview?: Slot;
+	/** The picture drawn with the prompt (`PICTURES`, or one of its round's content). */
+	picture?: string;
 	/** At an aided level: a line, a picture, or both. */
 	aided?: { line?: Slot; picture?: string };
 	/** The fading aid the learning procedure gives (`PlannedItem.stringAid`). */

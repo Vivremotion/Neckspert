@@ -9,7 +9,13 @@ import { levelRange } from '../time/levels';
 import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
-import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
+import {
+	exerciseLevelsOf,
+	exerciseParamsOf,
+	isPresentationPath,
+	overrideParams,
+	type LevelOverrides
+} from './levels';
 import {
 	compileRound,
 	figureItemsAt,
@@ -192,11 +198,43 @@ function valuesProblem(
 	return null;
 }
 
+/** Why the params hold what is read elsewhere: a `presentation`, read at the exercise's root. */
+function unreadParamsProblem(params: ExerciseDefinition['params']): string | null {
+	return Object.hasOwn(params, 'presentation')
+		? 'params.presentation is not read: write presentation at the exercise\'s root, or "presentation.<slot>" in a level'
+		: null;
+}
+
 function paramsProblem(definition: ExerciseDefinition): string | null {
 	return (
+		unreadParamsProblem(definition.params) ??
 		valuesProblem({ ...definition.params, tempo: definition.tempo }, 'params') ??
 		ladderProblem(definition.params)
 	);
+}
+
+/**
+ * Why a level rewrites a presentation there is not: a `presentation.*` path (`isPresentationPath`)
+ * at an exercise level or an item level of an exercise that writes no presentation, naming the
+ * level (`levels[i]`, `params.ladder[i]`) and the path. What the presentation a level resolves
+ * says is checked with the application's words (`presentationProblem`).
+ */
+function presentationPathsProblem(definition: ExerciseDefinition): string | null {
+	if (definition.presentation !== undefined) return null;
+	const written: [string, unknown][] = [
+		...(definition.levels ?? []).map((level, i): [string, unknown] => [`levels[${i}]`, level]),
+		...laddersOf(definition.params).flatMap(([field, ladder]) =>
+			ladder.map((level, i): [string, unknown] => [`${field}[${i}]`, level])
+		)
+	];
+	for (const [field, level] of written) {
+		const params = isObject(level) && isObject(level.params) ? level.params : {};
+		const path = Object.keys(params).find(isPresentationPath);
+		if (path !== undefined) {
+			return `${field} writes "${path}", and the exercise writes no presentation`;
+		}
+	}
+	return null;
 }
 
 /**
@@ -242,7 +280,7 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
  * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
  * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
  * its level in `levels` (aid levels counted) or on its ladder, a run a level could not start or
- * end (`runProblem`). A path no piece reads at a level passes, the learning settings among them:
+ * end (`runProblem`), a presentation path on an exercise without one (`presentationPathsProblem`). A path no piece reads at a level passes, the learning settings among them:
  * it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
@@ -263,6 +301,8 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 			if (conditions !== null) return `levels[${index}]: ${conditions}`;
 		}
 	}
+	const presentation = presentationPathsProblem(definition);
+	if (presentation !== null) return presentation;
 	const params = exerciseParamsOf(definition);
 	const resolved: Readonly<Record<string, unknown>>[] = [];
 	for (const [index, level] of exerciseLevelsOf(definition).entries()) {

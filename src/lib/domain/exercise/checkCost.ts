@@ -4,7 +4,7 @@
  * `MAX_PASSAGE_ROUND_CHECKS`) bound one exercise; this bounds a file, whatever it holds.
  */
 import type { RoundTemplate } from './round/types';
-import { exerciseParamsOf } from './levels';
+import { exerciseParamsOf, isPresentationPath } from './levels';
 import type { ExerciseDefinition } from './types';
 
 /**
@@ -179,10 +179,17 @@ function levelShape(definition: ExerciseDefinition) {
 	const asked = askedPaths(definition);
 	const sweptAsked = (path: string) => asked.some((at) => touches(path, at));
 	const steps = Array.isArray(ladder) ? ladder : [];
+	const presentation: unknown = definition.presentation;
 	return {
 		top: Object.keys(own).length + 4,
 		under,
 		levels,
+		// What the presentation checks resolve: the presentation and the paths each level writes in it.
+		presentation: presentation === undefined ? null : nestedSize(presentation, seen),
+		presentationLevels: (Array.isArray(written) ? written : []).map((level) =>
+			writesOf(level, seen, isPresentationPath)
+		),
+		presentationLadder: steps.map((level) => writesOf(level, seen, isPresentationPath)),
 		ladder: steps.map((level) => writesOf(level, seen)),
 		// What a sweep lays of each ladder level: the paths a selection reads, nothing else.
 		sweptLadder: steps.map((level) => writesOf(level, seen, swept)),
@@ -209,16 +216,40 @@ function resolutionCost(
 }
 
 /**
+ * What checking the presentation at its levels costs (`presentationProblem`), an upper bound: the
+ * presentation resolved and checked at each exercise level that rewrites it, and at each ladder
+ * level that rewrites it over each exercise level, each time its entries and the paths written in
+ * it; nothing for an exercise without a presentation.
+ */
+function presentationEntries(shape: ReturnType<typeof levelShape>): number {
+	const { presentation, presentationLevels, presentationLadder, levels } = shape;
+	if (presentation === null) return 0;
+	let entries = 0;
+	for (const level of presentationLevels) {
+		if (level.count > 0) entries += presentation + level.written;
+	}
+	for (const step of presentationLadder) {
+		if (step.count === 0) continue;
+		for (let i = 0; i < levels.length; i++) {
+			entries += presentation + step.written + (presentationLevels[i]?.written ?? 0);
+		}
+	}
+	return entries;
+}
+
+/**
  * What resolving the params of the exercise's levels costs, counted before the work, an upper
  * bound (`resolutionCost` for each resolution): the level checks resolve each exercise level, then
  * each ladder level over each of them; a sweep of the params its selections read resolves each
  * exercise level again and lays over each the paths of each ladder level they read
  * (`selectionPaths`), and the member asked (`params.learning.asks`), when it reads a param,
  * sweeps its own the same way (`askedPaths`); the items' rounds resolve each exercise level once
- * more, at the ladder's first level. Charged once per pass that checks the exercise.
+ * more, at the ladder's first level; the presentation is checked at the levels that rewrite it
+ * (`presentationEntries`). Charged once per pass that checks the exercise.
  */
 export function levelsCheckCost(definition: ExerciseDefinition): number {
-	const { top, under, levels, ladder, sweptLadder, askedLadder } = levelShape(definition);
+	const shape = levelShape(definition);
+	const { top, under, levels, ladder, sweptLadder, askedLadder } = shape;
 	let exercise = 0;
 	let pairs = 0;
 	let swept = 0;
@@ -235,8 +266,15 @@ export function levelsCheckCost(definition: ExerciseDefinition): number {
 		if (ladder.length > 0) atFirst += resolutionCost(top, under, ladder[0], level);
 	}
 	const askedSweep = askedLadder === null ? 0 : exercise + asked;
-	// The level checks, a sweep, the member asked's sweep, the items' rounds.
-	return units(exercise + pairs + (exercise + swept) + askedSweep + (exercise + atFirst));
+	// The level checks, a sweep, the member asked's sweep, the items' rounds, the presentation's.
+	return units(
+		exercise +
+			pairs +
+			(exercise + swept) +
+			askedSweep +
+			(exercise + atFirst) +
+			presentationEntries(shape)
+	);
 }
 
 /**

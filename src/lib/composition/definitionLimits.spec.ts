@@ -149,7 +149,7 @@ function gridFileLoad(exercises: unknown[]) {
  * (`MAX_LEVEL_PARAMS`) at every level do not fit beside many rounds; the levels at the most params
  * the budget accepts are tested on their own (`levelsRecipe`).
  */
-const PARAMS_IN_BUDGET = 8;
+const PARAMS_IN_BUDGET = 7;
 
 /**
  * Locate, as the notes' catalog writes it, at the most levels and ladder levels, each writing

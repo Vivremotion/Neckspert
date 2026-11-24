@@ -1,4 +1,5 @@
 import { exerciseSetId } from '$lib/domain/sets';
+import { presentationOf } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from './itemFields';
@@ -18,7 +19,7 @@ export interface PresentedPrompt {
 	preview: string | null;
 	/** The aided level's line. */
 	aid: string | null;
-	/** What to draw: the aided picture, then the fading one. */
+	/** What to draw: the aided picture, then the fading one, then the one its level's presentation names. */
 	pictures: Picture[];
 }
 
@@ -43,12 +44,14 @@ export function isAided(item: PlannedItem): boolean {
 }
 
 /**
- * What the screen says of `item`, from the words its exercise writes (`presentation`) over the
- * fields its set offers and those of its round's content (`contentFields`, given by the caller),
- * an item's field winning over the content's of the same name. `random` spells an altered note:
- * give every call for one item the same value. Aided as `isAided` says. The presentation is checked once, as its exercise
- * loads (`definitionChecks`). A picture of the round's content (`CONTENT_PICTURES`) is left to
- * the view of the round.
+ * What the screen says of `item`, from the words its exercise writes at the item's levels
+ * (`presentationOf`: its `presentation`, rewritten by the `presentation.*` paths of its exercise
+ * level and its item level) over the fields its set offers and those of its round's content
+ * (`contentFields`, given by the caller), an item's field winning over the content's of the same
+ * name. `random` spells an altered note: give every call for one item the same value. Aided as
+ * `isAided` says. The presentation is checked once at every level, as its exercise loads
+ * (`definitionChecks`). A picture of the round's content (`CONTENT_PICTURES`) is left to the view
+ * of the round.
  */
 export function presentPrompt(
 	definition: ExerciseDefinition,
@@ -57,7 +60,10 @@ export function presentPrompt(
 	random: () => number,
 	contentFields: Readonly<Record<string, string>> = {}
 ): PresentedPrompt {
-	const presentation = definition.presentation;
+	const presentation = presentationOf(definition, {
+		exerciseLevel: item.exerciseLevel,
+		itemLevel: item.level ?? null
+	});
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
 	const set = exerciseSetId(definition);
 	const offered = Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set] : undefined;
@@ -68,7 +74,8 @@ export function presentPrompt(
 	const aided = isAided(item);
 	const names = [
 		aided ? presentation.aided?.picture : undefined,
-		item.stringAid ? presentation.fading?.picture : undefined
+		item.stringAid ? presentation.fading?.picture : undefined,
+		presentation.picture
 	];
 	return {
 		primary: say(presentation.primary, locale, fields) ?? '',

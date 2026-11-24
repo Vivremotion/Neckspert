@@ -204,6 +204,84 @@ describe('presentationProblem', () => {
 	});
 });
 
+describe('presentationProblem at the levels', () => {
+	const levelled = (
+		base: ExerciseDefinition,
+		...levels: Record<string, unknown>[]
+	): ExerciseDefinition => ({ ...base, levels: levels.map((params) => ({ params })) });
+	const laddered = (
+		base: ExerciseDefinition,
+		rewrite: Record<string, unknown>
+	): ExerciseDefinition => ({
+		...base,
+		params: {
+			...base.params,
+			ladder: [
+				{ params: { leadBeats: 4, aided: false } },
+				{ params: { leadBeats: 2, aided: false, ...rewrite } }
+			]
+		}
+	});
+
+	it('accepts a level that rewrites a slot or names a picture, at any level', () => {
+		const rewrite = { 'presentation.detail': '{fret}', 'presentation.picture': 'string' };
+		expect(presentationProblem(levelled(LOCATE_NECK, rewrite, {}))).toBeNull();
+		expect(presentationProblem(levelled(LOCATE_NECK, {}, {}, rewrite))).toBeNull();
+		expect(presentationProblem(laddered(LOCATE_NECK, rewrite))).toBeNull();
+		expect(
+			presentationProblem(levelled(GESTURE_CLIMB, {}, { 'presentation.picture': 'admitted' }))
+		).toBeNull();
+	});
+
+	it('refuses a slot that reads a field nothing gives, naming the level', () => {
+		expect(
+			presentationProblem(levelled(LOCATE_NECK, {}, { 'presentation.detail': '{chord}' }))
+		).toBe(
+			'locate-note-string: levels[1]: presentation.detail names field "chord", which note-on-string does not have'
+		);
+		expect(presentationProblem(laddered(LOCATE_NECK, { 'presentation.target': '{chord}' }))).toBe(
+			'locate-note-string: params.ladder[1]: presentation.target names field "chord", which note-on-string does not have'
+		);
+		// With exercise levels, the one it resolves over is named too.
+		expect(
+			presentationProblem(
+				laddered(levelled(LOCATE_NECK, {}, {}), { 'presentation.target': '{chord}' })
+			)
+		).toBe(
+			'locate-note-string: params.ladder[1] at levels[0]: presentation.target names field "chord", which note-on-string does not have'
+		);
+	});
+
+	it('refuses at a level a picture that does not exist, does not read the set, or is no name', () => {
+		expect(
+			presentationProblem(levelled(LOCATE_NECK, {}, {}, { 'presentation.picture': 'nowhere' }))
+		).toBe(
+			'locate-note-string: levels[2]: presentation.picture names picture "nowhere", which does not exist'
+		);
+		expect(
+			presentationProblem(laddered(LOCATE_NECK, { 'presentation.picture': 'lowest-shape' }))
+		).toBe(
+			'locate-note-string: params.ladder[1]: presentation.picture names picture "lowest-shape", which does not read note-on-string'
+		);
+		expect(presentationProblem(levelled(LOCATE_NECK, { 'presentation.picture': 3 }))).toBe(
+			'locate-note-string: levels[0]: presentation.picture must name a picture'
+		);
+		expect(
+			presentationProblem(withPresentation(LOCATE_NECK, { primary: '{note}', picture: 'nowhere' }))
+		).toBe(
+			'locate-note-string: presentation.picture names picture "nowhere", which does not exist'
+		);
+	});
+
+	it('refuses at a level the picture of the members admitted off a passage view', () => {
+		expect(
+			presentationProblem(levelled(TRIADS_ANCHOR, {}, { 'presentation.picture': 'admitted' }))
+		).toBe(
+			'chord-anchor: levels[1]: presentation.picture names picture "admitted", which only a view that draws a passage draws (grid-scroll, link-lane), and the exercise is drawn on "lane"'
+		);
+	});
+});
+
 /** No presenter at all. */
 const NONE = { presenters: {}, views: {} };
 

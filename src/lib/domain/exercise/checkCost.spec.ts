@@ -165,6 +165,38 @@ describe('the cost of what a level writes', () => {
 	});
 });
 
+describe('the cost of a presentation rewritten at the levels', () => {
+	const ladderWriting = (path: string) =>
+		Array.from({ length: 100 }, () => ({
+			params: { leadBeats: 2, aided: false, [path]: '{fret}' }
+		}));
+	const levels = Array.from({ length: 100 }, () => ({ params: {} }));
+
+	it('charges the presentation checked at each ladder level that rewrites it, over each exercise level', () => {
+		const rewriting = (path: string) =>
+			levelsCheckCost({
+				...LOCATE_NECK,
+				levels,
+				params: { ...LOCATE_NECK.params, ladder: ladderWriting(path) }
+			});
+		const size = Object.keys(LOCATE_NECK.presentation!).length;
+		// 100 × 100 presentations copied by the params' resolution, then resolved and checked again.
+		expect(rewriting('presentation.detail') - rewriting('other.detail')).toBeGreaterThanOrEqual(
+			Math.floor((100 * 100 * 2 * size) / PARAM_ENTRIES_PER_UNIT)
+		);
+	});
+
+	it('charges nothing more for an exercise that writes no presentation, refused before', () => {
+		const unpresented = { ...LOCATE_NECK, presentation: undefined, levels };
+		const cost = (path: string) =>
+			levelsCheckCost({
+				...unpresented,
+				params: { ...LOCATE_NECK.params, ladder: ladderWriting(path) }
+			});
+		expect(cost('presentation.detail')).toBe(cost('other.detail'));
+	});
+});
+
 describe('CheckBudget', () => {
 	it('charges up to its most, then refuses in words, the cost reached and the most named', () => {
 		const budget = new CheckBudget(10);
