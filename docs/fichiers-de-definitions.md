@@ -221,9 +221,9 @@ Deux paramètres font sonner le modèle, pour un tour qui écrit une figure. Ils
 - `"listenFirst": true` : chaque suite de cycles jouée à ce niveau (après le décompte, après chaque respiration, après une pause) commence par un cycle entendu, ni joué ni jugé. La démonstration de la première rencontre ne s'y ajoute pas.
 - `"playAlong": true` : le modèle sonne avec le joueur à chaque cycle joué à ce niveau.
 
-Rien ne les annonce à l'écran. Sur un exercice sans figure à faire sonner, ils sont sans effet. Le niveau 1 des trois exercices de rythme écrit les deux.
+Rien ne les annonce à l'écran. Sur un exercice sans figure à faire sonner, ils sont sans effet. Limite connue : sur un exercice dont le tour n'est pas jugé par cycle, `playAlong` ne fait pas sonner le modèle au premier tour de chaque suite. Le niveau 1 des trois exercices de rythme écrit les deux.
 
-`listen` dit si le joueur peut demander d'écouter (touche E) : `"free"` (par défaut) ou `"none"`.
+`listen` dit si le joueur peut demander d'écouter (touche E) : `"free"` ou `"none"` (par défaut).
 
 ### Ce qui compte pour la mémoire
 
@@ -683,7 +683,7 @@ La routine n'écrit pas comment sa séance pioche : cela se déduit de ses exerc
 `opens` s'écrit sous l'une de quatre formes :
 
 - `{ "acquired": { "skill": "<capacité>", "atLeast": 6 } }` : au moins 6 cartes acquises dans cette capacité. Ne comptent que les cartes acquises que la liste d'un exercice nomme. Une capacité sans mémoire n'a pas de cartes : rien n'y est jamais acquis.
-- `{ "level": { "exercise": "<exercice>", "scope": "<portée>", "atLeast": 2 } }` : le niveau d'exercice atteint, au moins le niveau 2. Les niveaux se comptent à partir du premier de la liste : le premier compte 1, le deuxième 2 (sa place dans `levels`, plus 1). `scope` est facultative : sans elle, c'est le niveau de l'exercice sans portée ; avec elle, celui de cette portée (`"blues-f"` pour une grille). Un exercice qui n'écrit pas de `levels` n'a pas de niveau : la forme n'est jamais vraie.
+- `{ "level": { "exercise": "<exercice>", "scope": "<portée>", "atLeast": 2 } }` : le niveau d'exercice atteint, au moins le niveau 2. Les niveaux se comptent à partir du premier de la liste : le premier compte 1, le deuxième 2 (sa place dans `levels`, plus 1). `scope` est facultative : sans elle, c'est le niveau de l'exercice sans portée ; avec elle, celui de cette portée (`"blues-f"` pour une grille). Un exercice qui n'écrit pas de `levels` n'a pas de niveau : la forme n'est jamais vraie. Une routine écrite avant le ticket #19 compte encore les niveaux d'aide de l'exercice : rien ne la refuse, mais elle s'ouvre un niveau plus tôt par niveau d'aide. Il faut relever son `atLeast` d'autant de niveaux d'aide que l'exercice en écrivait (ajouter 1 pour un niveau d'aide).
 - `{ "all": [ … ] }` : toutes les formes de la liste sont vraies.
 - `{ "any": [ … ] }` : au moins une l'est.
 
@@ -723,7 +723,7 @@ La fatigue peut finir la séance avant : un joueur qui commence bien puis rate (
 
 ### Le jeu libre, et un exercice joué seul
 
-- **Le jeu libre d'une routine** : `/session?routine=<id>&free=1`, pour une routine de mémoire seulement. Vingt consignes tirées au hasard parmi les éléments que ses exercices listent, qu'ils aient une carte ou non, chacune au niveau que l'élément tient. L'en-tête dit « Jeu libre ». Une tentative sur une carte apprise et laissée assez longtemps compte à froid. Aucun lien ne mène plus à ce jeu libre : l'adresse marche toujours, et la Bibliothèque joue chaque exercice de mémoire seul, en jeu libre. Une routine de passages en jeu libre ne se lance pas : `Routine <id> is not played freely: its exercises have no memory`.
+- **Le jeu libre d'une routine** : `/session?routine=<id>&free=1`, pour une routine de mémoire seulement. Vingt consignes tirées au hasard parmi les éléments que ses exercices listent, qu'ils aient une carte ou non, chacune au niveau que l'élément tient. L'en-tête dit « Jeu libre ». Une tentative sur une carte apprise et laissée assez longtemps compte à froid, à un niveau qui demande un rappel direct. Aucun lien ne mène plus à ce jeu libre : l'adresse marche toujours, et la Bibliothèque joue chaque exercice de mémoire seul, en jeu libre. Une routine de passages en jeu libre ne se lance pas : `Routine <id> is not played freely: its exercises have no memory`.
 - **Un exercice joué seul** : `/session?exercise=<id>`, pour tout exercice qu'un fichier définit ; c'est l'adresse où mène la Bibliothèque. Il n'ouvre que ses propres capteurs. L'en-tête porte son `title`, sinon le nom de sa capacité.
   - Un exercice de mémoire se joue en jeu libre, sur les seuls éléments de sa liste ; l'en-tête dit « Jeu libre · <titre> », et son bilan est celui du jeu libre.
   - Un exercice de passages joue ses passages, sur ses index ouverts.

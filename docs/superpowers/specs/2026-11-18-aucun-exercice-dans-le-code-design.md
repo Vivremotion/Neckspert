@@ -1,5 +1,7 @@
 # Chantier 2 : aucun exercice dans le code
 
+Les passages sur les niveaux d'aide, la présentation aidée, l'aide qui s'efface et « On change d'air » sont remplacés par le ticket #19 (novembre 2026).
+
 Date : 2026-11-18. Statut : décidé avec l'auteur en brainstorming (du 2026-11-02 au 2026-11-18). Epic #21. Suite de `2026-10-14-temps-musical-et-sequences-design.md` (amendement du 2026-10-26, « un langage d'exercices ouvert », et « Points mineurs reportés ») et de `2026-10-30-sequence-design.md` (§ 6, exercices locaux).
 
 ## Ce que le joueur vit
