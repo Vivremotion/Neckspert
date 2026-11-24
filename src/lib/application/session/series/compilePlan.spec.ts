@@ -27,7 +27,6 @@ const note: PlannedItem = {
 	item: { string: 3, fret: 5 },
 	phase: 'free',
 	temperature: 'hot',
-	aid: 'show-position',
 	leadBeats: 4
 };
 
@@ -38,7 +37,6 @@ const eighths = (level: number): PlannedItem => ({
 	item: { figureId: 'eighths', level },
 	phase: 'free',
 	temperature: 'hot',
-	aid: 'none',
 	leadBeats: null
 });
 
@@ -93,10 +91,10 @@ describe('compilePlan', () => {
 		expect(aidedBeyondLevel(RHYTHM_SILENT_BARS, eighths(0), ['cursor', 'listen'])).toBe(true);
 	});
 
-	it('gives a response round its item’s aids, and thresholds only to a verdict that reads them', () => {
+	it('gives a response round no aid, and thresholds only to a verdict that reads them', () => {
 		expect(roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note))).toEqual({
 			thresholds: null,
-			aids: ['show-position'],
+			aids: [],
 			settleAfter: null,
 			liveMarks: false
 		});
@@ -190,11 +188,11 @@ describe('compilePlan', () => {
 			playAlong: false
 		});
 		expect(heard.aids).toEqual(['cursor']);
-		// Where its level gives no listen, listening is worth nothing: the round keeps its item's aids.
+		// Where its level gives no listen, listening is worth nothing.
 		expect(
 			roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note), { listened: true, playAlong: false })
 				.aids
-		).toEqual(['show-position']);
+		).toEqual([]);
 	});
 
 	it('makes a cycle’s figure sound, and lets its level say what listening is worth', () => {

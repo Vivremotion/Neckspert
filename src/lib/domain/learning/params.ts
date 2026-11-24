@@ -4,10 +4,8 @@ import type { SkillId } from '../skill/types';
 
 /** What an item's exercise sets for it (`params.learning`). */
 export interface ItemLearning {
-	/** Prompts before its next retest: after an aided or missed attempt, and after another one. */
+	/** Prompts before its next retest: after a miss, and after a success, whatever its level. */
 	retestGaps: readonly [number, number];
-	/** Successes since its last miss that take its fading aid away. */
-	aidFadeSuccesses: number;
 }
 
 /** A category of items the procedure serves. */
@@ -45,8 +43,7 @@ export interface SetLearning {
 
 /** The settings of an item whose exercise writes none. To calibrate. */
 export const DEFAULT_ITEM_LEARNING: ItemLearning = {
-	retestGaps: [2, 4],
-	aidFadeSuccesses: 1
+	retestGaps: [2, 4]
 };
 
 /** The set's settings when the session writes none. To calibrate. */
@@ -81,8 +78,6 @@ export interface EntryCondition {
 /** What an exercise writes of its learning (`params.learning`), over the defaults. */
 export interface ExerciseLearning extends ItemLearning {
 	enter?: EntryCondition;
-	/** true by default; read by nothing since the probe went (issue #19). */
-	presentAtOnce: boolean;
 	/**
 	 * What a prompt asks of a card's item: a member drawn among those this selection admits for
 	 * it, turned into an item by its set (`ItemSet.asked`), of the family its set asks. No `of`
@@ -95,5 +90,5 @@ export interface ExerciseLearning extends ItemLearning {
 export function exerciseLearningOf(definition: ExerciseDefinition): ExerciseLearning {
 	// Trusts what the definition checks accepted (`learningProblem`).
 	const written = (definition.params.learning ?? {}) as Partial<ExerciseLearning>;
-	return { ...DEFAULT_ITEM_LEARNING, presentAtOnce: true, ...written };
+	return { ...DEFAULT_ITEM_LEARNING, ...written };
 }

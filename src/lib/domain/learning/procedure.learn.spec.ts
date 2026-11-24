@@ -12,7 +12,7 @@ const FAKE = 'fake' as SkillId;
 const OTHER = 'other' as SkillId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
 const SESSION = 'session';
-/** The fake subject's ladder: leads 8 (aided), 4, 2 beats; at 80 bpm 2 beats is 1 500 ms, the threshold. */
+/** The fake subject's ladder: leads 8, 4, 2 beats; at 80 bpm 2 beats is 1 500 ms, the threshold. */
 const TOP = 2;
 const at = (now: number, fatigued = false) => ({ now, elapsedMs: 0, fatigued });
 
@@ -112,9 +112,7 @@ describe('createLearningProcedure record', () => {
 			temperature: 'hot',
 			level: 0,
 			leadBeats: 8,
-			exerciseLevel: 0,
-			aid: 'show-position',
-			stringAid: true
+			exerciseLevel: 0
 		});
 		const recorded = source.record(answer(first), 0);
 		// The recorder makes the card at the first attempt: the procedure only moves the level.
@@ -171,9 +169,10 @@ describe('createLearningProcedure record', () => {
 
 	it('climbs a level on a success and falls one on a miss, hot or cold', () => {
 		const source = procedure({ cards: [reviewable(0), learned(1)] });
-		// The aided level's own aid does not count as aided: its success climbs.
-		const aided = source.record(played(0, 'consolidation', { aids: ['show-position'] }), 0);
-		expect(aided?.level).toMatchObject({ item: '0', level: 1 });
+		expect(source.record(played(0, 'consolidation'), 0)?.level).toMatchObject({
+			item: '0',
+			level: 1
+		});
 		expect(source.record(played(0, 'review', { success: false }), 0)?.level).toMatchObject({
 			level: 0
 		});
@@ -209,11 +208,7 @@ describe('createLearningProcedure record', () => {
 
 	it('counts only a direct recall as a success on a level that asks for it, wherever it stands', () => {
 		// The middle level asks a direct recall; the top takes any success.
-		const ladder = [
-			rung(8, { aided: true }),
-			rung(4, { success: 'direct-recall' }),
-			rung(2, { pass: 2 })
-		];
+		const ladder = [rung(8), rung(4, { success: 'direct-recall' }), rung(2, { pass: 2 })];
 		const middle = () =>
 			procedure({
 				subject: fakeSubject({ ladder }),
@@ -241,7 +236,7 @@ describe('createLearningProcedure record', () => {
 
 	it('learns an item at the top of a ladder whose top asks any success', () => {
 		const source = procedure({
-			subject: fakeSubject({ ladder: [rung(8, { aided: true }), rung(4, { pass: 2 })] }),
+			subject: fakeSubject({ ladder: [rung(8), rung(4, { pass: 2 })] }),
 			cards: [learning(0)],
 			levels: [levelAt(0, 1)]
 		});
@@ -251,7 +246,7 @@ describe('createLearningProcedure record', () => {
 		expect(source.record(slow(), 200)?.card).toMatchObject({ item: 0, learnedAt: 200 });
 	});
 
-	it('learns an item when the top level’s pass completes, retesting it at the short gap after the presentation or a miss and the long one otherwise', () => {
+	it('learns an item when the top level’s pass completes, retesting it at the short gap after a miss and the long one after a success, at any level', () => {
 		const [shortGap, longGap] = DEFAULT_ITEM_LEARNING.retestGaps;
 		const source = procedure({
 			subject: fakeSubject({ items: 8 }),
@@ -267,20 +262,19 @@ describe('createLearningProcedure record', () => {
 			throw new Error('item 0 never came back');
 		};
 		const presentation = source.next(at(0))!;
-		expect(presentation).toMatchObject({ item: 0, leadBeats: 8, aid: 'show-position' });
+		expect(presentation).toMatchObject({ item: 0, leadBeats: 8, level: 0 });
 
-		// After the presentation: the short gap.
+		// Right at its first level: the long gap.
 		expect(source.record(answer(presentation), 0)?.card).toBeUndefined();
 		let next = othersUntilRetest();
-		expect(next).toMatchObject({ between: shortGap, retest: { leadBeats: 4, aid: 'none' } });
-		// After a miss: the short gap, one level down (the presentation again).
+		expect(next).toMatchObject({ between: longGap, retest: { leadBeats: 4 } });
+		// After a miss: the short gap, one level down.
 		source.record(answer(next.retest, false), 0);
 		next = othersUntilRetest();
 		expect(next).toMatchObject({ between: shortGap, retest: { leadBeats: 8 } });
 		source.record(answer(next.retest), 0);
 		next = othersUntilRetest();
-		expect(next).toMatchObject({ between: shortGap, retest: { leadBeats: 4 } });
-		// Otherwise: the long gap.
+		expect(next).toMatchObject({ between: longGap, retest: { leadBeats: 4 } });
 		source.record(answer(next.retest), 0);
 		next = othersUntilRetest();
 		expect(next).toMatchObject({ between: longGap, retest: { leadBeats: 2 } });
@@ -300,25 +294,28 @@ describe('createLearningProcedure record', () => {
 		}
 	});
 
-	it('never learns an item while its answer is shown, even on a ladder of one step', () => {
-		// One lead written twice: aided, then the top, apart.
+	it('never learns an item at a level below its top, even on a ladder of one lead', () => {
+		// One lead written twice: the answer shown, then the top, apart.
 		const source = procedure({
 			subject: fakeSubject({
 				items: 8,
-				ladder: [rung(2, { aided: true }), rung(2, { pass: 2, success: 'direct-recall' })]
+				ladder: [
+					rung(2, { params: { 'presentation.detail': '{answer}' } }),
+					rung(2, { pass: 2, success: 'direct-recall' })
+				]
 			}),
 			cards: [1, 2, 3, 4, 5, 6, 7].map((item) => learned(item))
 		});
 		source.record(answer(source.next(at(0))!, false), 0);
-		let learnedUnaided = false;
-		for (let draw = 0; draw < 40 && !learnedUnaided; draw++) {
+		let learnedAtTop = false;
+		for (let draw = 0; draw < 40 && !learnedAtTop; draw++) {
 			const item = source.next(at(0))!;
 			const outcome = source.record(answer(item), 0);
 			if (item.item !== 0 || outcome?.card?.learnedAt == null) continue;
-			expect(item.aid).toBe('none');
-			learnedUnaided = true;
+			expect(item.level).toBe(1);
+			learnedAtTop = true;
 		}
-		expect(learnedUnaided).toBe(true);
+		expect(learnedAtTop).toBe(true);
 	});
 
 	it('calls a solid item after a miss, never after a missed recovery', () => {
@@ -386,60 +383,6 @@ describe('createLearningProcedure record', () => {
 			// The second in a row: a solid item.
 			expect(isRecovery(source.next(at(0)))).toBe(true);
 		}
-	});
-
-	it('draws the fading aid after the presentation and a miss, and drops it after its successes', () => {
-		const source = procedure({
-			subject: fakeSubject({ items: 4 }),
-			cards: [learned(1), learned(2), learned(3)]
-		});
-		const presentation = source.next(at(0))!;
-		expect(presentation).toMatchObject({ item: 0, phase: 'learning', stringAid: true });
-		source.record(answer(presentation), 0);
-		/** The next prompt of `item`, the others played right. */
-		const nextOf = (item: number): PlannedItem => {
-			for (let draw = 0; draw < 20; draw++) {
-				const served = source.next(at(0))!;
-				if (served.item === item) return served;
-				source.record(answer(served), 0);
-			}
-			throw new Error(`item ${item} never came back`);
-		};
-		const retest = nextOf(0);
-		expect(retest).toMatchObject({ leadBeats: 4 });
-		expect(retest.stringAid ?? false).toBe(false);
-		// A miss brings it back, on an unaided level too.
-		source.record(played(1, 'consolidation', { success: false }), 0);
-		const missed = nextOf(1);
-		expect(missed).toMatchObject({ phase: 'consolidation', stringAid: true });
-		source.record(answer(missed), 0);
-		expect(nextOf(1).stringAid ?? false).toBe(false);
-
-		// Never on a cold review (its top kept through one miss, so the item is still reviewed cold).
-		const reviewed = procedure({
-			subject: fakeSubject({
-				ladder: [
-					rung(8, { aided: true }),
-					rung(4),
-					rung(2, { pass: 2, drop: 2, success: 'direct-recall' })
-				]
-			}),
-			cards: [reviewable(0)],
-			levels: [levelAt(0, TOP)]
-		});
-		reviewed.record(played(0, 'consolidation', { success: false }), 0);
-		const review = reviewed.next(at(1e12))!;
-		expect(review).toMatchObject({ item: 0, phase: 'review' });
-		expect(review.stringAid ?? false).toBe(false);
-		// Never for a skill without it.
-		const other = procedure({
-			subject: fakeSubject({ items: 2, skills: [OTHER] }),
-			cards: [learned(0, 1, OTHER), learned(1, 1, OTHER)]
-		});
-		other.record(played(0, 'consolidation', { success: false }, OTHER), 0);
-		const items = [other.next(at(0)), other.next(at(0))];
-		expect(items.map((item) => item?.item)).toContain(0);
-		expect(items.every((item) => !(item?.stringAid ?? false))).toBe(true);
 	});
 
 	it('ignores an attempt of another exercise', () => {
@@ -514,7 +457,7 @@ describe('createLearningProcedure record', () => {
 
 describe('createLearningProcedure level above the ladder', () => {
 	// A ladder of two levels, 0 and 1, whose top asks a direct recall.
-	const SHORT = [rung(8, { aided: true }), rung(4, { pass: 2, success: 'direct-recall' })];
+	const SHORT = [rung(8), rung(4, { pass: 2, success: 'direct-recall' })];
 	const shortLadder = () =>
 		procedure({
 			subject: fakeSubject({ ladder: SHORT }),

@@ -97,7 +97,6 @@ export function buildFreePlan(input: {
 				item: asked,
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: leadOf(card),
 				level,
 				exerciseLevel: 0

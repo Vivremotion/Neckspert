@@ -39,7 +39,7 @@ describe('DemoPlaySession', () => {
 		expect(demo.view.status).toBe('awaiting');
 		expect(demo.view.countdown).toBeNull();
 		expect(demo.lane).toMatchObject({
-			prompt: { primary: 'F', secondary: 'corde de B', aid: null, pictures: [] },
+			prompt: { primary: 'F', secondary: 'corde de B', detail: null, pictures: [] },
 			promptBeat: 4,
 			anchorBeat: 12,
 			history: [],

@@ -47,7 +47,6 @@ describe('buildFreePlan', () => {
 		expect(plan).toHaveLength(132);
 		expect(plan.every((item) => item.phase === 'free')).toBe(true);
 		expect(plan.every((item) => item.temperature === 'hot')).toBe(true);
-		expect(plan.every((item) => item.aid === 'none')).toBe(true);
 		expect(plan.filter((item) => item.skill === 'identify-note')).toHaveLength(66);
 		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(2);

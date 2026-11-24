@@ -89,7 +89,6 @@ export function change(index: number, options: ChangeOptions = {}): PlannedItem<
 		item: { grid: scope, index },
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null,
 		passage,
 		...(index === 0 && { countIn: true }),
@@ -126,7 +125,6 @@ export function linkChange(index: number, passageId = 's:0'): PlannedItem<Voicin
 		item: items[index],
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null,
 		passage: {
 			id: passageId,

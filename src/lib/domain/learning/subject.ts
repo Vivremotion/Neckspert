@@ -23,11 +23,6 @@ export interface LearningSubject {
 		history: ReadonlyMap<CardKey, readonly Attempt[]>,
 		blocked: (card: CardRef) => boolean
 	): CardRef | null;
-	/**
-	 * What the exercise writes as `params.learning.presentAtOnce`. Read by nothing since the probe
-	 * went (issue #19): a new item is served at its first level, and never right after itself.
-	 */
-	presentsAtOnce: boolean;
 	/** The ladder of a skill, as its exercise writes it. */
 	ladder(skill: SkillId): Ladder;
 	/** What the exercise of a skill sets for its items (`itemLearningOf`). */
@@ -36,8 +31,6 @@ export interface LearningSubject {
 	recall(skill: SkillId): DirectRecall;
 	/** A confusion recorded in the attempt (consolidation favours the confused). */
 	confused(attempt: Attempt): boolean;
-	/** A skill whose prompt may draw a fading aid (the string). */
-	fadingAid(skill: SkillId): boolean;
 	/**
 	 * The item a prompt asks, served at item level `level` (a zone card draws its shape here);
 	 * absent: the card's item.

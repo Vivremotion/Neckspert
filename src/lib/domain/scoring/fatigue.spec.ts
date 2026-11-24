@@ -19,7 +19,6 @@ function answered(correct: boolean, reactionMs = 1000): Attempt {
 		cardKey: 'locate-note-string:2:F',
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: null,

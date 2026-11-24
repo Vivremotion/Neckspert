@@ -44,28 +44,26 @@ describe('presentationProblem', () => {
 			presentationProblem(
 				withPresentation(TRIADS_ANCHOR, {
 					primary: '{chord}',
-					aided: { line: { fr: 'case {fret}', en: 'fret {fret}' } }
+					detail: { fr: 'case {fret}', en: 'fret {fret}' }
 				})
 			)
 		).toBe(
-			'chord-anchor: presentation.aided.line names field "fret", which neither voicing-on-strings nor note-places nor chord-shapes has'
+			'chord-anchor: presentation.detail names field "fret", which neither voicing-on-strings nor note-places nor chord-shapes has'
 		);
 	});
 
 	it('refuses a picture that does not read the set', () => {
 		expect(
 			presentationProblem(
-				withPresentation(LOCATE_NECK, { primary: '{note}', aided: { picture: 'lowest-shape' } })
+				withPresentation(LOCATE_NECK, { primary: '{note}', picture: 'lowest-shape' })
 			)
 		).toBe(
-			'locate-note-string: presentation.aided.picture names picture "lowest-shape", which does not read note-on-string'
+			'locate-note-string: presentation.picture names picture "lowest-shape", which does not read note-on-string'
 		);
 		expect(
-			presentationProblem(
-				withPresentation(LOCATE_NECK, { primary: '{note}', fading: { picture: 'nowhere' } })
-			)
+			presentationProblem(withPresentation(LOCATE_NECK, { primary: '{note}', picture: 'nowhere' }))
 		).toBe(
-			'locate-note-string: presentation.fading.picture names picture "nowhere", which does not exist'
+			'locate-note-string: presentation.picture names picture "nowhere", which does not exist'
 		);
 	});
 
@@ -76,7 +74,7 @@ describe('presentationProblem', () => {
 					primary: '{symbol}',
 					detail: '{strings} · {toward}',
 					target: '{title} {frets}',
-					aided: { picture: 'admitted' }
+					picture: 'admitted'
 				})
 			)
 		).toBeNull();
@@ -103,33 +101,23 @@ describe('presentationProblem', () => {
 
 	it('refuses the picture of the members admitted for a round with no member content', () => {
 		expect(
-			presentationProblem(
-				withPresentation(RHYTHM_OFFBEATS, { primary: 'x', aided: { picture: 'admitted' } })
-			)
+			presentationProblem(withPresentation(RHYTHM_OFFBEATS, { primary: 'x', picture: 'admitted' }))
 		).toBe(
-			'rhythm-offbeats: presentation.aided.picture names picture "admitted", which draws the members its round admits, and no expectation of its round has a member content'
+			'rhythm-offbeats: presentation.picture names picture "admitted", which draws the members its round admits, and no expectation of its round has a member content'
 		);
 	});
 
-	it('refuses the picture of the members admitted off a passage view, and as a fading picture on every view', () => {
+	it('refuses the picture of the members admitted off a passage view, and accepts it on one, at a level', () => {
 		expect(
 			presentationProblem({
 				...TRIADS_ANCHOR,
-				presentation: { ...TRIADS_ANCHOR.presentation!, aided: { picture: 'admitted' } }
+				presentation: { ...TRIADS_ANCHOR.presentation!, picture: 'admitted' }
 			})
 		).toBe(
-			'chord-anchor: presentation.aided.picture names picture "admitted", which only a view that draws a passage draws (grid-scroll, link-lane), and the exercise is drawn on "lane"'
-		);
-		expect(
-			presentationProblem({
-				...GESTURE_CLIMB,
-				presentation: { ...GESTURE_CLIMB.presentation!, fading: { picture: 'admitted' } }
-			})
-		).toBe(
-			'grid-in-direction: presentation.fading.picture names picture "admitted", which no view draws as a fading picture'
+			'chord-anchor: presentation.picture names picture "admitted", which only a view that draws a passage draws (grid-scroll, link-lane), and the exercise is drawn on "lane"'
 		);
 		for (const exercise of [GESTURE_CLIMB, GESTURE_LINK]) {
-			expect(exercise.presentation?.aided?.picture).toBe('admitted');
+			expect(exercise.levels?.[0].params['presentation.picture']).toBe('admitted');
 			expect(presentationProblem(exercise)).toBeNull();
 		}
 	});
@@ -156,30 +144,13 @@ describe('presentationProblem', () => {
 				);
 			}
 		}
-		for (const [value, what] of wrong) {
-			const presentation = {
-				primary: '{note}',
-				aided: { line: value }
-			} as unknown as PromptPresentation;
-			expect(presentationProblem(withPresentation(LOCATE_NECK, presentation)), what).toBe(
-				'locate-note-string: presentation.aided.line must be a text or { fr, en }'
-			);
-		}
 	});
 
-	it('refuses an aid written as a text, which says neither a line nor a picture, and a picture that is no name', () => {
-		const cases: [unknown, string][] = [
-			[{ aided: 'admitted' }, 'presentation.aided must be { line?, picture? }'],
-			[{ aided: { picture: 3 } }, 'presentation.aided.picture must name a picture'],
-			[{ fading: 'string' }, 'presentation.fading must be { picture }, naming a picture'],
-			[{ fading: {} }, 'presentation.fading must be { picture }, naming a picture']
-		];
-		for (const [written, reason] of cases) {
-			const presentation = { primary: '{note}', ...(written as object) } as PromptPresentation;
-			expect(presentationProblem(withPresentation(LOCATE_NECK, presentation))).toBe(
-				`locate-note-string: ${reason}`
-			);
-		}
+	it('refuses a picture that is no name, and a presentation that is no object', () => {
+		const presentation = { primary: '{note}', picture: 3 } as unknown as PromptPresentation;
+		expect(presentationProblem(withPresentation(LOCATE_NECK, presentation))).toBe(
+			'locate-note-string: presentation.picture must name a picture'
+		);
 		expect(
 			presentationProblem({ ...LOCATE_NECK, presentation: 'x' as unknown as PromptPresentation })
 		).toBe('locate-note-string: presentation must be an object');
@@ -196,8 +167,7 @@ describe('presentationProblem', () => {
 					target: '{note}',
 					band: both,
 					preview: '{note}',
-					aided: { line: both },
-					fading: { picture: 'string' }
+					picture: 'string'
 				})
 			)
 		).toBeNull();
@@ -216,10 +186,7 @@ describe('presentationProblem at the levels', () => {
 		...base,
 		params: {
 			...base.params,
-			ladder: [
-				{ params: { leadBeats: 4, aided: false } },
-				{ params: { leadBeats: 2, aided: false, ...rewrite } }
-			]
+			ladder: [{ params: { leadBeats: 4 } }, { params: { leadBeats: 2, ...rewrite } }]
 		}
 	});
 

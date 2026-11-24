@@ -11,7 +11,6 @@ function attempt(overrides: AttemptOverrides = {}): Attempt {
 		cardKey: 'locate-note-string:6:G',
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: 2,

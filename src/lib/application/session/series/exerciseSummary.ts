@@ -37,7 +37,6 @@ function playedOf(
 				// The figure reads no phase; an exercise session serves its rounds free.
 				phase: 'free',
 				temperature: attempt.temperature,
-				aid: 'none',
 				leadBeats: null
 			},
 			meter

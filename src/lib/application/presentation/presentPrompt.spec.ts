@@ -7,7 +7,7 @@ import {
 	type IdentifyItem,
 	type LocateItem
 } from '$lib/domain/music';
-import type { AidLevel, Locale, PlannedItem } from '$lib/domain/types';
+import type { Locale, PlannedItem } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { presentPrompt } from './presentPrompt';
 import { presentationProblem } from './validate';
@@ -19,27 +19,30 @@ import {
 	TRIADS_ZONE
 } from '$lib/testing/catalog';
 
-/** The locate prompt as its presenter wrote it before its presentation became data (H5). */
-function locateToday(
-	item: LocateItem,
-	{ aid, stringAid }: { aid: AidLevel; stringAid: boolean },
+/**
+ * The locate prompt as its presenter wrote it before its presentation became data (H5): at the
+ * first level of its ladder, the fret under the note and its string drawn.
+ */
+function locateToday(item: LocateItem, firstLevel: boolean, locale: Locale, random: () => number) {
+	return {
+		primary: noteName(item.pitch, random),
+		secondary: stringLabel(item.string, locale),
+		detail: firstLevel ? promptFretLabel(item, locale) : null,
+		diagram: firstLevel ? { string: item.string, label: openPitch(item.string) } : null
+	};
+}
+
+/** The identify prompt as its presenter wrote it before H5: at the first level, the name under it. */
+function identifyToday(
+	item: IdentifyItem,
+	firstLevel: boolean,
 	locale: Locale,
 	random: () => number
 ) {
 	return {
-		primary: noteName(item.pitch, random),
-		secondary: stringLabel(item.string, locale),
-		aid: aid === 'show-position' ? promptFretLabel(item, locale) : null,
-		diagram: stringAid ? { string: item.string, label: openPitch(item.string) } : null
-	};
-}
-
-/** The identify prompt as its presenter wrote it before its presentation became data (H5). */
-function identifyToday(item: IdentifyItem, aid: AidLevel, locale: Locale, random: () => number) {
-	return {
 		primary: fretLabel(item.fret, locale),
 		secondary: stringLabel(item.string, locale),
-		aid: aid === 'show-position' ? nameAtFret(item, random) : null
+		detail: firstLevel ? nameAtFret(item, random) : null
 	};
 }
 
@@ -58,40 +61,36 @@ function planned(
 		item,
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		leadBeats: 2,
 		...over
 	};
 }
 
 describe('presentPrompt', () => {
-	it('writes the locate prompt as today: the note, its string, the fret when aided, the string drawn while it fades', () => {
+	it('writes the locate prompt as before: the note, its string; at the first level of its ladder the fret under it and its string drawn, above it neither', () => {
 		const items = [
 			{ string: 2, pitch: 'F' },
 			{ string: 6, pitch: 'A#' },
 			{ string: 1, pitch: 'G#' }
 		] as const;
 		for (const item of items) {
-			for (const aid of ['none', 'show-position'] as const) {
-				for (const stringAid of [false, true]) {
-					for (const locale of ['fr', 'en'] as const) {
-						for (const value of [0, 0.9]) {
-							const random = () => value;
-							const today = locateToday(item, { aid, stringAid }, locale, random);
-							const shown = presentPrompt(
-								LOCATE_NECK,
-								planned(LOCATE_NECK, item, { aid, stringAid }),
-								locale,
-								random
-							);
-							expect(shown.primary).toBe(today.primary);
-							expect(shown.secondary).toBe(today.secondary);
-							expect(shown.aid).toBe(today.aid);
-							expect(shown.detail).toBeNull();
-							expect(shown.pictures).toEqual(
-								today.diagram ? [{ kind: 'string', ...today.diagram }] : []
-							);
-						}
+			for (const level of [0, 1, 2]) {
+				for (const locale of ['fr', 'en'] as const) {
+					for (const value of [0, 0.9]) {
+						const random = () => value;
+						const today = locateToday(item, level === 0, locale, random);
+						const shown = presentPrompt(
+							LOCATE_NECK,
+							planned(LOCATE_NECK, item, { level }),
+							locale,
+							random
+						);
+						expect(shown.primary).toBe(today.primary);
+						expect(shown.secondary).toBe(today.secondary);
+						expect(shown.detail).toBe(today.detail);
+						expect(shown.pictures).toEqual(
+							today.diagram ? [{ kind: 'string', ...today.diagram }] : []
+						);
 					}
 				}
 			}
@@ -110,19 +109,19 @@ describe('presentPrompt', () => {
 		expect(shown.band).toBeNull();
 	});
 
-	it('writes the identify prompt as today: the fret, the string, the name when aided', () => {
+	it('writes the identify prompt as before: the fret, the string, the name under it at the first level of its ladder', () => {
 		const item = { string: 3, fret: 8 } as const;
-		for (const aid of ['none', 'show-position'] as const) {
-			const today = identifyToday(item, aid, 'en', () => 0.1);
+		for (const level of [0, 1]) {
+			const today = identifyToday(item, level === 0, 'en', () => 0.1);
 			const shown = presentPrompt(
 				IDENTIFY_NECK,
-				planned(IDENTIFY_NECK, item, { aid }),
+				planned(IDENTIFY_NECK, item, { level }),
 				'en',
 				() => 0.1
 			);
 			expect(shown.primary).toBe(today.primary);
 			expect(shown.secondary).toBe(today.secondary);
-			expect(shown.aid).toBe(today.aid);
+			expect(shown.detail).toBe(today.detail);
 			expect(shown.pictures).toEqual([]);
 		}
 	});
@@ -130,7 +129,7 @@ describe('presentPrompt', () => {
 	it('writes the anchor prompt: the chord, its root string, its strings, the root on the target, the chord on the band', () => {
 		const shown = presentPrompt(
 			TRIADS_ANCHOR,
-			planned(TRIADS_ANCHOR, { voicingKey: EBM_ON_B }),
+			planned(TRIADS_ANCHOR, { voicingKey: EBM_ON_B }, { level: 1 }),
 			'fr',
 			() => 0
 		);
@@ -140,7 +139,6 @@ describe('presentPrompt', () => {
 			detail: 'sol‑si‑mi',
 			target: 'Eb',
 			band: 'Ebm',
-			aid: null,
 			pictures: []
 		});
 		expect(
@@ -148,15 +146,11 @@ describe('presentPrompt', () => {
 		).toMatchObject({ secondary: 'root on B', detail: 'G‑B‑E', target: 'D' });
 	});
 
-	it('draws the lowest shape of an aided anchor and nothing when unaided', () => {
+	it('draws the lowest shape of an anchor at the first level of its ladder, nothing above it', () => {
 		const item = { voicingKey: D_ON_B };
-		const aided = presentPrompt(
-			TRIADS_ANCHOR,
-			planned(TRIADS_ANCHOR, item, { aid: 'show-position' }),
-			'fr',
-			() => 0
-		);
-		expect(aided.pictures).toEqual([
+		const drawn = (level: number) =>
+			presentPrompt(TRIADS_ANCHOR, planned(TRIADS_ANCHOR, item, { level }), 'fr', () => 0).pictures;
+		expect(drawn(0)).toEqual([
 			{
 				kind: 'shape',
 				notes: [
@@ -166,26 +160,22 @@ describe('presentPrompt', () => {
 				]
 			}
 		]);
-		const unaided = presentPrompt(TRIADS_ANCHOR, planned(TRIADS_ANCHOR, item), 'fr', () => 0);
-		expect(unaided.pictures).toEqual([]);
+		expect(drawn(1)).toEqual([]);
+		expect(drawn(2)).toEqual([]);
 	});
 
-	it('writes the zone prompt: the chord, around its fret, the root string when aided', () => {
+	it('writes the zone prompt: the chord, around its fret, its strings and the root string at the first level of its ladder', () => {
 		const item = { voicingKey: D_ON_B, position: 14, fret: 15 };
-		expect(presentPrompt(TRIADS_ZONE, planned(TRIADS_ZONE, item), 'fr', () => 0)).toMatchObject({
+		expect(
+			presentPrompt(TRIADS_ZONE, planned(TRIADS_ZONE, item, { level: 1 }), 'fr', () => 0)
+		).toMatchObject({
 			primary: 'D',
 			secondary: 'vers la case 15',
-			detail: 'sol‑si‑mi',
-			aid: null
+			detail: 'sol‑si‑mi'
 		});
 		expect(
-			presentPrompt(
-				TRIADS_ZONE,
-				planned(TRIADS_ZONE, item, { aid: 'show-position' }),
-				'en',
-				() => 0
-			)
-		).toMatchObject({ secondary: 'around fret 15', aid: 'root on B' });
+			presentPrompt(TRIADS_ZONE, planned(TRIADS_ZONE, item, { level: 0 }), 'en', () => 0)
+		).toMatchObject({ secondary: 'around fret 15', detail: 'G‑B‑E · root on B' });
 		expect(
 			presentPrompt(
 				TRIADS_ZONE,
@@ -194,30 +184,6 @@ describe('presentPrompt', () => {
 				() => 0
 			).secondary
 		).toBe('à vide');
-	});
-
-	it('shows the aided presentation at an aid level of the exercise as when the item is served aided, on the lane too', () => {
-		const item = { voicingKey: D_ON_B, position: 14, fret: 15 };
-		// Two aid levels below two levels: the prompt is read at the level it is played at.
-		const levels: ExerciseDefinition['levels'] = [
-			{ aid: true, params: {} },
-			{ aid: true, params: {} },
-			{ params: {} },
-			{ params: {} }
-		];
-		const zone: ExerciseDefinition = { ...TRIADS_ZONE, levels };
-		const at = (over: Partial<PlannedItem>) =>
-			presentPrompt(zone, planned(zone, item, over), 'en', () => 0);
-		expect(at({ exerciseLevel: -1 }).aid).toBe('root on B');
-		expect(at({ exerciseLevel: -2 }).aid).toBe('root on B');
-		expect(at({ exerciseLevel: 0 }).aid).toBeNull();
-		expect(at({ exerciseLevel: 1 }).aid).toBeNull();
-		const anchored: ExerciseDefinition = { ...TRIADS_ANCHOR, levels };
-		const anchor = (over: Partial<PlannedItem>) =>
-			presentPrompt(anchored, planned(anchored, { voicingKey: D_ON_B }, over), 'fr', () => 0)
-				.pictures.length;
-		expect(anchor({ exerciseLevel: -1 })).toBe(1);
-		expect(anchor({ exerciseLevel: 0 })).toBe(0);
 	});
 
 	it('writes a slot per language', () => {
@@ -234,24 +200,6 @@ describe('presentPrompt', () => {
 			secondary: 'corde de B — corde de B'
 		});
 		expect(presentPrompt(definition, item, 'en', () => 0).primary).toBe('Play F');
-	});
-
-	it('lists the aided picture first, then the fading one, each only when given', () => {
-		const definition: ExerciseDefinition = {
-			...LOCATE_NECK,
-			presentation: {
-				primary: '{note}',
-				aided: { picture: 'string' },
-				fading: { picture: 'string' }
-			}
-		};
-		const item = { string: 2, pitch: 'F' };
-		const count = (over: Partial<PlannedItem>) =>
-			presentPrompt(definition, planned(definition, item, over), 'fr', () => 0).pictures.length;
-		expect(count({})).toBe(0);
-		expect(count({ aid: 'show-position' })).toBe(1);
-		expect(count({ stringAid: true })).toBe(1);
-		expect(count({ aid: 'show-position', stringAid: true })).toBe(2);
 	});
 
 	describe('at a level that rewrites the prompt', () => {
@@ -301,8 +249,8 @@ describe('presentPrompt', () => {
 				params: {
 					...LOCATE_NECK.params,
 					ladder: [
-						{ params: { leadBeats: 4, aided: false } },
-						{ params: { leadBeats: 2, aided: false, 'presentation.detail': '{fret}' } }
+						{ params: { leadBeats: 4 } },
+						{ params: { leadBeats: 2, 'presentation.detail': '{fret}' } }
 					]
 				}
 			};
@@ -371,9 +319,9 @@ describe('presentPrompt', () => {
 	it('leaves the picture of the members admitted to the view of its round', () => {
 		const definition: ExerciseDefinition = {
 			...GESTURE_CLIMB,
-			presentation: { primary: '{symbol}', aided: { picture: 'admitted' } }
+			presentation: { primary: '{symbol}', picture: 'admitted' }
 		};
-		const item = planned(definition, { grid: 'iohefy-a', index: 0 }, { aid: 'show-position' });
+		const item = planned(definition, { grid: 'iohefy-a', index: 0 });
 		expect(presentPrompt(definition, item, 'fr', () => 0).pictures).toEqual([]);
 	});
 });

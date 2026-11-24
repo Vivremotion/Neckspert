@@ -1619,9 +1619,12 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 	it('writes an aid level under level 1 that draws the shapes admitted, and asks the anti-blocking', () => {
 		for (const id of GESTURE_EXERCISE_IDS) {
 			const definition = exerciseById(id);
-			// An aid level of the exercise shows its presentation's aid (D6): the shapes admitted.
-			expect(definition.levels?.[0]).toEqual({ aid: true, params: { tempo: 80 } });
-			expect(definition.presentation?.aided).toEqual({ picture: 'admitted' });
+			// The aid level of the exercise writes its own picture: the shapes admitted.
+			expect(definition.levels?.[0]).toEqual({
+				aid: true,
+				params: { tempo: 80, 'presentation.picture': 'admitted' }
+			});
+			expect(definition.presentation?.picture).toBeUndefined();
 			expect(definition.levels?.slice(1).every((level) => !level.aid)).toBe(true);
 			expect(definition.flow).toEqual({ antiBlocking: true });
 		}
@@ -1682,8 +1685,8 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		});
 	});
 
-	it('draws its presentation’s aid at an aid level of the exercise only, never from level 1 up (D6)', async () => {
-		// A climb written in the test: its aid level, then two levels at the same tempo.
+	it('draws the shapes admitted at the levels that name them only, whatever their rank (D6)', async () => {
+		// A climb written in the test: its aid level and its level 2 draw them, its level 1 does not.
 		const exercise = (id: string) => {
 			const definition = exerciseById(id);
 			if (id !== CLIMB) return definition;
@@ -1691,9 +1694,9 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 				...definition,
 				flow: undefined,
 				levels: [
-					{ aid: true as const, params: { tempo: 80 } },
+					{ aid: true as const, params: { tempo: 80, 'presentation.picture': 'admitted' } },
 					{ params: { tempo: 80 } },
-					{ params: { tempo: 80 } }
+					{ params: { tempo: 80, 'presentation.picture': 'admitted' } }
 				]
 			};
 		};
@@ -1720,7 +1723,7 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		};
 		expect((await at(-1)).every((aid) => aid !== null)).toBe(true);
 		expect(await at(0)).toEqual([null, null]);
-		expect(await at(1)).toEqual([null, null]);
+		expect((await at(1)).every((aid) => aid !== null)).toBe(true);
 	});
 
 	it('draws no aid at the first passage of an index', async () => {

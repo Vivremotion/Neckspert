@@ -105,7 +105,7 @@ const ROOT_THEN_CHORD: ExerciseDefinition = {
 		}
 	},
 	params: {
-		ladder: [{ params: { leadBeats: 3, aided: false }, pass: { successes: 1 } }]
+		ladder: [{ params: { leadBeats: 3 }, pass: { successes: 1 } }]
 	}
 };
 
@@ -159,7 +159,7 @@ const PITCHED_FIGURE: ExerciseDefinition = {
 		}
 	},
 	params: {
-		ladder: [{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 } }]
+		ladder: [{ params: { leadBeats: 4 }, pass: { successes: 1 } }]
 	},
 	items: ['1:3', '2:3', '3:3', '4:3', '5:3', '6:3']
 };
@@ -412,7 +412,7 @@ const READ_A_GRID: ExerciseDefinition = {
 	practices: BENCH_PASSAGE_SKILLS.change[0],
 	view: 'grid-scroll',
 	tempo: 100,
-	presentation: { primary: '{symbol}', secondary: '{title}', aided: { picture: 'admitted' } },
+	presentation: { primary: '{symbol}', secondary: '{title}' },
 	round: {
 		prompt: { lead: 1 },
 		expectations: [
@@ -451,7 +451,7 @@ const READ_A_GRID_BLOCKING: ExerciseDefinition = {
 	id: 'read-a-grid-blocking',
 	practices: BENCH_PASSAGE_SKILLS.change[1],
 	levels: [
-		{ aid: true, params: { tempo: 100 } },
+		{ aid: true, params: { tempo: 100, 'presentation.picture': 'admitted' } },
 		{ params: { tempo: 100 }, pass: { successes: 10 }, drop: { failures: 3 } }
 	],
 	flow: { antiBlocking: true }

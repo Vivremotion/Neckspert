@@ -24,7 +24,7 @@ import {
 	type RoundPlan
 } from '$lib/domain/time';
 import type { Attempt, CardKey, Execution, PlannedItem } from '$lib/domain/types';
-import { aidsOf, cycleAids, levelAided } from '../aids';
+import { cycleAids, levelAided } from '../aids';
 import { recordedAttempt } from './recordResponse';
 
 /**
@@ -93,16 +93,13 @@ export function roundGiven(
 		thresholds: ROUND_MODES.verdicts[plan.policy.verdict]?.readsThresholds
 			? params.thresholds
 			: null,
-		aids: [
-			...aidsOf(item),
-			...cycleAids({
-				cursor: params.cursor,
-				listen: params.listen,
-				aidLevel: item.exerciseLevel < 0,
-				listened: help.listened,
-				playAlong: help.playAlong
-			})
-		],
+		aids: cycleAids({
+			cursor: params.cursor,
+			listen: params.listen,
+			aidLevel: item.exerciseLevel < 0,
+			listened: help.listened,
+			playAlong: help.playAlong
+		}),
 		settleAfter: plan.policy.unit === 'cycle' ? SETTLE_AFTER_BARS : null,
 		liveMarks: params.liveMarks
 	};

@@ -20,7 +20,6 @@ function attempt(overrides: AttemptOverrides): Attempt {
 		cardKey: 'locate-note-string:2:F',
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		tempoBpm: 80,
 		leadBeats: 2,
 		promptedAt: 1000,

@@ -84,9 +84,6 @@ export type ItemPhase = 'review' | 'learning' | 'consolidation' | 'free';
  */
 export type RecordedPhase = ItemPhase | 'probe';
 
-/** Help shown with a mode 1 prompt: the fret, or nothing. */
-export type AidLevel = 'show-position' | 'none';
-
 /** A lead in beats of the meter: any positive number. */
 export type LeadBeats = number;
 
@@ -102,7 +99,7 @@ export interface Attempt<D = unknown> {
 	cardKey: CardKey;
 	phase: RecordedPhase;
 	temperature: Temperature;
-	/** What the round showed or played for the player (`AidLevel` is the planned aid). */
+	/** What the round showed or played for the player. */
 	aids: Aid[];
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
@@ -190,7 +187,6 @@ export interface PlannedItem<I = unknown> {
 	item: I;
 	phase: ItemPhase;
 	temperature: Temperature;
-	aid: AidLevel;
 	/** Time relation "beat" only. */
 	leadBeats: LeadBeats | null;
 	/** Its level on its exercise's ladder, when a source served it from one (`ladderOf`). */
@@ -209,8 +205,6 @@ export interface PlannedItem<I = unknown> {
 	 * level of its exercise in that scope, and so its tempo. Absent: the exercise's own level.
 	 */
 	scope?: string;
-	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
-	stringAid?: boolean;
 	/** The passage it is a round of, for an exercise that writes passages (`createPassageSource`). */
 	passage?: PlannedPassage;
 }

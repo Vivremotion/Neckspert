@@ -10,7 +10,7 @@ import type { StagePlace } from '$lib/application/sets/types';
 import type { LaneEntry } from '$lib/application/session/contract';
 import { membersPicture, roundMemberFields } from './contentViews';
 import { CONTENT_PICTURES, type Picture } from './pictures';
-import { isAided, presentPrompt, type PresentedPrompt } from './presentPrompt';
+import { presentPrompt, type PresentedPrompt } from './presentPrompt';
 import { stageVerdict, type StageVerdict } from './promptStage';
 
 /** A round of the passage on its line. */
@@ -140,11 +140,10 @@ function labelsOf(
 	const key = JSON.stringify([locale, contentFields, item.level ?? null]);
 	let labels = line.labels.get(key);
 	if (!labels) {
-		const plain: PlannedItem = { ...item, aid: 'none', stringAid: false };
 		labels = items.map((each) => {
 			const said = presentPrompt(
 				line.definition,
-				{ ...plain, item: each },
+				{ ...item, item: each },
 				locale,
 				random,
 				contentFields
@@ -207,10 +206,8 @@ function admittedPicture(
  * the prompt of the round on show (the fields of its member contents among them), the line of the
  * passage (each round's place, its `target` said for its item, the way to it), and the members
  * admitted now and next when the presentation of the round's levels names their picture
- * (`presentationOf`, `picture`), or, at an aided level (an aid level of the exercise, or the item
- * served aided), when its `aided` does: `presentPrompt` makes a line or an item's picture, the
- * members admitted are drawn here. `random` spells a note: give every call for one item the same
- * value.
+ * (`presentationOf`, `picture`): `presentPrompt` makes an item's picture, the members admitted are
+ * drawn here. `random` spells a note: give every call for one item the same value.
  */
 export function passageStage(input: {
 	definition: ExerciseDefinition;
@@ -239,10 +236,8 @@ export function passageStage(input: {
 		exerciseLevel: item.exerciseLevel,
 		itemLevel: item.level ?? null
 	});
-	const named = [presentation?.picture, isAided(item) ? presentation?.aided?.picture : undefined];
-	const drawsAdmitted = named.some(
-		(picture) => picture !== undefined && CONTENT_PICTURES.includes(picture)
-	);
+	const picture = presentation?.picture;
+	const drawsAdmitted = picture !== undefined && CONTENT_PICTURES.includes(picture);
 	const line = lineOf(definition, round, items);
 	const labels = labelsOf(line, item, items, locale, random, contentFields);
 	return {

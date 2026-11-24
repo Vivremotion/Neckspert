@@ -161,7 +161,7 @@ function levelsRecipe(id: string, params: number) {
 	const exercise = locateJson(id);
 	const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({ params: keys(params) }));
 	const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-		params: { ...keys(params - 2), leadBeats: 2, aided: false }
+		params: { ...keys(params - 2), leadBeats: 2 }
 	}));
 	return { ...exercise, params: { ...(exercise.params as object), ladder }, levels };
 }
@@ -270,7 +270,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
+			params: { leadBeats: 2, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const exercise = locateJson('h-levels');
 		const { ms, refusals } = timedLoad({
@@ -301,7 +301,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
+			params: { leadBeats: 2, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const zones = Object.fromEntries(
 			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
@@ -326,7 +326,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
+			params: { leadBeats: 2, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const zones = Object.fromEntries(
 			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
@@ -383,7 +383,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
+			params: { leadBeats: 2, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const names = Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => `z${i}`);
 		const link = linkJson('h-each');
@@ -442,7 +442,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			params: manyParams(PARAMS_IN_BUDGET)
 		}));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
+			params: { leadBeats: 2, ...manyParams(PARAMS_IN_BUDGET - 2, 'other') }
 		}));
 		const zones = Object.fromEntries(
 			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
@@ -505,7 +505,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		const params = exercise.params as Record<string, unknown>;
 		const big = Object.fromEntries(Array.from({ length: 5_000 }, (_, i) => [`k${i}`, 0]));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, (_, i) => ({
-			params: { leadBeats: 2, aided: false, [`big.b${i}`]: 1 }
+			params: { leadBeats: 2, [`big.b${i}`]: 1 }
 		}));
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, (_, i) => ({
 			params: { [`big.a${i}`]: 1 }
@@ -697,7 +697,6 @@ describe('a definition file at the limits of what checking it may cost', () => {
 					item: served.item,
 					phase: 'free',
 					temperature: 'hot',
-					aid: 'none',
 					leadBeats: null
 				},
 				METER_4_4,
@@ -732,7 +731,6 @@ describe('a definition file at the limits of what checking it may cost', () => {
 				item: { ...placedVoicingSet.parseItem(keys[0]), beats: 4 },
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: null
 			},
 			METER_4_4,
@@ -764,7 +762,6 @@ describe('a definition file at the limits of what checking it may cost', () => {
 				item: served.item,
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: null
 			},
 			METER_4_4,
@@ -823,7 +820,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 	it('refuses fast a selection over its limits', () => {
 		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({ params: {} }));
 		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
-			params: { leadBeats: 2, aided: false }
+			params: { leadBeats: 2 }
 		}));
 		const locate = locateJson('h-over');
 		const wide = {
@@ -885,7 +882,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 					...locate,
 					params: {
 						ladder: Array.from({ length: 1500 }, () => ({
-							params: { leadBeats: 2, aided: false }
+							params: { leadBeats: 2 }
 						}))
 					},
 					levels: Array.from({ length: 1500 }, () => ({ params: {} }))
@@ -897,7 +894,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 					...locate,
 					params: {
 						ladder: Array.from({ length: 1500 }, () => ({
-							params: { leadBeats: 2, aided: false }
+							params: { leadBeats: 2 }
 						}))
 					}
 				},

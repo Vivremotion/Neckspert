@@ -47,7 +47,6 @@ function coldAttempt(overrides: AttemptOverrides): Attempt {
 		cardKey: neckCardKey(L1),
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		promptedAt: NOW,
 		tempoBpm: 80,
 		leadBeats: 2,

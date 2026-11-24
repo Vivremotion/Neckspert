@@ -4,7 +4,14 @@ import type { ExerciseDefinition, ExerciseId } from '../exercise/types';
 import { parseVoicingKey, voicingOccurrences } from '../music';
 import { Rating, introScheduling, reviewScheduling } from '../progress/scheduling';
 import { occurrencePosition } from '../triads/position';
-import { cardKey, type Attempt, type CardKey, type CardState, type SkillId } from '../types';
+import {
+	cardKey,
+	type Attempt,
+	type CardKey,
+	type CardState,
+	type PlannedItem,
+	type SkillId
+} from '../types';
 import type { LevelState } from '../time/levels';
 import { LOCATE_NECK, TRIADS_ZONE } from '$lib/testing/catalog';
 import {
@@ -33,16 +40,14 @@ function exerciseOn(
 	id: string,
 	skill: SkillId,
 	items: readonly string[],
-	options: { learning?: Record<string, unknown>; fading?: boolean } = {}
+	options: { learning?: Record<string, unknown> } = {}
 ): ExerciseDefinition {
-	const { fading: _fading, ...presentation } = LOCATE_NECK.presentation!;
 	return {
 		...LOCATE_NECK,
 		id: id as ExerciseId,
 		practices: skill,
 		items,
-		params: { ...LOCATE_NECK.params, learning: options.learning },
-		presentation: options.fading ? LOCATE_NECK.presentation : presentation
+		params: { ...LOCATE_NECK.params, learning: options.learning }
 	};
 }
 
@@ -280,22 +285,60 @@ describe('exerciseSubject', () => {
 		).toThrow('"cardless" practises a skill without cards');
 	});
 
-	it('presents a missed probe at once unless one of its exercises says otherwise', () => {
-		const first = exerciseOn('first', A, ['5:C']);
-		const waiting = exerciseOn('waiting', B, ['5:C'], { learning: { presentAtOnce: false } });
-		expect(exerciseSubject({ exercises: [first], attempts: [] }).presentsAtOnce).toBe(true);
-		expect(exerciseSubject({ exercises: [first, waiting], attempts: [] }).presentsAtOnce).toBe(
-			false
-		);
+	it('retests a new item on the ladder locate writes after the long gap once right and the short one once missed, at any level', () => {
+		const [shortGap, longGap] = itemLearningOf(LOCATE_NECK).retestGaps;
+		expect(shortGap).toBeLessThan(longGap);
+		const keys = ['5:C', '6:G', '4:F', '3:A', '2:D', '1:G', '5:D', '6:A'];
+		const exercise = exerciseOn('first', A, keys);
+		const others = keys.slice(1).map((key) => card(A, key, { learnedAt: 0, acquiredAt: 0 }));
+		const subject = exerciseSubject({ exercises: [exercise], attempts: [] });
+		const source = createLearningProcedure({
+			subject,
+			cards: others,
+			attempts: [],
+			levels: [],
+			sessionId: 'session',
+			random: () => 0
+		});
+		const isNew = (item: PlannedItem) => subject.itemKey(item) === '5:C';
+		const attempt = (item: PlannedItem, success: boolean) =>
+			attemptOf(item, { success, cardKey: cardKey(A, subject.itemKey(item)) });
+		/** Serves the others, played right, until the new item comes back; how many came between. */
+		const othersUntilBack = () => {
+			for (let between = 0; between < 20; between++) {
+				const item = source.next(at(0))!;
+				if (isNew(item)) return { between, leadBeats: item.leadBeats };
+				source.record(attempt(item, true), 0);
+			}
+			throw new Error('the new item never came back');
+		};
+		const first = source.next(at(0))!;
+		expect(isNew(first)).toBe(true);
+		expect(first).toMatchObject({ level: 0, leadBeats: 8 });
+		let served = first;
+		const play = (success: boolean) => {
+			source.record(attempt(served, success), 0);
+			const back = othersUntilBack();
+			served = { ...served, leadBeats: back.leadBeats };
+			return back;
+		};
+		// Right at level 1: the long gap, at level 2.
+		expect(play(true)).toEqual({ between: longGap, leadBeats: 4 });
+		// Missed at level 2: the short gap, back at level 1.
+		expect(play(false)).toEqual({ between: shortGap, leadBeats: 8 });
+		expect(play(true)).toEqual({ between: longGap, leadBeats: 4 });
+		expect(play(true)).toEqual({ between: longGap, leadBeats: 2 });
+		// Missed at the top: the short gap.
+		expect(play(false)).toEqual({ between: shortGap, leadBeats: 4 });
 	});
 
-	it('tells a confusion recorded in an attempt, and the skills whose prompt fades an aid', () => {
+	it('tells a confusion recorded in an attempt', () => {
 		const subject = exerciseSubject({
-			exercises: [exerciseOn('fading', A, ['5:C'], { fading: true }), exerciseOn('plain', B, [])],
+			exercises: [exerciseOn('confusing', A, ['5:C']), exerciseOn('plain', B, [])],
 			attempts: []
 		});
 		const planned = {
-			exerciseId: 'fading' as ExerciseId,
+			exerciseId: 'confusing' as ExerciseId,
 			skill: A,
 			item: note('5:C'),
 			phase: 'review' as const,
@@ -306,8 +349,6 @@ describe('exerciseSubject', () => {
 		);
 		expect(subject.confused(attemptOf(planned, { data: { confusion: null } }))).toBe(false);
 		expect(subject.confused(attemptOf(planned, { data: null }))).toBe(false);
-		expect(subject.fadingAid(A)).toBe(true);
-		expect(subject.fadingAid(B)).toBe(false);
 	});
 
 	it('draws what a prompt asks from the item last asked of its card', () => {

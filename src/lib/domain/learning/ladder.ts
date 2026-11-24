@@ -10,7 +10,7 @@ export function ladderLevel(state: LevelState, ladder: Ladder): LevelState {
 
 /**
  * This success completes the top level's pass: the item is learned. The ladder is data: a top
- * written aided learns its item with the answer shown.
+ * that shows the answer learns its item with the answer shown.
  */
 export function passesTop(state: LevelState, ladder: Ladder, success: boolean): boolean {
 	const { highest } = levelRange(ladder);

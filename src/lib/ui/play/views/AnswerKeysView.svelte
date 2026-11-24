@@ -43,8 +43,8 @@
 			</p>
 		{:else if !verdict}
 			<Prompt main={keys.prompt.primary} line={keys.prompt.secondary} size="prompt">
-				{#if keys.prompt.aid}
-					<p class="aid">{keys.prompt.aid}</p>
+				{#if keys.prompt.detail}
+					<p class="detail">{keys.prompt.detail}</p>
 				{/if}
 			</Prompt>
 		{/if}
@@ -86,14 +86,10 @@
 		margin: 0;
 	}
 
-	/* Learning aid: the note name, on a light tile. */
-	.aid {
-		margin-top: var(--np-step-2);
-		padding: var(--np-step-1) var(--np-step-2);
-		background: var(--np-on-field);
-		color: var(--np-text);
-		font-size: var(--np-size-title);
-		line-height: 1;
+	/* Under the prompt, read last, as on the lane: what its level writes there (a note's name). */
+	.detail {
+		font-size: var(--np-size-meta);
+		opacity: 0.85;
 	}
 
 	.hit {

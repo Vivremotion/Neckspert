@@ -105,7 +105,7 @@ describe('the cost of what a level writes', () => {
 
 	it('charges a value a level writes at its nested size, and a ladder path through it at each resolution over it', () => {
 		const ladder = Array.from({ length: 10 }, (_, i) => ({
-			params: { leadBeats: 2, aided: false, [`big.b${i}`]: 1 }
+			params: { leadBeats: 2, [`big.b${i}`]: 1 }
 		}));
 		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder } };
 		const plain = levelsCheckCost({ ...exercise, levels: [{ params: { big: 1 } }] });
@@ -119,7 +119,7 @@ describe('the cost of what a level writes', () => {
 
 	it('charges a ladder level a sweep lays only for the paths a selection reads', () => {
 		const ladder = Array.from({ length: 50 }, () => ({
-			params: { leadBeats: 2, aided: false, ...keys(100) }
+			params: { leadBeats: 2, ...keys(100) }
 		}));
 		const levels = Array.from({ length: 50 }, () => ({ params: keys(100) }));
 		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder }, levels };
@@ -140,7 +140,7 @@ describe('the cost of what a level writes', () => {
 		// The reviewer's shape: a zone of many keys, a ladder writing the zone's frets at every
 		// level, many exercise levels; the member asked reads the zone's frets or nothing.
 		const ladder = Array.from({ length: 100 }, () => ({
-			params: { leadBeats: 2, aided: false, 'zone.frets': [1, 24] }
+			params: { leadBeats: 2, 'zone.frets': [1, 24] }
 		}));
 		const levels = Array.from({ length: 100 }, (_, i) => ({ params: { [`free${i}`]: 1 } }));
 		const exercise = {
@@ -168,7 +168,7 @@ describe('the cost of what a level writes', () => {
 describe('the cost of a presentation rewritten at the levels', () => {
 	const ladderWriting = (path: string) =>
 		Array.from({ length: 100 }, () => ({
-			params: { leadBeats: 2, aided: false, [path]: '{fret}' }
+			params: { leadBeats: 2, [path]: '{fret}' }
 		}));
 	const levels = Array.from({ length: 100 }, () => ({ params: {} }));
 

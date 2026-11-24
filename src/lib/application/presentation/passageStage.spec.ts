@@ -31,16 +31,14 @@ const LINK_PRESENTATION: PromptPresentation = {
 	primary: '{chord}',
 	secondary: '{quality}',
 	detail: { fr: 'sur cordes {strings}', en: 'on strings {strings}' },
-	target: '{chord}',
-	aided: { picture: 'admitted' }
+	target: '{chord}'
 };
 
 const CLIMB_PRESENTATION: PromptPresentation = {
 	primary: '{symbol}',
 	secondary: '{title}',
 	detail: '{strings} · {toward}',
-	target: '{symbol}',
-	aided: { picture: 'admitted' }
+	target: '{symbol}'
 };
 
 const LINK: ExerciseDefinition = { ...GESTURE_LINK, presentation: LINK_PRESENTATION };
@@ -234,35 +232,36 @@ describe('passageStage: the prompt of the round on show', () => {
 	});
 });
 
-describe('passageStage: the aid', () => {
-	const aided = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
+describe('passageStage: the shapes admitted', () => {
+	/** At the catalog's first level of the gesture, which names the picture of the shapes admitted. */
+	const pictured = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
 
-	it('draws nothing at level 1, nor at an aid level for a presentation that writes no aid', () => {
+	it('draws nothing at a level that names no picture, whatever its rank', () => {
 		const [first] = passageOf(LINK, 'chord=D;strings=3,2,1');
 		expect(show(LINK, first).aid).toBeNull();
-		const { aided: _aided, ...bare } = LINK_PRESENTATION;
-		expect(show({ ...LINK, presentation: bare }, aided(first)).aid).toBeNull();
+		const unpictured: ExerciseDefinition = {
+			...LINK,
+			levels: LINK.levels?.map((level) => ({ ...level, params: { tempo: 80 } }))
+		};
+		expect(show(unpictured, pictured(first)).aid).toBeNull();
 	});
 
-	it("draws the link's shape now and the next one at the aid level, or when served aided", () => {
+	it("draws the link's shape now and the next one at the level that names them", () => {
 		const rounds = passageOf(LINK, 'chord=D;strings=3,2,1');
 		const shapes = rounds.map((round) => (round.item as { frets: number[] }).frets.join('-'));
-		const notes = notesOf(show(LINK, aided(rounds[1])).aid);
+		const notes = notesOf(show(LINK, pictured(rounds[1])).aid);
 		const now = notes.filter((note) => !note.next).map((n) => n.fret);
 		expect(now.join('-')).toBe(shapes[1]);
 		expect(notes.filter((note) => note.next).length).toBeGreaterThan(0);
-		expect(show(LINK, { ...rounds[1], aid: 'show-position' }).aid).toEqual(
-			show(LINK, aided(rounds[1])).aid
-		);
 		// The tour's last shape has nothing next.
-		const last = notesOf(show(LINK, aided(rounds.at(-1)!)).aid);
+		const last = notesOf(show(LINK, pictured(rounds.at(-1)!)).aid);
 		expect(last.some((note) => note.next)).toBe(false);
 	});
 
 	it("draws the next change's shapes beyond the one ringing before the round is judged, beyond the one heard after", () => {
 		const D_TOP = shapeId('D', 'min', G_B_E, '10-10-10');
 		const rounds = passageOf(CLIMB, 'grid=iohefy-a;strings=3,2,1', { direction: 'up' });
-		const round = aided({ ...rounds[0], passage: { ...rounds[0].passage, previous: null } });
+		const round = pictured({ ...rounds[0], passage: { ...rounds[0].passage, previous: null } });
 		const plan = compilePassageRound(CLIMB, round);
 		const G = chordShapes.members({ chord: triadOf('G7'), strings: [...G_B_E] });
 		const beyond = (fret: number) => G.filter((shape) => GUITAR_ATTRIBUTES.position(shape) > fret);
@@ -296,7 +295,7 @@ describe('passageStage: the aid', () => {
 });
 
 describe('passageStage: a level that names the picture of the members admitted', () => {
-	const { aided: _aided, ...bare } = LINK_PRESENTATION;
+	const bare = LINK_PRESENTATION;
 	const at = (levels: ExerciseDefinition['levels']): ExerciseDefinition => ({
 		...LINK,
 		presentation: bare,
@@ -338,15 +337,16 @@ describe('passageStage: a level that names the picture of the members admitted',
 	});
 });
 
-describe('passageStage: the aid of the grids', () => {
-	const aided = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
+describe('passageStage: the shapes admitted on the grids', () => {
+	/** At the catalog's first level of the gesture, which names the picture of the shapes admitted. */
+	const pictured = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
 	const positionOf = (shape: Member) => GUITAR_ATTRIBUTES.position(shape as never) as number;
 	const nextNotes = (picture: Picture | null) => notesOf(picture).filter((note) => note.next);
 
 	it('turns with the climb where the neck runs out: the next shapes below the one heard', () => {
 		// Em 16-17-15 heard going up: no Ebm above it, so the climb turns down (its next, Ebm7).
 		const rounds = passageOf(CLIMB, 'grid=iohefy-a;strings=3,2,1', { direction: 'up' });
-		const round = aided({
+		const round = pictured({
 			...rounds[6],
 			passage: { ...rounds[6].passage, previous: shapeId('G', 'maj', G_B_E, '12-12-10') }
 		});
@@ -364,7 +364,7 @@ describe('passageStage: the aid of the grids', () => {
 
 	it('zone: the shapes now and next in its frets, on its four strings', () => {
 		const rounds = passageOf(ZONE, 'grid=iohefy-a', { zone: [7, 11] });
-		const aid = show(ZONE, aided(rounds[0])).aid;
+		const aid = show(ZONE, pictured(rounds[0])).aid;
 		expect(aid).toMatchObject({ kind: 'neck', strings: [4, 3, 2, 1] });
 		const notes = notesOf(aid);
 		expect(notes.some((note) => note.next)).toBe(true);
@@ -452,7 +452,12 @@ const stepsExercise = (grid: string): ExerciseDefinition => ({
 		expectations: [{ ...GESTURE_JAM.round!.expectations[0], content: null }] as never
 	},
 	passages: { of: { grid: [grid] }, members: { family: 'test-steps' } },
-	presentation: { primary: '{symbol}' }
+	presentation: { primary: '{symbol}' },
+	// Its round admits no member: no level draws them.
+	levels: GESTURE_JAM.levels?.map(({ params, ...level }) => {
+		const { 'presentation.picture': _picture, ...rest } = params;
+		return { ...level, params: rest };
+	})
 });
 
 const SHORT_GRID = 'test-steps-grid';
@@ -476,7 +481,7 @@ describe('passageStage: a family the screen has no view of', () => {
 		expect(presentationProblem(STEPS)).toBeNull();
 		expect(screenProblem(STEPS, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })).toBeNull();
 		const rounds = passageOf(STEPS, `grid=${SHORT_GRID}`, {}, 's:steps');
-		const model = show(STEPS, { ...rounds[1], aid: 'show-position' });
+		const model = show(STEPS, rounds[1]);
 		expect(model.rounds).toEqual([
 			{ at: 0, length: 4, label: 'C', way: null },
 			{ at: 4, length: 4, label: 'F', way: 'up' },

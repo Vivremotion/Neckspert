@@ -34,7 +34,6 @@ function attempt(overrides: AttemptOverrides): Attempt {
 		cardKey: LOCATE.key,
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		promptedAt: NOW,
 		tempoBpm: TEMPO,
 		leadBeats: 2,

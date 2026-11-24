@@ -79,8 +79,6 @@ export interface TriadSeen {
 	voicing: string;
 	/** The fret a zone prompt names; 'open' for a shape on open strings only. */
 	fret?: number | 'open';
-	/** The prompt shows its aid (the shape drawn, or the root's string). */
-	aided: boolean;
 	prompt: PresentedPrompt;
 	expectation: ChordExpectation;
 	anchorBeat: number;
@@ -123,7 +121,6 @@ function seen(app: TriadsApp, controller: PlaySessionController, n: number): Tri
 		...(zone && {
 			fret: secondary === 'à vide' ? 'open' : Number(secondary.replace('vers la case ', ''))
 		}),
-		aided: model.prompt.aid !== null || model.prompt.pictures.length > 0,
 		prompt: model.prompt,
 		expectation,
 		anchorBeat: model.anchorBeat,

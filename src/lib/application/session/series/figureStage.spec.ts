@@ -102,7 +102,6 @@ function planned<I>(definition: ExerciseDefinition, item: I): PlannedItem<I> {
 		item,
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	};
 }

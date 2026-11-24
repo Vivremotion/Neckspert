@@ -23,7 +23,6 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 		item: F_ON_B,
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		leadBeats: 2,
 		level: 2,
 		...overrides
@@ -331,7 +330,7 @@ describe('AttemptRecorder', () => {
 
 	it('introduces the card of a first learning prompt even after a wrong note', async () => {
 		const { recorder, cards } = setupResponse();
-		const learning = item({ phase: 'learning', temperature: 'hot', aid: 'show-position' });
+		const learning = item({ phase: 'learning', temperature: 'hot' });
 		await recorder.recordResponse(
 			noteAttempt(learning, { success: false }),
 			span(learning),

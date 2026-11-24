@@ -35,12 +35,8 @@ export interface PromptView {
 	target?: string;
 	/** On the band of a second gesture, when there is one: the chord of a triad anchor ("Cm"). */
 	band?: string;
-	/** A shape to draw as the aid (a triad anchor's, aided). */
+	/** A shape to draw (a triad anchor's). */
 	shape?: ShapeView;
-	/** Mode 1 learning aid ("case 6"), or null. */
-	aid: string | null;
-	/** Mode 1, while a note is learned: the prompted string to draw, with its open note. Else null. */
-	diagram: { string: StringNumber; label: string } | null;
 }
 
 export interface VerdictView {

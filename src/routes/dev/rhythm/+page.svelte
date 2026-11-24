@@ -196,7 +196,6 @@
 			item: { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		};
 		return figureStage({

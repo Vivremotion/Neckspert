@@ -50,7 +50,6 @@ describe('createExerciseItemSource, from the figures', () => {
 			item: { figureId: 'offbeats-1', level: 0 },
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		});
 	});
@@ -120,7 +119,6 @@ describe('createExerciseItemSource, from the written items', () => {
 			item: { voicing: 'C|maj|3:1,2:3,1:5', frets: [5, 5, 3], beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		});
 		const leveled = source.atLevel!(first, 1);

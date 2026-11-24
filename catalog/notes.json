@@ -35,13 +35,7 @@
 			"presentation": {
 				"primary": "{note}",
 				"secondary": "{string}",
-				"preview": "{string}",
-				"aided": {
-					"line": "{fret}"
-				},
-				"fading": {
-					"picture": "string"
-				}
+				"preview": "{string}"
 			},
 			"round": {
 				"prompt": {
@@ -100,7 +94,8 @@
 					{
 						"params": {
 							"leadBeats": 8,
-							"aided": true
+							"presentation.detail": "{fret}",
+							"presentation.picture": "string"
 						},
 						"pass": {
 							"successes": 1
@@ -111,8 +106,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": 4,
-							"aided": false
+							"leadBeats": 4
 						},
 						"pass": {
 							"successes": 1
@@ -123,8 +117,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": 2,
-							"aided": false
+							"leadBeats": 2
 						},
 						"pass": {
 							"successes": 2
@@ -211,10 +204,7 @@
 			"view": "answer-keys",
 			"presentation": {
 				"primary": "{fret}",
-				"secondary": "{string}",
-				"aided": {
-					"line": "{name}"
-				}
+				"secondary": "{string}"
 			},
 			"round": {
 				"prompt": {
@@ -256,7 +246,7 @@
 					{
 						"params": {
 							"leadBeats": null,
-							"aided": true
+							"presentation.detail": "{name}"
 						},
 						"pass": {
 							"successes": 1
@@ -267,8 +257,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": null,
-							"aided": false
+							"leadBeats": null
 						},
 						"pass": {
 							"successes": 2

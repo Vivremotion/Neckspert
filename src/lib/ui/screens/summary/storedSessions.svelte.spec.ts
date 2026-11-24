@@ -58,7 +58,6 @@ function change(
 		cardKey: `${exerciseId}:iohefy-a#${index}`,
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		promptedAt: ++prompted,
 		tempoBpm,
 		leadBeats: null,

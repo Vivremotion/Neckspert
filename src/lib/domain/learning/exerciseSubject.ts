@@ -188,9 +188,6 @@ export function exerciseSubject(input: {
 			}
 			return null;
 		},
-		presentsAtOnce: ordered.every(
-			(exercise) => exerciseLearningOf(exercise.definition).presentAtOnce
-		),
 		ladder: (skill) => of(skill).ladder,
 		itemLearning: (skill) => of(skill).itemLearning,
 		recall(skill) {
@@ -202,7 +199,6 @@ export function exerciseSubject(input: {
 			return recall;
 		},
 		confused: (attempt) => (attempt.data as { confusion?: unknown } | null)?.confusion != null,
-		fadingAid: (skill) => of(skill).definition.presentation?.fading !== undefined,
 		promptItem(card, random, level) {
 			const exercise = of(card.skill);
 			const asks = exercise.asks;

@@ -164,7 +164,6 @@ export class DemoIdentifySession implements PlaySessionController {
 						item: target,
 						phase: 'review',
 						temperature: 'cold',
-						aid: 'none',
 						leadBeats: null
 					},
 					i18n.locale,

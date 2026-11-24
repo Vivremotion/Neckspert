@@ -15,7 +15,6 @@ function plannedFor(definition: ExerciseDefinition, item: unknown): PlannedItem 
 		item,
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	};
 }

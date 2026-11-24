@@ -40,10 +40,7 @@
 				},
 				"detail": "{strings}",
 				"target": "{root}",
-				"band": "{chord}",
-				"aided": {
-					"picture": "lowest-shape"
-				}
+				"band": "{chord}"
 			},
 			"round": {
 				"prompt": {
@@ -121,7 +118,7 @@
 					{
 						"params": {
 							"leadBeats": 8,
-							"aided": true
+							"presentation.picture": "lowest-shape"
 						},
 						"pass": {
 							"successes": 1
@@ -132,8 +129,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": 4,
-							"aided": false
+							"leadBeats": 4
 						},
 						"pass": {
 							"successes": 1
@@ -144,8 +140,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": 2,
-							"aided": false
+							"leadBeats": 2
 						},
 						"pass": {
 							"successes": 2
@@ -155,10 +150,7 @@
 						},
 						"success": "direct-recall"
 					}
-				],
-				"learning": {
-					"presentAtOnce": false
-				}
+				]
 			},
 			"items": [
 				"C|maj|3:5,2:1,1:3",
@@ -315,13 +307,7 @@
 			"presentation": {
 				"primary": "{chord}",
 				"secondary": "{around}",
-				"detail": "{strings}",
-				"aided": {
-					"line": {
-						"fr": "fondamentale sur {rootString}",
-						"en": "root on {rootString}"
-					}
-				}
+				"detail": "{strings}"
 			},
 			"round": {
 				"prompt": {
@@ -385,7 +371,10 @@
 					{
 						"params": {
 							"leadBeats": 8,
-							"aided": true
+							"presentation.detail": {
+								"fr": "{strings} · fondamentale sur {rootString}",
+								"en": "{strings} · root on {rootString}"
+							}
 						},
 						"pass": {
 							"successes": 1
@@ -396,8 +385,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": 4,
-							"aided": false
+							"leadBeats": 4
 						},
 						"pass": {
 							"successes": 1
@@ -408,8 +396,7 @@
 					},
 					{
 						"params": {
-							"leadBeats": 2,
-							"aided": false
+							"leadBeats": 2
 						},
 						"pass": {
 							"successes": 2
@@ -434,8 +421,7 @@
 								"other": "previous"
 							}
 						]
-					},
-					"presentAtOnce": false
+					}
 				}
 			},
 			"items": [

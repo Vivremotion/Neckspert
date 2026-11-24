@@ -18,7 +18,6 @@ const ITEM: PlannedItem = {
 	item: { figureId: 'eighths', level: 0 },
 	phase: 'learning',
 	temperature: 'hot',
-	aid: 'none',
 	leadBeats: null
 };
 

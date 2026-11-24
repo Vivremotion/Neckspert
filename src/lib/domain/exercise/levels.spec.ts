@@ -85,7 +85,7 @@ describe('resolvedParamsOf', () => {
 			levels: [{ params: { tempo: 90, 'windows.perfectMs': 60 } }],
 			params: {
 				...LOCATE_NECK.params,
-				ladder: [{ params: { leadBeats: 4, aided: false, 'windows.perfectMs': 100 } }]
+				ladder: [{ params: { leadBeats: 4, 'windows.perfectMs': 100 } }]
 			}
 		};
 		const exerciseOnly = resolvedParamsOf(definition, { exerciseLevel: 0, itemLevel: null });
@@ -94,7 +94,7 @@ describe('resolvedParamsOf', () => {
 		const both = resolvedParamsOf(definition, { exerciseLevel: 0, itemLevel: 0 });
 		expect(both.tempo).toBe(90);
 		expect(both.windows).toMatchObject({ perfectMs: 100, lateMs: 400 });
-		expect(both).toMatchObject({ leadBeats: 4, aided: false });
+		expect(both).toMatchObject({ leadBeats: 4 });
 		expect(tempoOf(definition, 0)).toBe(90);
 	});
 
@@ -162,8 +162,8 @@ describe('presentationOf', () => {
 		params: {
 			...LOCATE_NECK.params,
 			ladder: [
-				{ params: { leadBeats: 4, aided: false } },
-				{ params: { leadBeats: 2, aided: false, 'presentation.detail': '{note}' } }
+				{ params: { leadBeats: 4 } },
+				{ params: { leadBeats: 2, 'presentation.detail': '{note}' } }
 			]
 		}
 	};

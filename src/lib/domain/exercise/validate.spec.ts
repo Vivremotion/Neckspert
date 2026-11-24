@@ -27,7 +27,7 @@ const withParams = (params: Record<string, unknown>): ExerciseDefinition => ({
 
 /** Leads from 1 to 16 beats, rising: the answer always further from its prompt. */
 const RISING: Ladder = [1, 2, 4, 8, 16].map((leadBeats) => ({
-	params: { leadBeats, aided: false }
+	params: { leadBeats }
 }));
 
 describe('validateExercise', () => {
@@ -44,9 +44,9 @@ describe('validateExercise', () => {
 		expect(validateExercise(withParams({ ladder: [] }))).toBe(
 			'locate-note-string: params.ladder is empty'
 		);
-		expect(
-			validateExercise(withParams({ ladder: [{ params: { leadBeats: -2, aided: false } }] }))
-		).toMatch(/^locate-note-string: params\.ladder level 0: the lead .*-2/);
+		expect(validateExercise(withParams({ ladder: [{ params: { leadBeats: -2 } }] }))).toMatch(
+			/^locate-note-string: params\.ladder level 0: the lead .*-2/
+		);
 		expect(validateExercise(withParams({ windows: { perfectMs: -1 } }))).toMatch(
 			/^locate-note-string: params\.windows\.perfectMs /
 		);
@@ -91,12 +91,9 @@ describe('validateExercise', () => {
 		expect(validateExercise(withParams({ learning: { retestGaps: [2] } }))).toMatch(
 			/^locate-note-string: params\.learning\.retestGaps /
 		);
-		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
-			/^locate-note-string: params\.learning\.aidFadeSuccesses /
+		expect(validateExercise(withParams({ ladder: [{ params: { leadBeats: 1.0001 } }] }))).toMatch(
+			/^locate-note-string: params\.ladder level 0: the lead .*1\.0001/
 		);
-		expect(
-			validateExercise(withParams({ ladder: [{ params: { leadBeats: 1.0001, aided: false } }] }))
-		).toMatch(/^locate-note-string: params\.ladder level 0: the lead .*1\.0001/);
 		expect(validateExercise(withParams({ windows: { anchorChordFromBeats: 1.0001 } }))).toMatch(
 			/^locate-note-string: params\.windows\.anchorChordFromBeats /
 		);
@@ -121,8 +118,8 @@ describe('validateExercise', () => {
 			})
 		).toMatch(/^locate-note-string: levels\[1\] .*tempo\.bpm/);
 		const ladder = [
-			{ params: { leadBeats: 4, aided: false } },
-			{ params: { leadBeats: 2, aided: false, 'windows.perfectMs.at': 60 } }
+			{ params: { leadBeats: 4 } },
+			{ params: { leadBeats: 2, 'windows.perfectMs.at': 60 } }
 		];
 		expect(validateExercise(withParams({ ladder }))).toMatch(
 			/^locate-note-string: params\.ladder level 1: .*windows\.perfectMs\.at/
@@ -130,19 +127,16 @@ describe('validateExercise', () => {
 	});
 
 	it('refuses an item level whose leadBeats is not a beat count', () => {
-		expect(
-			validateExercise(withParams({ ladder: [{ params: { leadBeats: '4', aided: false } }] }))
-		).toMatch(/^locate-note-string: params\.ladder level 0: the lead /);
-		expect(
-			validateExercise(withParams({ ladder: [{ params: { leadBeats: 4, aided: 'yes' } }] }))
-		).toMatch(/^locate-note-string: params\.ladder level 0: aided /);
+		expect(validateExercise(withParams({ ladder: [{ params: { leadBeats: '4' } }] }))).toMatch(
+			/^locate-note-string: params\.ladder level 0: the lead /
+		);
 	});
 
 	it('accepts a level path no piece reads', () => {
 		expect(
 			validateExercise({
 				...withParams({
-					ladder: [{ params: { leadBeats: 4, aided: false, 'nothing.reads.this': 1 } }]
+					ladder: [{ params: { leadBeats: 4, 'nothing.reads.this': 1 } }]
 				}),
 				levels: [{ params: { 'neither.this': 'at all', tempo: 95 } }]
 			})
@@ -163,7 +157,7 @@ describe('validateExercise', () => {
 			id: 'theme',
 			practices: 'locate-note-string',
 			figures: [{ id: 'theme', figure: parseLilyPond(text) }],
-			params: { ladder: [{ params: { leadBeats: 4, aided: false } }] },
+			params: { ladder: [{ params: { leadBeats: 4 } }] },
 			round: {
 				prompt: { lead: 4 },
 				expectations: [
@@ -225,7 +219,7 @@ describe('validateExercise on what a file could break in play', () => {
 	});
 
 	it('checks the tempo an item level writes', () => {
-		const ladder = [{ params: { leadBeats: 4, aided: false, tempo: -3 } }];
+		const ladder = [{ params: { leadBeats: 4, tempo: -3 } }];
 		expectRefusal(
 			validateExercise(withParams({ ladder })),
 			'ladder',
@@ -242,11 +236,11 @@ describe('validateExercise on what a file could break in play', () => {
 	});
 
 	it('passes the learning settings at a level, read from the params alone', () => {
-		const ladder = [{ params: { leadBeats: 4, aided: false, 'learning.retestGaps': [2] } }];
+		const ladder = [{ params: { leadBeats: 4, 'learning.retestGaps': [2] } }];
 		expect(validateExercise(withParams({ ladder }))).toBeNull();
-		expect(validateExercise(levelled({ 'learning.aidFadeSuccesses': 1.5 }))).toBeNull();
-		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
-			/^locate-note-string: params\.learning\.aidFadeSuccesses /
+		expect(validateExercise(levelled({ 'learning.retestGaps': [2] }))).toBeNull();
+		expect(validateExercise(withParams({ learning: { retestGaps: [2] } }))).toMatch(
+			/^locate-note-string: params\.learning\.retestGaps /
 		);
 	});
 
@@ -367,8 +361,8 @@ describe('validateExercise on a presentation written in levels', () => {
 				params: {
 					...LOCATE_NECK.params,
 					ladder: [
-						{ params: { leadBeats: 4, aided: false, 'presentation.picture': 'string' } },
-						{ params: { leadBeats: 2, aided: false } }
+						{ params: { leadBeats: 4, 'presentation.picture': 'string' } },
+						{ params: { leadBeats: 2 } }
 					]
 				}
 			})
@@ -385,8 +379,8 @@ describe('validateExercise on a presentation written in levels', () => {
 				params: {
 					...LOCATE_NECK.params,
 					ladder: [
-						{ params: { leadBeats: 4, aided: false } },
-						{ params: { leadBeats: 2, aided: false, 'presentation.picture': 'string' } }
+						{ params: { leadBeats: 4 } },
+						{ params: { leadBeats: 2, 'presentation.picture': 'string' } }
 					]
 				}
 			})
@@ -642,7 +636,7 @@ describe('validateExercise limits', () => {
 	const manyParams = (count: number) =>
 		Object.fromEntries(Array.from({ length: count }, (_, i) => [`free.p${i}`, i]));
 	const ladderOf = (count: number): Ladder =>
-		Array.from({ length: count }, () => ({ params: { leadBeats: 2, aided: false } }));
+		Array.from({ length: count }, () => ({ params: { leadBeats: 2 } }));
 
 	it('refuses more exercise levels than MAX_EXERCISE_LEVELS', () => {
 		expect(MAX_EXERCISE_LEVELS).toBe(100);
@@ -666,10 +660,7 @@ describe('validateExercise limits', () => {
 		expect(validateExercise({ ...LOCATE_NECK, levels })).toBe(
 			'locate-note-string: levels[3].params has 201 entries, more than 200'
 		);
-		const ladder: Ladder = [
-			...ladderOf(2),
-			{ params: { leadBeats: 2, aided: false, ...manyParams(199) } }
-		];
+		const ladder: Ladder = [...ladderOf(2), { params: { leadBeats: 2, ...manyParams(200) } }];
 		expect(validateExercise(withParams({ ladder }))).toBe(
 			'locate-note-string: params.ladder[2].params has 201 entries, more than 200'
 		);

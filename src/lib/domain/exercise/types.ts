@@ -75,10 +75,6 @@ export interface PromptPresentation {
 	preview?: Slot;
 	/** The picture drawn with the prompt (`PICTURES`, or one of its round's content). */
 	picture?: string;
-	/** At an aided level: a line, a picture, or both. */
-	aided?: { line?: Slot; picture?: string };
-	/** The fading aid the learning procedure gives (`PlannedItem.stringAid`). */
-	fading?: { picture: string };
 }
 
 /**
@@ -175,16 +171,18 @@ export interface ExercisePacing {
 	countIn?: boolean;
 }
 
-/** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */
+/**
+ * What a level of an item writes for itself: how long before the beat it is asked. What it shows
+ * is written by its `presentation.*` paths, like any other parameter.
+ */
 export interface LadderParams {
 	/** Beats of lead; null when the item has no lead (the answer is not played on a beat). */
 	leadBeats: LeadBeats | null;
-	aided: boolean;
 }
 
 /**
  * An item's levels, level 0 first, as its exercise writes them (`params.ladder`): each level's
- * lead and aid, its pass and drop, and what counts as a success there. A level may override any
+ * lead, its pass and drop, and what counts as a success there. A level may override any
  * other dotted path of the resolved params too (`resolvedParamsOf`).
  */
 export type Ladder = readonly Level<LadderParams & LevelOverrides>[];

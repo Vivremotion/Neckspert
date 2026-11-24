@@ -172,11 +172,12 @@ describe('LaneView', () => {
 		expect(container.textContent).not.toMatch(/1[,.]21/);
 	});
 
-	it('shows the position of an aided prompt, and no aid otherwise', () => {
-		const aided = show({ prompt: { ...F_ON_B, aid: 'case 6' } });
-		expect(aided.container.querySelector('.aid')?.textContent).toBe('case 6');
+	it('writes the detail its level gives under the prompt, and no aid tile', () => {
+		const detailed = show({ prompt: { ...F_ON_B, detail: 'case 6' } });
+		expect(detailed.container.querySelector('.centre .detail')?.textContent).toBe('case 6');
+		expect(detailed.container.querySelector('.aid')).toBeNull();
 		cleanup();
-		expect(show().container.querySelector('.aid')).toBeNull();
+		expect(show().container.querySelector('.detail')).toBeNull();
 	});
 
 	it('draws the string under the prompt only when it carries the aid', () => {

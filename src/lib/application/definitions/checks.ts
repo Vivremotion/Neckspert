@@ -29,14 +29,11 @@ function learningProblem(exercise: ExerciseDefinition): string | null {
 	if (typeof learning !== 'object' || learning === null || Array.isArray(learning)) {
 		return 'params.learning must be an object';
 	}
-	const { presentAtOnce, enter, asks } = learning as Record<string, unknown>;
+	const { enter, asks } = learning as Record<string, unknown>;
 	if (Object.hasOwn(learning, 'draw')) {
 		return 'params.learning.draw is gone: write params.learning.asks';
 	}
 	const own = skillById(exercise.practices);
-	if (presentAtOnce !== undefined && typeof presentAtOnce !== 'boolean') {
-		return 'params.learning.presentAtOnce must be true or false';
-	}
 	if (enter !== undefined) {
 		const acquired =
 			typeof enter === 'object' && enter !== null

@@ -8,8 +8,8 @@ import { createLearningProcedure } from './procedure';
 import type { LearningSubject } from './subject';
 import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
 
-/** A ladder of two levels: 8 beats aided, then 4 beats, the top. */
-const SHORT = [rung(8, { aided: true }), rung(4, { pass: 2, success: 'direct-recall' as const })];
+/** A ladder of two levels: 8 beats, then 4 beats, the top. */
+const SHORT = [rung(8), rung(4, { pass: 2, success: 'direct-recall' as const })];
 
 const FAKE = 'fake' as SkillId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
@@ -154,7 +154,7 @@ describe('createLearningProcedure due cards', () => {
 	});
 
 	it('reads the mark of the level, not its rank: a direct-recall level below the top reviews cold', () => {
-		const ladder = [rung(8, { aided: true }), rung(4, { success: 'direct-recall' }), rung(2)];
+		const ladder = [rung(8), rung(4, { success: 'direct-recall' }), rung(2)];
 		const source = procedure({
 			subject: fakeSubject({ ladder }),
 			cards: [acquiredReviewable(0), acquiredReviewable(1)],
@@ -168,7 +168,7 @@ describe('createLearningProcedure due cards', () => {
 	});
 
 	it('serves a ladder that asks no direct recall hot, within the working set, without end', () => {
-		const ladder = [rung(8, { aided: true }), rung(4)];
+		const ladder = [rung(8), rung(4)];
 		const count = 6;
 		const source = procedure({
 			subject: fakeSubject({ items: count, ladder }),
@@ -201,9 +201,7 @@ describe('createLearningProcedure next', () => {
 			temperature: 'hot',
 			level: 0,
 			// The first level of its written ladder: 8 beats, as that level shows it.
-			leadBeats: 8,
-			aid: 'show-position',
-			stringAid: true
+			leadBeats: 8
 		});
 	});
 
@@ -399,7 +397,7 @@ describe('createLearningProcedure next', () => {
 		const card = { skill: FAKE, item: 0 };
 		expect(source.levelOf(card)).toEqual(level);
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'review', leadBeats: 4 });
-		// An item with no stored level starts at level 0, the longest lead, aided while learning.
+		// An item with no stored level starts at level 0, the longest lead.
 		expect(procedure().levelOf({ skill: FAKE, item: 3 })).toEqual({
 			exerciseId: EXERCISE,
 			scope: '',
@@ -412,8 +410,7 @@ describe('createLearningProcedure next', () => {
 		expect(procedure({ cards: [learning(0)] }).next(at(0))).toMatchObject({
 			phase: 'learning',
 			leadBeats: 8,
-			aid: 'show-position',
-			stringAid: true
+			level: 0
 		});
 	});
 
@@ -513,9 +510,9 @@ describe('createLearningProcedure next', () => {
 				}
 				source.record(attemptOf(item, { success: true }), 0);
 			}
-			// Aided first (the short gap), then unaided (the long one) until learned.
-			expect(gaps.get(`${FAKE}:0`)).toEqual([1, 3, 3]);
-			expect(gaps.get(`${OTHER}:9`)).toEqual([2, 4, 4]);
+			// Right every time: the long gap of its exercise, at every level, until learned.
+			expect(gaps.get(`${FAKE}:0`)).toEqual([3, 3, 3]);
+			expect(gaps.get(`${OTHER}:9`)).toEqual([4, 4, 4]);
 		});
 
 		it('serves the set as the session says', () => {
@@ -552,6 +549,8 @@ describe('createLearningProcedure next', () => {
 		it('serves new items before retests when the order says so', () => {
 			const run = (order?: SetLearning['order']) => {
 				const source = procedure({
+					// Retested two prompts after a success: due again at the fourth.
+					subject: fakeSubject({ learning: { [FAKE]: { retestGaps: [2, 2] } } }),
 					cards: [learning(0)],
 					attempts: played(0, [true, true, true, true, true]),
 					set: { learningSlots: 4, ...(order && { order }) }

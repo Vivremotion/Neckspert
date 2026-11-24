@@ -148,7 +148,6 @@ function attempt(fields: {
 		cardKey: fields.cardKey,
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		promptedAt: 1000,
 		tempoBpm: 80,
 		leadBeats: 2,

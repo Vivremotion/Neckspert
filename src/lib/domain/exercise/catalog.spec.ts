@@ -49,19 +49,25 @@ describe('exercise catalog', () => {
 	});
 
 	it('describes the two triads exercises of the memory track, each with its rhythm, on the lane', () => {
-		const params = {
+		/** The ladder of both, its first level showing what `first` writes. */
+		const paramsWith = (first: Record<string, unknown>) => ({
 			pacing: { respirationBars: 1 },
 			ladder: [
-				{ params: { leadBeats: 8, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
-				{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 }, drop: { failures: 1 } },
 				{
-					params: { leadBeats: 2, aided: false },
+					params: { leadBeats: 8, ...first },
+					pass: { successes: 1 },
+					drop: { failures: 1 }
+				},
+				{ params: { leadBeats: 4 }, pass: { successes: 1 }, drop: { failures: 1 } },
+				{
+					params: { leadBeats: 2 },
 					pass: { successes: 2 },
 					drop: { failures: 1 },
 					success: 'direct-recall'
 				}
 			]
-		};
+		});
+		const params = paramsWith({});
 		expect(TRIADS_ANCHOR).toEqual({
 			id: 'chord-anchor',
 			practices: 'chord-anchor',
@@ -70,7 +76,7 @@ describe('exercise catalog', () => {
 			round: TRIADS_ANCHOR.round,
 			presentation: TRIADS_ANCHOR.presentation,
 			items: TRIADS_ANCHOR.items,
-			params: { ...params, learning: TRIADS_ANCHOR.params.learning }
+			params: paramsWith({ 'presentation.picture': 'lowest-shape' })
 		});
 		expect(TRIADS_ZONE).toEqual({
 			id: 'chord-zone',
@@ -80,7 +86,15 @@ describe('exercise catalog', () => {
 			round: TRIADS_ZONE.round,
 			presentation: TRIADS_ZONE.presentation,
 			items: TRIADS_ZONE.items,
-			params: { ...params, learning: TRIADS_ZONE.params.learning }
+			params: {
+				...paramsWith({
+					'presentation.detail': {
+						fr: '{strings} · fondamentale sur {rootString}',
+						en: '{strings} · root on {rootString}'
+					}
+				}),
+				learning: TRIADS_ZONE.params.learning
+			}
 		});
 		expect(exerciseById('chord-zone')).toBe(TRIADS_ZONE);
 		expect(pacingOf(TRIADS_ANCHOR)).toEqual(params.pacing);
@@ -113,7 +127,6 @@ describe('exercise catalog', () => {
 			item,
 			phase: 'learning',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats
 		});
 		const compiled = (definition: ExerciseDefinition, item: unknown, leadBeats: number | null) =>

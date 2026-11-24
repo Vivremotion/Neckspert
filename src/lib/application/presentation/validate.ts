@@ -51,8 +51,7 @@ const TEXT_SLOTS = ['primary', 'secondary', 'detail', 'target', 'band', 'preview
 /**
  * Why the presentation is not written as the screen reads it, naming the field: no object, a
  * slot that is neither a text nor `{ fr, en }` (one language alone, a number, an object without
- * texts), an `aided` or a `fading` that is no object (a text there would say neither whether it
- * is a line or a picture), a picture that is no name (`picture`, `aided.picture`). Its texts and names are checked after.
+ * texts), a picture that is no name. Its texts and names are checked after.
  */
 function presentationShapeProblem(presentation: unknown): string | null {
 	if (!isRecord(presentation)) return 'presentation must be an object';
@@ -62,23 +61,9 @@ function presentationShapeProblem(presentation: unknown): string | null {
 			return `presentation.${slot} must be a text or { fr, en }`;
 		}
 	}
-	const { aided, fading, picture } = presentation;
+	const { picture } = presentation;
 	if (picture !== undefined && typeof picture !== 'string') {
 		return 'presentation.picture must name a picture';
-	}
-	if (aided !== undefined) {
-		if (!isRecord(aided)) return 'presentation.aided must be { line?, picture? }';
-		if (aided.line !== undefined && !isSlot(aided.line)) {
-			return 'presentation.aided.line must be a text or { fr, en }';
-		}
-		if (aided.picture !== undefined && typeof aided.picture !== 'string') {
-			return 'presentation.aided.picture must name a picture';
-		}
-	}
-	if (fading !== undefined) {
-		if (!isRecord(fading) || typeof fading.picture !== 'string') {
-			return 'presentation.fading must be { picture }, naming a picture';
-		}
 	}
 	return null;
 }
@@ -96,10 +81,9 @@ function memberFamilies(definition: ExerciseDefinition): string[] {
  * naming the field, not the exercise: a slot that names a field neither its set nor any family its
  * round selects members of (`memberFieldNames`) has, a picture that does not exist or does not
  * read its set, the picture of the members admitted (`CONTENT_PICTURES`) for a round that selects
- * none, as a fading picture (no view draws one), or as the picture or the aided picture of an
- * exercise drawn on a view that draws no passage (`PASSAGE_VIEWS`); before them, a presentation
- * not written as the screen reads it (`presentationShapeProblem`). What the exercise gives is read
- * once, and the fields of a slot once however many of its levels resolve it.
+ * none, or of an exercise drawn on a view that draws no passage (`PASSAGE_VIEWS`); before them, a
+ * presentation not written as the screen reads it (`presentationShapeProblem`). What the exercise
+ * gives is read once, and the fields of a slot once however many of its levels resolve it.
  */
 function presentationChecker(
 	definition: ExerciseDefinition
@@ -134,8 +118,7 @@ function presentationChecker(
 			['detail', written.detail],
 			['target', written.target],
 			['band', written.band],
-			['preview', written.preview],
-			['aided.line', written.aided?.line]
+			['preview', written.preview]
 		];
 		for (const [path, slot] of slots) {
 			if (slot === undefined) continue;
@@ -144,33 +127,22 @@ function presentationChecker(
 				return `presentation.${path} names field "${unknown}", ${owners}`;
 			}
 		}
-		const pictures: [string, string | undefined][] = [
-			['picture', written.picture],
-			['aided.picture', written.aided?.picture],
-			['fading.picture', written.fading?.picture]
-		];
-		for (const [path, name] of pictures) {
-			if (name === undefined) continue;
-			if (CONTENT_PICTURES.includes(name)) {
-				if (families.length === 0) {
-					return `presentation.${path} names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
-				}
-				if (path === 'fading.picture') {
-					return `presentation.${path} names picture "${name}", which no view draws as a fading picture`;
-				}
-				const view = playViewOf(definition);
-				if (!PASSAGE_VIEWS.includes(view)) {
-					return `presentation.${path} names picture "${name}", which only a view that draws a passage draws (${PASSAGE_VIEWS.join(', ')}), and the exercise is drawn on "${view}"`;
-				}
-				continue;
+		const name = written.picture;
+		if (name === undefined) return null;
+		if (CONTENT_PICTURES.includes(name)) {
+			if (families.length === 0) {
+				return `presentation.picture names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
 			}
-			const picture = Object.hasOwn(PICTURES, name) ? PICTURES[name] : undefined;
-			if (!picture) {
-				return `presentation.${path} names picture "${name}", which does not exist`;
+			const view = playViewOf(definition);
+			if (!PASSAGE_VIEWS.includes(view)) {
+				return `presentation.picture names picture "${name}", which only a view that draws a passage draws (${PASSAGE_VIEWS.join(', ')}), and the exercise is drawn on "${view}"`;
 			}
-			if (!picture.reads.includes(set)) {
-				return `presentation.${path} names picture "${name}", which does not read ${set}`;
-			}
+			return null;
+		}
+		const picture = Object.hasOwn(PICTURES, name) ? PICTURES[name] : undefined;
+		if (!picture) return `presentation.picture names picture "${name}", which does not exist`;
+		if (!picture.reads.includes(set)) {
+			return `presentation.picture names picture "${name}", which does not read ${set}`;
 		}
 		return null;
 	};

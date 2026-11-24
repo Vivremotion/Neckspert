@@ -9,6 +9,7 @@ import { levelRange } from '../time/levels';
 import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
+import { retiredProblem } from './retired';
 import {
 	exerciseLevelsOf,
 	exerciseParamsOf,
@@ -189,10 +190,6 @@ function valuesProblem(
 			!(Array.isArray(gaps) && gaps.length === 2 && gaps.every(naturalNumber))
 		) {
 			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
-		}
-		const fade = values.learning.aidFadeSuccesses;
-		if (fade !== undefined && !naturalNumber(fade)) {
-			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
 	return null;
@@ -430,7 +427,6 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 					item,
 					phase: 'free',
 					temperature: 'hot',
-					aid: 'none',
 					leadBeats: at.leadBeats
 				};
 				budget.charge(weight);
@@ -497,7 +493,6 @@ function servedFiguresProblem(definition: ExerciseDefinition, budget: CheckBudge
 				item,
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: null
 			};
 			budget.charge(weight);
@@ -605,6 +600,8 @@ export function validateExercise(
 ): string | null {
 	const budget = options.budget ?? new CheckBudget();
 	const checked = (): string | null => {
+		const retired = retiredProblem(definition);
+		if (retired !== null) return retired;
 		const limits = limitsProblem(definition);
 		if (limits !== null) return limits;
 		if (definition.meter !== undefined) {

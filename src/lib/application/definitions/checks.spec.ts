@@ -126,10 +126,7 @@ describe('the learning an exercise writes', () => {
 	const OTHER_SHAPE = { family: 'chord-shapes', where: [{ other: 'previous' }] };
 
 	it('accepts a well-formed entry condition and member asked', () => {
-		const good = withLearning(IDENTIFY, {
-			presentAtOnce: false,
-			...enter({ skill: 'locate-note-string', item: 'same-place' })
-		});
+		const good = withLearning(IDENTIFY, enter({ skill: 'locate-note-string', item: 'same-place' }));
 		expect(check(good)).toBeNull();
 		expect(check(withLearning(ZONE, { asks: OTHER_SHAPE }))).toBeNull();
 		expect(check(withLearning(IDENTIFY, { somethingNoPieceReads: 3 }))).toBeNull();
@@ -137,7 +134,6 @@ describe('the learning an exercise writes', () => {
 
 	it.each([
 		[3, 'params.learning must be an object'],
-		[{ presentAtOnce: 3 }, 'params.learning.presentAtOnce must be true or false'],
 		[{ enter: 3 }, 'params.learning.enter must be { acquired: { skill, item } }'],
 		[{ enter: {} }, 'params.learning.enter must be { acquired: { skill, item } }'],
 		[
@@ -319,8 +315,8 @@ describe('definitionChecks, the passages an exercise writes', () => {
 		const round = LINK_PASSAGES.round!;
 		const unselected: ExerciseDefinition = {
 			...LINK_PASSAGES,
-			// Its aid draws the members its round admits: none here.
-			presentation: { ...LINK_PASSAGES.presentation!, aided: undefined },
+			// Its first level's picture draws the members its round admits: none here.
+			levels: LINK_PASSAGES.levels?.map((level) => ({ ...level, params: { tempo: 80 } })),
 			round: {
 				...round,
 				expectations: round.expectations.map((e) => ({ ...e, content: null }))

@@ -574,7 +574,6 @@ export function figureItemsAt(
 			item,
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		};
 		const context = contextOf(definition, planned, meter, { previewBeats: 0 });

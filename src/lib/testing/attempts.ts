@@ -1,15 +1,10 @@
 import { CHANGE_SKILL_IDS, CHORD_ANCHOR_SKILL_ID } from '$lib/testing/catalogIds';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
-import {
-	type AidLevel,
-	type Attempt,
-	type ResponseVerdict,
-	type VerdictEnvelope
-} from '$lib/domain/types';
+import { type Attempt, type ResponseVerdict, type VerdictEnvelope } from '$lib/domain/types';
 
 /**
  * An attempt written as a one-answer round reads: `verdict` a `ResponseVerdict`, `correct` a
- * boolean, the planned `aid`. The target fields left out are derived by `responseAttempt`.
+ * boolean. The target fields left out are derived by `responseAttempt`.
  */
 export type ResponseAttemptFields<D = unknown> = Omit<
 	Attempt<D>,
@@ -17,7 +12,6 @@ export type ResponseAttemptFields<D = unknown> = Omit<
 > & {
 	verdict: ResponseVerdict | VerdictEnvelope;
 	success?: boolean;
-	aid?: AidLevel;
 	aids?: Attempt['aids'];
 	measures?: Attempt['measures'];
 	plan?: unknown | null;
@@ -46,11 +40,11 @@ function relationOf(skill: string): string {
 
 /**
  * A stored attempt in the target shape, as the recorder writes one for a one-answer round. A
- * `ResponseVerdict` is wrapped in its relation's envelope and decides `success` (with `correct`);
- * the planned `aid` becomes `aids`. An envelope is kept as given, with the `success` given.
+ * `ResponseVerdict` is wrapped in its relation's envelope and decides `success` (with `correct`).
+ * An envelope is kept as given, with the `success` given.
  */
 export function responseAttempt<D>(fields: ResponseAttemptFields<D>): Attempt<D> {
-	const { aid, verdict, success, aids, measures, plan, ...rest } = fields;
+	const { verdict, success, aids, measures, plan, ...rest } = fields;
 	const envelope =
 		typeof verdict === 'string'
 			? { relation: relationOf(fields.skill), version: 1, value: verdict }
@@ -63,7 +57,7 @@ export function responseAttempt<D>(fields: ResponseAttemptFields<D>): Attempt<D>
 		...rest,
 		verdict: envelope,
 		success: decided,
-		aids: aids ?? (aid === 'show-position' ? ['show-position'] : []),
+		aids: aids ?? [],
 		measures: measures ?? {},
 		plan: plan ?? null
 	};

@@ -1,6 +1,5 @@
 import type { ItemSet } from '$lib/domain/sets';
 import type {
-	AidLevel,
 	ChordDiagramStyle,
 	Locale,
 	PlannedItem,
@@ -86,7 +85,6 @@ export interface SetPresenter<I = any, A = any> {
 		item: I,
 		settled: { value: ResponseValue; success: boolean } | null,
 		locale: Locale,
-		aids: { aid: AidLevel; stringAid: boolean },
 		place: StagePlace,
 		drawing: { chordDiagram: ChordDiagramStyle } | undefined,
 		random: () => number,

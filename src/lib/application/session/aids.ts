@@ -1,16 +1,8 @@
 import type { FigureParams } from '$lib/domain/exercise/figureParams';
-import type { Aid, PlannedItem } from '$lib/domain/types';
-
-/** The aids a planned prompt showed: the fret (`show-position`) and the drawn string. */
-export function aidsOf(planned: PlannedItem): Aid[] {
-	return [
-		...(planned.aid === 'show-position' ? (['show-position'] as const) : []),
-		...(planned.stringAid ? (['string-aid'] as const) : [])
-	];
-}
+import type { Aid } from '$lib/domain/types';
 
 /**
- * The aids a round is played with beyond its item's: the cursor when the level gives it, a listen
+ * The aids a round is played with: the cursor when the level gives it, a listen
  * to the content just before when the level counts listening as an aid (`listen: 'aid'`), the aid
  * level, and the content played along with it (the anti-blocking's remedy).
  */

@@ -254,7 +254,8 @@ describe('createAppServices', () => {
 		const lane = noteLane(controller);
 		expect(controller.view.stage?.view).toBe('lane');
 		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave' });
-		expect(lane?.prompt.aid).not.toBeNull();
+		// Level 1 writes the fret under the note.
+		expect(lane?.prompt.detail).toBe('case 3');
 		expect(lead(lane)).toBe(8);
 		controller.quit();
 	});
@@ -710,7 +711,6 @@ describe('the gesture track', () => {
 				cardKey: 'grid-reading:jam:blues-f#0',
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				promptedAt: 0,
 				tempoBpm: 80,
 				leadBeats: null,

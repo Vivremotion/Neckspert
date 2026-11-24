@@ -105,7 +105,6 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			item: { figureId: 'offbeats-1', level: 0 },
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		};
 		const compiled = (fromRunStart: number) =>
@@ -155,7 +154,6 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			item: { figureId: 'offbeats-1', level: 0 },
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		};
 		const compiled = (fromRunStart: number) =>

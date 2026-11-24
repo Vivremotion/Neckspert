@@ -66,8 +66,6 @@ class Procedure implements LearningProcedure {
 	private readonly played: Attempt[] = [];
 	/** Items served hot in this session: the working set. */
 	private readonly workingSet = new Set<CardKey>();
-	/** Items whose fading aid is drawn on their next hot prompts, with their successes since. */
-	private readonly fadingAid = new Map<CardKey, number>();
 	/** Misses in a row, recoveries left out. */
 	private missStreak = 0;
 	/** The last miss calls for a solid item of this skill on the next prompt. */
@@ -117,9 +115,9 @@ class Procedure implements LearningProcedure {
 	}
 
 	/**
-	 * An attempt moves its item's level (C1), learns it at the top's pass, spaces its next retest,
-	 * may call a recovery and draws or fades the aid. An attempt of a card the subject does not
-	 * own: null.
+	 * An attempt moves its item's level (C1), learns it at the top's pass, spaces its next retest
+	 * (the short gap after a miss, the long one after a success, whatever the level: decision 6 of
+	 * issue #19) and may call a recovery. An attempt of a card the subject does not own: null.
 	 */
 	record(attempt: Attempt, now: number): RecordOutcome {
 		if (!this.plays(attempt)) return null;
@@ -129,14 +127,12 @@ class Procedure implements LearningProcedure {
 		this.history.set(attempt.cardKey, list);
 		this.played.push(attempt);
 		this.countMiss(attempt);
-		this.fadeAid(attempt);
 		const card = this.cards.get(attempt.cardKey);
 		if (!card) return null;
 		const ref = refOf(card);
 		const ladder = this.ladderOf(ref);
 		const state = ladderLevel(this.levelOf(ref), ladder);
-		const servedAided = this.levelParams(ref).aided;
-		// A level that asks it counts only a direct recall; the level's own aid is not « aided ».
+		// A level that asks it counts only a direct recall.
 		const success =
 			ladder[state.level - levelRange(ladder).lowest].success === 'direct-recall'
 				? this.subject.recall(ref.skill)(attempt)
@@ -156,7 +152,7 @@ class Procedure implements LearningProcedure {
 		const servedAt = this.servedAt.get(attempt.cardKey);
 		if (entry && servedAt !== undefined) {
 			const [shortGap, longGap] = this.itemLearning(ref).retestGaps;
-			entry.dueAt = retestDueAt(servedAt, servedAided || !success ? shortGap : longGap);
+			entry.dueAt = retestDueAt(servedAt, success ? longGap : shortGap);
 		}
 		return { level };
 	}
@@ -206,21 +202,6 @@ class Procedure implements LearningProcedure {
 		if (this.missStreak < this.set.recoveryAfterMisses) return;
 		this.missStreak = 0;
 		this.pendingRecovery = attempt.skill;
-	}
-
-	/** A miss brings the fading aid back for its item; its successes since take it away. */
-	private fadeAid(attempt: Attempt): void {
-		if (!this.subject.fadingAid(attempt.skill)) return;
-		const key = attempt.cardKey;
-		if (!attempt.success) {
-			this.fadingAid.set(key, 0);
-			return;
-		}
-		const successes = this.fadingAid.get(key);
-		if (successes === undefined) return;
-		const { aidFadeSuccesses } = this.subject.itemLearning(attempt.skill);
-		if (successes + 1 >= aidFadeSuccesses) this.fadingAid.delete(key);
-		else this.fadingAid.set(key, successes + 1);
 	}
 
 	/**
@@ -334,12 +315,7 @@ class Procedure implements LearningProcedure {
 			ref,
 			dueAt: retestDueAt(this.served, this.itemLearning(ref).retestGaps[0])
 		};
-		const key = this.keyOf(ref);
-		this.learning.set(key, entry);
-		// The aided presentation draws the fading aid, until the item is played right.
-		if (this.subject.fadingAid(ref.skill) && this.levelParams(ref).aided) {
-			this.fadingAid.set(key, 0);
-		}
+		this.learning.set(this.keyOf(ref), entry);
 		return entry;
 	}
 
@@ -485,45 +461,24 @@ class Procedure implements LearningProcedure {
 		return ladder[level - levelRange(ladder).lowest].params as LadderParams;
 	}
 
-	/** The params of the item's level, brought into today's ladder. */
-	private levelParams(ref: CardRef): LadderParams {
-		return this.paramsAt(ref, this.ladderLevelOf(ref));
-	}
-
-	/** An item served at its level; aided only while learning, at the aided level. */
+	/** An item served at its level: what its prompt shows is its level's (`presentationOf`). */
 	private serve(
 		ref: CardRef,
 		phase: ItemPhase,
 		temperature: Temperature
 	): { planned: PlannedItem; ref: CardRef } {
 		const level = this.ladderLevelOf(ref);
-		const params = this.paramsAt(ref, level);
-		const fading = temperature === 'hot' && this.fadingAid.has(this.keyOf(ref));
-		const planned = this.plan(ref, phase, temperature, level, fading);
-		if (phase === 'learning' && params.aided) planned.aid = 'show-position';
-		return { planned, ref };
-	}
-
-	private plan(
-		ref: CardRef,
-		phase: ItemPhase,
-		temperature: Temperature,
-		level: number,
-		stringAid: boolean
-	): PlannedItem {
-		const params = this.paramsAt(ref, level);
-		return {
+		const planned: PlannedItem = {
 			exerciseId: this.subject.exerciseOf(ref.skill),
 			skill: ref.skill,
 			item: this.subject.promptItem?.(ref, this.random, level) ?? ref.item,
 			phase,
 			temperature,
-			aid: 'none',
-			leadBeats: params.leadBeats,
+			leadBeats: this.paramsAt(ref, level).leadBeats,
 			level,
-			exerciseLevel: 0,
-			...(stringAid && { stringAid: true })
+			exerciseLevel: 0
 		};
+		return { planned, ref };
 	}
 }
 

@@ -30,7 +30,6 @@ export function createExerciseItemSource(definition: ExerciseDefinition): ItemSo
 			item: itemAt(turn, level),
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null
 		};
 		turnOf.set(item, turn);

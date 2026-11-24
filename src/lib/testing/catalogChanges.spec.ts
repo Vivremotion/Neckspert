@@ -736,7 +736,6 @@ describe('the changes, frozen as the old rule decided them', () => {
 					cardKey: cardKey(planned.skill, 'round'),
 					phase: 'free',
 					temperature: 'hot',
-					aid: planned.aid,
 					promptedAt: now,
 					tempoBpm: 80,
 					leadBeats: null,

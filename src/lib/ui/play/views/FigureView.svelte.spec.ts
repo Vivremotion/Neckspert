@@ -416,7 +416,6 @@ describe('FigureView', () => {
 				item: { ...placedVoicingSet.parseItem('C|maj|3:1,2:3,1:5@5-5-3'), beats },
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: null
 			};
 			const staged = figureStage({

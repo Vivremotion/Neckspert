@@ -182,7 +182,6 @@ export class DemoPlaySession implements PlaySessionController {
 			item,
 			phase: 'review',
 			temperature: 'cold',
-			aid: 'none',
 			leadBeats: LEAD
 		} as const;
 		this.view.stage = {

@@ -19,7 +19,6 @@ function item(exerciseId: string, figureId: string, level: number): PlannedItem<
 		item: { figureId, level },
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	};
 }

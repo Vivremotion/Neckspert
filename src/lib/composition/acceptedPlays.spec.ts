@@ -15,7 +15,7 @@ import { loadDefinitions } from './definitions';
 
 /**
  * Files the load accepts must play: every listed item at every item level compiles its round,
- * draws its prompt, tells the chord sensor what to listen for and builds its aided prompt,
+ * draws its prompt, tells the chord sensor what to listen for and builds its prompt at level 1,
  * without a throw.
  */
 
@@ -80,7 +80,6 @@ function playAll(id: string): number {
 				item,
 				phase: 'learning',
 				temperature: 'hot',
-				aid: 'show-position',
 				leadBeats: 2,
 				level
 			};
@@ -167,7 +166,6 @@ describe('a listed voicing that is no close triad on three strings', () => {
 					item: voicing,
 					phase: 'learning',
 					temperature: 'hot',
-					aid: 'none',
 					leadBeats: 2,
 					level: 0
 				},
@@ -190,7 +188,7 @@ describe('a listed voicing that is no close triad on three strings', () => {
 });
 
 describe('a listed voicing without a playable shape', () => {
-	it('builds its aided prompt with its words and no picture', () => {
+	it('builds its prompt at the first level of its ladder with its words and no picture', () => {
 		const item = 'C|maj|5:1,3:3,1:5';
 		const file = variant('chord-anchor', 'anchor-no-shape', (exercise) => {
 			exercise.items = [item];
@@ -207,7 +205,6 @@ describe('a listed voicing without a playable shape', () => {
 				item: voicing,
 				phase: 'learning',
 				temperature: 'hot',
-				aid: 'show-position',
 				leadBeats: 8,
 				level: 0
 			},

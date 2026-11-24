@@ -77,7 +77,6 @@ function attemptOf(
 		cardKey: cardKey(planned.skill, `round-${passage.rank}`),
 		phase: 'free',
 		temperature: 'hot',
-		aid: planned.aid,
 		promptedAt,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -158,7 +157,6 @@ describe('createPassageSource', () => {
 			exerciseLevel: 0,
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null,
 			scope: 'iohefy-a'
 		});
@@ -274,7 +272,6 @@ describe('createPassageSource', () => {
 			cardKey: cardKey(CLIMB_PASSAGES.practices, 'iohefy-a#0'),
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			promptedAt: NOW - 1000,
 			tempoBpm: 80,
 			leadBeats: null,

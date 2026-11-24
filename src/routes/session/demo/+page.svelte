@@ -25,7 +25,8 @@
 	if (first) controller.origin = playOriginOf({ routine: first.id });
 	let ready = $state(false);
 	const shot = $derived(page.url.searchParams.get('shot'));
-	const withAid = $derived(page.url.searchParams.get('aid') === '1');
+	/** `level1=1`: the note as level 1 of locate shows it, its fret written and its string drawn. */
+	const atLevel1 = $derived(page.url.searchParams.get('level1') === '1');
 	const missed = $derived(page.url.searchParams.get('miss') === '1');
 	/** Beats since the target: the played cell slides back through the breathing bar. */
 	const late = $derived(Number(page.url.searchParams.get('late') ?? 0) || 0);
@@ -50,7 +51,7 @@
 		]
 	};
 
-	/** A still note lane: F on the B string, aided or not, at the given place. */
+	/** A still note lane: F on the B string, at level 1 or above, at the given place. */
 	function lane(
 		place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'history' | 'verdict'>
 	): { view: string; model: PromptStageModel } {
@@ -60,12 +61,11 @@
 				prompt: {
 					primary: 'F',
 					secondary: 'corde de B',
-					detail: null,
+					detail: atLevel1 ? 'case 6' : null,
 					target: null,
 					band: null,
 					preview: 'corde de B',
-					aid: withAid ? 'case 6' : null,
-					pictures: withAid ? [{ kind: 'string', string: 2, label: 'B' }] : []
+					pictures: atLevel1 ? [{ kind: 'string', string: 2, label: 'B' }] : []
 				},
 				bands: [],
 				beatsPerBar: 4,
@@ -110,7 +110,6 @@
 							target: 'F#',
 							band: 'F#dim',
 							preview: 'fondamentale sur sol',
-							aid: null,
 							pictures: [F_SHARP_DIM]
 						},
 						anchorBeat: 16,

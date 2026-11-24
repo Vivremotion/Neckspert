@@ -1,11 +1,3 @@
-<script module lang="ts">
-	/**
-	 * Trial of 2026-10-04: the prompted string, drawn under the prompt while a note is learned.
-	 * False removes it everywhere and leaves the play screen as it was; nothing else depends on it.
-	 */
-	export const STRING_DIAGRAM_AID = true;
-</script>
-
 <script lang="ts">
 	import type { StringNumber } from '$lib/domain/music/types';
 
@@ -20,7 +12,7 @@
 	const STRINGS: readonly StringNumber[] = [1, 2, 3, 4, 5, 6];
 </script>
 
-{#if STRING_DIAGRAM_AID && diagram}
+{#if diagram}
 	<div class="diagram" data-string={diagram.string} aria-hidden="true">
 		{#each STRINGS as string (string)}
 			<div class="row" class:target={string === diagram.string}>
@@ -31,7 +23,7 @@
 {/if}
 
 <style>
-	/* Six strings in the tone of the field, the prompted one thicker: an aid that goes away. No letter
+	/* Six strings in the tone of the field, the prompted one thicker. No letter
 	   beside them, so the drawing sits on the prompt's axis. */
 	.diagram {
 		display: grid;

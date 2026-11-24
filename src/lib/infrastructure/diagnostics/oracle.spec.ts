@@ -39,7 +39,6 @@ const PLAN = {
 				item: { figureId: 'offbeats-1', level: 0 },
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: null
 			},
 			METER_4_4,

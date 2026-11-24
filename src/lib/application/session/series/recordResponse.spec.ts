@@ -27,7 +27,6 @@ import {
 import { change as served, G_B_E, rightShape } from '$lib/testing/gestureSeries';
 import { shapeId } from '$lib/testing/shapes';
 import { AttemptRecorder } from '../AttemptRecorder';
-import { aidsOf } from '../aids';
 import { ObservationSpan } from '../observationSpan';
 import {
 	recordedAttempt,
@@ -85,7 +84,7 @@ function newOutcome(item: PlannedItem, decided: string | null, ms: number): Roun
 		judges: contentJudges,
 		latency: { ms: 0, provenance: 'system' },
 		thresholds: null,
-		aids: aidsOf(plannedOf(item))
+		aids: []
 	});
 	const time = CHANGE_S + ms / 1000;
 	const event = round.observe({
@@ -270,7 +269,6 @@ function offbeatsCycle(exact: boolean) {
 		item: { figureId: offbeats.id, level: 0 },
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	};
 	const plan = compileRound(RHYTHM_OFFBEATS, item, METER_4_4, { previewBeats: 0, fromRunStart: 0 });

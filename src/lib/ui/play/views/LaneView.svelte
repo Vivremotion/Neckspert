@@ -111,9 +111,6 @@
 					<p class="detail">{lane.prompt.detail}</p>
 				{/if}
 				{@render pictures()}
-				{#if lane.prompt.aid}
-					<p class="aid">{lane.prompt.aid}</p>
-				{/if}
 			</Prompt>
 		{/if}
 	</div>
@@ -164,20 +161,10 @@
 		margin: 0;
 	}
 
-	/* Under the prompt: the chord's strings, read last. */
+	/* Under the prompt, read last: what its level writes there (a chord's strings, a fret). */
 	.detail {
 		font-size: var(--np-size-meta);
 		opacity: 0.85;
-	}
-
-	/* Learning aid: the fret, on a light tile. */
-	.aid {
-		margin-top: var(--np-step-2);
-		padding: var(--np-step-1) var(--np-step-2);
-		background: var(--np-on-field);
-		color: var(--np-text);
-		font-size: var(--np-size-title);
-		line-height: 1;
 	}
 
 	/* Under the hero note, at the correction's scale: read from a metre away. */

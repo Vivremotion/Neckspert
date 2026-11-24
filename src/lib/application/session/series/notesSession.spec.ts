@@ -8,7 +8,6 @@ import { openPitch, pitchOnString, type IdentifyItem, type LocateItem } from '$l
 import type { PitchName } from '$lib/domain/music/types';
 import { introduceCard } from '$lib/domain/progress';
 import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
-import { DEFAULT_ITEM_LEARNING } from '$lib/domain/learning/params';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
 import type { Attempt } from '$lib/domain/types';
@@ -27,7 +26,8 @@ import {
 	seeded,
 	startNotes,
 	step,
-	type NotesApp
+	type NotesApp,
+	type RoundSeen
 } from '$lib/testing/notesSeries';
 
 /**
@@ -47,6 +47,9 @@ async function quitAndRead(app: NotesApp, controller: PlaySessionController): Pr
 }
 
 const keyOf = (card: NeckCard) => neckCardKey(card);
+
+/** The lead a note lane round was prompted at, in beats. */
+const leadOf = (round: RoundSeen) => (round.anchorBeat as number) - (round.promptBeat as number);
 
 /** The note lane on stage, if any. */
 function lane(controller: PlaySessionController): PromptStageModel | null {
@@ -68,22 +71,26 @@ describe('a learn session of the notes', () => {
 		expect(app.sounds.emitted()).toEqual([]);
 	});
 
-	it('presents a new note at level 1 from its first prompt, its position shown and its string drawn', async () => {
+	it('presents a new note at level 1, its fret written and its string drawn; right, it comes back at 4 beats without them', async () => {
 		const app = await notesApp();
 		const controller = await startNotes(app, 'learn');
 		const rounds = await playRounds(app, controller, allRight, { rounds: 8 });
 		const [first] = rounds;
-		// The first note of the queue, as level 1 shows it: its position and its string.
-		expect(first.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave' });
-		expect(first.prompt.aid).not.toBeNull();
-		expect(first.prompt.pictures).not.toEqual([]);
-		// Played right DEFAULT_ITEM_LEARNING.aidFadeSuccesses times: when it comes back, a level up,
-		// the string drawn has faded (and the position too).
+		// The first note of the queue, as level 1 writes it: its fret under it, its string drawn.
+		expect(first.prompt).toMatchObject({
+			primary: 'G',
+			secondary: 'corde de E grave',
+			detail: 'case 3'
+		});
+		expect(first.prompt.pictures.map((picture) => picture.kind)).toEqual(['string']);
+		expect(leadOf(first)).toBe(8);
+		// Played right: back at level 2, which writes neither.
 		const met = rounds.filter((round) => keyOf(round.card) === keyOf(first.card));
-		const back = met[DEFAULT_ITEM_LEARNING.aidFadeSuccesses];
+		const back = met[1];
 		expect(back).toBeDefined();
-		expect(back?.prompt.pictures).toEqual([]);
-		expect(back?.prompt.aid).toBeNull();
+		expect(leadOf(back)).toBe(4);
+		expect(back.prompt.detail).toBeNull();
+		expect(back.prompt.pictures).toEqual([]);
 
 		const attempts = await quitAndRead(app, controller);
 		// Learning, not a review: stored hot.
@@ -93,7 +100,60 @@ describe('a learn session of the notes', () => {
 			temperature: 'hot',
 			success: true
 		});
-		expect(attempts[0].aids).toEqual(expect.arrayContaining(['show-position']));
+	});
+
+	it('shows, after a miss, the screen of the level the note fell to and nothing more', async () => {
+		/** A note being learned, held at `level`, missed at its first prompt; its next prompt. */
+		async function afterMiss(level: number): Promise<RoundSeen> {
+			const card = locate(5, 'C');
+			const being = introduceCard(
+				{ key: keyOf(card), skill: card.skill, item: card.item },
+				0,
+				's-old'
+			);
+			const app = await notesApp({ cards: [being], levels: [levelOf(card, level)] });
+			const controller = await startNotes(app, 'learn');
+			let missed = false;
+			const rounds = await playRounds(
+				app,
+				controller,
+				(round) => {
+					if (missed || keyOf(round.card) !== keyOf(card)) return allRight();
+					missed = true;
+					return { play: 'wrong' };
+				},
+				{ rounds: 12 }
+			);
+			await quitAndRead(app, controller);
+			const met = rounds.filter((round) => keyOf(round.card) === keyOf(card));
+			expect(leadOf(met[0])).toBe([8, 4, 2][level]);
+			expect(met[1]).toBeDefined();
+			return met[1];
+		}
+		// Missed at level 2: back at level 1, its fret written and its string drawn.
+		const fell = await afterMiss(1);
+		expect(leadOf(fell)).toBe(8);
+		expect(fell.prompt.detail).toBe('case 3');
+		expect(fell.prompt.pictures.map((picture) => picture.kind)).toEqual(['string']);
+		// Missed at level 3: back at level 2, no string coming back after the miss.
+		const below = await afterMiss(2);
+		expect(leadOf(below)).toBe(4);
+		expect(below.prompt.detail).toBeNull();
+		expect(below.prompt.pictures).toEqual([]);
+	});
+
+	it('shows a due note fallen back to level 1 with its fret and its string, caught up hot', async () => {
+		const card = locate(5, 'C');
+		const app = await notesApp({ cards: [learnedCard(card)], levels: [levelOf(card, 0)] });
+		const controller = await startNotes(app, 'learn');
+		const [round] = await playRounds(app, controller, allRight, { rounds: 1 });
+		await runUntil(app, () => controller.view.status === 'verdict');
+		const [attempt] = await quitAndRead(app, controller);
+		expect(keyOf(round.card)).toBe(keyOf(card));
+		expect(attempt).toMatchObject({ phase: 'consolidation', temperature: 'hot' });
+		expect(leadOf(round)).toBe(8);
+		expect(round.prompt.detail).toBe('case 3');
+		expect(round.prompt.pictures.map((picture) => picture.kind)).toEqual(['string']);
 	});
 
 	it('brings a missed new note back as a spaced retest, never at once', async () => {
@@ -614,6 +674,8 @@ describe('a note forgotten', () => {
 		await runUntil(app, () => second.view.status === 'verdict');
 		const [again] = await quitAndRead(app, second);
 		expect(keyOf(round.card)).toBe(keyOf(card));
+		// Level 1 writes the name under the fret (decision 7 of issue #19).
+		expect(round.prompt.detail).toBe('C');
 		expect(again).toMatchObject({ phase: 'consolidation', temperature: 'hot', success: true });
 		expect(again.reactionMs).toBeLessThan(3_000);
 		// It climbs back a level; its card is as the miss left it.

@@ -37,7 +37,6 @@ function change(
 		cardKey: `grid-reading:iohefy-a#${index}`,
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		promptedAt: index,
 		tempoBpm: 80,
 		leadBeats: null,

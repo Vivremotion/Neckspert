@@ -304,7 +304,6 @@ function rowsOf(definition: ExerciseDefinition, label: string): string[] {
 				cardKey: `${planned.skill}:round-${rank}`,
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				promptedAt: clock,
 				tempoBpm: 80,
 				leadBeats: null,
