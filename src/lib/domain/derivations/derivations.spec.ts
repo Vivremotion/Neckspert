@@ -46,20 +46,28 @@ describe('the derivations', () => {
 		expect(notes.kind).toBe('pitch');
 		expect(notes.list).toBe(true);
 		expect(notes.derive({ voicing: C_FIRST, frets: [9, 8, 8] }, NO_SHAPES)).toEqual([
-			{ midi: 64, string: 3 },
-			{ midi: 67, string: 2 },
-			{ midi: 72, string: 1 }
+			{ midi: 64, string: 3, name: 'E' },
+			{ midi: 67, string: 2, name: 'G' },
+			{ midi: 72, string: 1, name: 'C' }
 		]);
 		expect(
 			notes.derive({ voicing: 'C|maj|3:5,2:1,1:3', frets: [12, 13, 12], beats: 4 }, NO_SHAPES)
 		).toEqual([
-			{ midi: 67, string: 3 },
-			{ midi: 72, string: 2 },
-			{ midi: 76, string: 1 }
+			{ midi: 67, string: 3, name: 'G' },
+			{ midi: 72, string: 2, name: 'C' },
+			{ midi: 76, string: 1, name: 'E' }
 		]);
 		expect(() => notes.derive({ voicing: C_FIRST, frets: [9, 9, 9] }, NO_SHAPES)).toThrow(
 			'the voicing has no place at frets 9-9-9'
 		);
+		// Each note spelled as its chord spells it: the minor third of G is B flat.
+		expect(
+			(
+				notes.derive({ voicing: 'G|min|3:1,2:b3,1:5', frets: [12, 11, 10] }, NO_SHAPES) as {
+					name: string;
+				}[]
+			).map((n) => n.name)
+		).toEqual(['G', 'Bb', 'D']);
 	});
 
 	it("shape-notes derives the item's shape, moved to its first note", () => {

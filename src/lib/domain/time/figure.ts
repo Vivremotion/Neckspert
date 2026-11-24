@@ -9,6 +9,12 @@ export type SoundId = (typeof SOUND_IDS)[number];
 export const MIN_PITCH = 0;
 export const MAX_PITCH = 127;
 /** The strings a note's `string` may name: 1 is the highest, 6 the lowest. */
+/** A written accidental, in semitones: −2 (double flat) to 2 (double sharp). */
+export type WrittenAccidental = -2 | -1 | 0 | 1 | 2;
+const MAX_ACCIDENTAL = 2;
+/** The pitch classes of the seven naturals, C to B. */
+const NATURAL_CLASSES = new Set([0, 2, 4, 5, 7, 9, 11]);
+
 export const MIN_STRING = 1;
 export const MAX_STRING = 6;
 
@@ -18,6 +24,8 @@ export const MAX_STRING = 6;
  * the sound it plays in an accompaniment, null in a bare rhythm. `pitch` is its exact
  * MIDI number and `string` the string it is played on (1 to 6), both written by the notation
  * when it has them: plain numbers, so that this domain knows nothing of the fretboard.
+ * `accidental` is how the notation spells its pitch, when it writes one (`bes` is −1, `ais` 1):
+ * the letter is the pitch less its accidental. Absent, the pitch is spelled with sharps.
  */
 export type FigureElement =
 	| {
@@ -26,6 +34,7 @@ export type FigureElement =
 			tieToNext?: boolean;
 			content: null | SoundId;
 			pitch?: number;
+			accidental?: WrittenAccidental;
 			string?: number;
 	  }
 	| { kind: 'rest'; duration: Fraction };
@@ -76,12 +85,15 @@ function validateTuplets(voice: Voice): string | null {
 }
 
 function validateNote(note: FigureNote, voiceId: string, index: number): string | null {
-	const { pitch, string } = note;
+	const { pitch, accidental, string } = note;
 	if (
 		pitch !== undefined &&
 		!(Number.isInteger(pitch) && pitch >= MIN_PITCH && pitch <= MAX_PITCH)
 	) {
 		return `voice "${voiceId}": element ${index} has pitch ${pitch}, not a MIDI number (${MIN_PITCH} to ${MAX_PITCH})`;
+	}
+	if (accidental !== undefined && !spellsPitch(pitch, accidental)) {
+		return `voice "${voiceId}": element ${index} has accidental ${accidental}, which spells no letter of pitch ${pitch}`;
 	}
 	if (
 		string !== undefined &&
@@ -90,6 +102,16 @@ function validateNote(note: FigureNote, voiceId: string, index: number): string 
 		return `voice "${voiceId}": element ${index} has string ${string}, not ${MIN_STRING} to ${MAX_STRING}`;
 	}
 	return null;
+}
+
+/** Whether `accidental` (−2 to 2) leaves a natural under `pitch`: the letter it is written on. */
+function spellsPitch(pitch: number | undefined, accidental: number): boolean {
+	return (
+		pitch !== undefined &&
+		Number.isInteger(accidental) &&
+		Math.abs(accidental) <= MAX_ACCIDENTAL &&
+		NATURAL_CLASSES.has((((pitch - accidental) % 12) + 12) % 12)
+	);
 }
 
 function validateVoice(voice: Voice, meter: Meter, bars: number): string | null {
@@ -195,6 +217,7 @@ export function figureToJson(figure: Figure): unknown {
 							...(element.tieToNext ? { tieToNext: true } : {}),
 							content: element.content,
 							...(element.pitch !== undefined ? { pitch: element.pitch } : {}),
+							...(element.accidental !== undefined ? { accidental: element.accidental } : {}),
 							...(element.string !== undefined ? { string: element.string } : {})
 						}
 			),
@@ -247,6 +270,7 @@ function elementFromJson(value: unknown, where: string): FigureElement {
 		throw new Error(`${where} tieToNext must be a boolean`);
 	}
 	if (e.pitch !== undefined) asInteger(e.pitch, `${where} pitch`);
+	if (e.accidental !== undefined) asInteger(e.accidental, `${where} accidental`);
 	if (e.string !== undefined) asInteger(e.string, `${where} string`);
 	return {
 		kind: 'note',
@@ -254,6 +278,7 @@ function elementFromJson(value: unknown, where: string): FigureElement {
 		...(e.tieToNext ? { tieToNext: true } : {}),
 		content: e.content as null | SoundId,
 		...(e.pitch !== undefined ? { pitch: e.pitch as number } : {}),
+		...(e.accidental !== undefined ? { accidental: e.accidental as WrittenAccidental } : {}),
 		...(e.string !== undefined ? { string: e.string as number } : {})
 	};
 }

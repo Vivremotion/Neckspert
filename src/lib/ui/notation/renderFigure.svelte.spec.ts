@@ -292,9 +292,13 @@ const fretted = (pitch: number, string: number, n = 1, d = 4): FigureElement => 
 /** C#4 on the B string (fret 2), E4 open, G4 on the E string (fret 3), D4 on the B string (fret 3). */
 const WRITTEN = figure([fretted(61, 2), fretted(64, 1), fretted(67, 1), fretted(62, 2)]);
 const BOTH = { staff: true, tab: true };
+/** How many texts engrave the Bravura glyph `glyph`. */
+const glyphs = (glyph: string) =>
+	[...host.querySelectorAll('text')].filter((t) => t.textContent?.includes(glyph)).length;
 /** The sharps engraved (Bravura's `accidentalSharp`). */
-const sharps = () =>
-	[...host.querySelectorAll('text')].filter((t) => t.textContent?.includes('\uE262')).length;
+const sharps = () => glyphs('\uE262');
+/** The flats engraved (Bravura's `accidentalFlat`). */
+const flats = () => glyphs('\uE260');
 
 /** The centre of each fret number of the tab, in output pixels (jsdom measures every text 8 wide). */
 const fretCentres = (scale = 1) =>
@@ -327,6 +331,31 @@ describe('renderFigure, staff and tab', () => {
 		expect(layout.rowHeight).toBeGreaterThan(rhythm.rowHeight);
 		expect(layout.lineY).toEqual([0]);
 		expect(layout.height).toBe(layout.rowHeight);
+	});
+
+	it('spells each note as the figure writes it: a flat where it writes one, else a sharp', () => {
+		const spelled = (pitch: number, string: number, accidental?: -2 | -1 | 1 | 2) =>
+			({ ...fretted(pitch, string), ...(accidental ? { accidental } : {}) }) as FigureElement;
+		// B flat, E flat, A sharp, then 70 unspelled: a sharp, as before.
+		renderFigure(
+			host,
+			figure([spelled(58, 3, -1), spelled(63, 2, -1), spelled(58, 3, 1), spelled(70, 1)]),
+			{ maxWidth: 600, notation: BOTH }
+		);
+		expect(flats()).toBe(2);
+		expect(sharps()).toBe(2);
+		// A double flat and a double sharp take their own glyphs.
+		renderFigure(
+			host,
+			figure([spelled(57, 3, -2), spelled(62, 3, 2), fretted(64, 1), fretted(64, 1)]),
+			{
+				maxWidth: 600,
+				notation: BOTH
+			}
+		);
+		expect(glyphs('\uE264')).toBe(1);
+		expect(glyphs('\uE263')).toBe(1);
+		expect(flats() + sharps()).toBe(0);
 	});
 
 	it('engraves the tab alone, its numbers at least 16 px whatever the scale', () => {

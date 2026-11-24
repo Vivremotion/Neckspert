@@ -176,6 +176,32 @@ describe('pitch and string', () => {
 		expect(validateFigure(figure([pitched(1, 1, 60, 0)]))).toContain('string');
 		expect(validateFigure(figure([pitched(1, 1, 60, 6)]))).toBeNull();
 	});
+
+	it('keeps the accidental a note is written with, which must spell its pitch', () => {
+		const spelled = (pitch: number | undefined, accidental: number) =>
+			figure([
+				{ ...note(1, 1), ...(pitch === undefined ? {} : { pitch }), accidental } as FigureElement
+			]);
+		// The letter is the pitch less its accidental: B flat (59 − 1), A sharp (57 + 1), C flat
+		// (60 − 1), E sharp (64 + 1), B double flat (59 − 2), C double sharp (60 + 2), B sharp (59 + 1).
+		for (const [pitch, accidental] of [
+			[58, -1],
+			[58, 1],
+			[59, -1],
+			[65, 1],
+			[57, -2],
+			[62, 2],
+			[60, 1]
+		]) {
+			expect(validateFigure(spelled(pitch, accidental))).toBeNull();
+		}
+		// No letter: 61 is no natural, nor is 61 above 60 a flat of anything.
+		expect(validateFigure(spelled(61, 0))).toContain('accidental');
+		expect(validateFigure(spelled(60, -1))).toContain('accidental');
+		expect(validateFigure(spelled(60, 3))).toContain('accidental');
+		expect(validateFigure(spelled(60, 0.5))).toContain('accidental');
+		expect(validateFigure(spelled(undefined, -1))).toContain('accidental');
+	});
 });
 
 describe('figure JSON', () => {
@@ -187,6 +213,17 @@ describe('figure JSON', () => {
 		expect('pitch' in json.voices[0].elements[2]).toBe(false);
 		expect('string' in json.voices[0].elements[1]).toBe(false);
 		expect(figureFromJson(json)).toEqual(f);
+	});
+
+	it('round-trips the written accidental, absent on a note written without one', () => {
+		const flat = { ...pitched(1, 2, 58, 3), accidental: -1 } as FigureElement;
+		const f = figure([flat, pitched(1, 2, 59, 2)]);
+		const json = JSON.parse(JSON.stringify(figureToJson(f)));
+		expect(json.voices[0].elements[0]).toMatchObject({ pitch: 58, accidental: -1 });
+		expect('accidental' in json.voices[0].elements[1]).toBe(false);
+		expect(figureFromJson(json)).toEqual(f);
+		json.voices[0].elements[0].accidental = 'b';
+		expect(() => figureFromJson(json)).toThrow(/accidental/);
 	});
 
 	it('reads a schema 1 figure without pitch', () => {

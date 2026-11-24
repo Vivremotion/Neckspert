@@ -50,8 +50,8 @@ function modelOf(
 		runRounds: [],
 		endedSessions: 0,
 		played: null,
-		live: null,
-		coming: null
+			live: null,
+			coming: null
 	}) as Record<string, unknown>;
 }
 

@@ -51,7 +51,7 @@ describe('parseNoteName', () => {
 
 describe('readNoteName', () => {
 	it('reads a note from where it stands and tells where it ends', () => {
-		expect(readNoteName("c4 bes'8", 3)).toEqual({ midi: 70, name: 'Bb', end: 7 });
+		expect(readNoteName("c4 bes'8", 3)).toEqual({ midi: 70, accidental: -1, name: 'Bb', end: 7 });
 	});
 
 	it('tells what is wrong and where', () => {

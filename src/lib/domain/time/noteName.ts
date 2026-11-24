@@ -1,4 +1,4 @@
-import { MAX_PITCH, MIN_PITCH } from './figure';
+import { MAX_PITCH, MIN_PITCH, type WrittenAccidental } from './figure';
 
 /**
  * A note's name as LilyPond writes it: `a`-`g`, Dutch accidentals `is` `isis` `es` `eses` as in
@@ -24,6 +24,8 @@ function noteShift(letter: string, suffix: string): number | null {
 
 export interface NoteName {
 	midi: number;
+	/** Its accidental in semitones: `bes` −1, `cisis` 2, `c` 0. */
+	accidental: WrittenAccidental;
 	/** As a chart writes it, without its octave: `bes'` is `Bb`, `fis` is `F#`. */
 	name: string;
 }
@@ -61,8 +63,29 @@ export function readNoteName(
 	if (midi < MIN_PITCH || midi > MAX_PITCH) {
 		return { problem: `pitch ${midi} is out of the MIDI range`, offset: start };
 	}
-	const accidental = (shift > 0 ? '#' : 'b').repeat(Math.abs(shift));
-	return { midi, name: `${letter.toUpperCase()}${accidental}`, end: at };
+	const marks = (shift > 0 ? '#' : 'b').repeat(Math.abs(shift));
+	return {
+		midi,
+		accidental: shift as WrittenAccidental,
+		name: `${letter.toUpperCase()}${marks}`,
+		end: at
+	};
+}
+
+/** The name of `midi` written with `accidental` (`writtenName(58, -1)` is `Bb`), without its octave. */
+export function writtenName(midi: number, accidental: WrittenAccidental): string {
+	const natural = (((midi - accidental) % OCTAVE_SEMITONES) + OCTAVE_SEMITONES) % OCTAVE_SEMITONES;
+	const letter = Object.keys(NATURALS).find((l) => NATURALS[l] === natural);
+	if (letter === undefined) throw new RangeError(`${accidental} spells no letter of pitch ${midi}`);
+	return `${letter.toUpperCase()}${(accidental > 0 ? '#' : 'b').repeat(Math.abs(accidental))}`;
+}
+
+/** The accidental of a name as `writtenName` writes it (`Bb` −1, `F##` 2, `G` 0), or null. */
+export function accidentalOfName(name: string): WrittenAccidental | null {
+	const match = /^[A-G](#{0,2}|b{1,2})$/.exec(name);
+	if (!match) return null;
+	const marks = match[1];
+	return ((marks.startsWith('#') ? 1 : -1) * marks.length || 0) as WrittenAccidental;
 }
 
 /** `text`, one note name and nothing else (no duration, no string). Throws naming the text. */
@@ -74,5 +97,5 @@ export function parseNoteName(text: string): NoteName {
 	if (read.end !== text.length) {
 		throw new Error(`"${text}" is no note name: it goes on after the note, at offset ${read.end}`);
 	}
-	return { midi: read.midi, name: read.name };
+	return { midi: read.midi, accidental: read.accidental, name: read.name };
 }
