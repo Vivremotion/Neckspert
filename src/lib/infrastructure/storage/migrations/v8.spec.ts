@@ -272,7 +272,7 @@ describe('a version 3 export of the application before this model', () => {
 			contested: true
 		});
 		expect(find([...GESTURE_EXERCISE_IDS], 'wrong')?.verdict.relation).toBe('grid-change');
-		expect(v4.attempts.some((attempt) => attempt.aids.includes('show-position'))).toBe(true);
+		expect(v4.attempts.some((attempt) => attempt.aids?.includes('show-position'))).toBe(true);
 		// Version 7 renamed the tempo scope of an attempt its scope.
 		expect(v4.attempts.some((attempt) => attempt.scope !== undefined)).toBe(true);
 	});

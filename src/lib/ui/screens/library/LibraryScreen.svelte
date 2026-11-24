@@ -25,12 +25,11 @@
 	const home = $derived(homeMessages());
 	const words = $derived({ short: home.minutes, spoken: home.minutesSpoken });
 
-	/** The routines that list it, its rest, and that it has nothing to play now. */
+	/** The routines that list it, and that it has nothing to play now. */
 	function whyOf(entry: LibraryEntry): string | undefined {
 		const routines = entry.routines.map((title) => title[i18n.locale]).join(', ');
 		const lines = [
 			routines === '' ? null : routines,
-			entry.resting ? t.resting : null,
 			entry.playable ? null : t.nothingToPlay
 		].filter((line) => line !== null);
 		return lines.length > 0 ? lines.join(' · ') : undefined;

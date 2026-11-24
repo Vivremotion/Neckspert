@@ -123,7 +123,7 @@ function cycleCorrect(plan: RoundPlan, report: CycleReport): boolean | null {
 
 /**
  * The attempt of a settled round, every round one way, on the target model: success, the
- * verdict envelope, measures and aids are the round's, and the plan it was judged against
+ * verdict envelope and measures are the round's, and the plan it was judged against
  * (`roundPlanRecord`) with where it started, its tempo and its thresholds. A round judged by the
  * cycle verdict keeps its report (`FigureAttemptData`) and its placement as its offset, and is
  * correct as `cycleCorrect` says; any other keeps its presenter's data, its correctness, offset
@@ -163,7 +163,6 @@ export function recordedAttempt(input: {
 		cardKey: input.cardKey,
 		phase: item.phase,
 		temperature: 'hot',
-		aids: [...outcome.aids],
 		promptedAt: input.promptedAt,
 		tempoBpm: execution.tempoBpm,
 		...(execution.scope !== undefined && { scope: execution.scope }),

@@ -22,13 +22,10 @@ export interface SeriesSummary {
 	/** The series' exercise; for a series of several, which names none, its first run's. */
 	exerciseId: string;
 	ended: SeriesEnd | 'quit';
-	breaking: CycleFailure | null;
 	/** Level of each run in order, repeats merged: [0, 1, -1] = up, then to the aid level. */
 	levels: number[];
 	rounds: number;
 	successes: number;
-	/** Successes played with an aid the level does not give. */
-	aided: number;
 	listens: number;
 	/** Time in rounds over the series' time, 0..1. */
 	playedShare: number;
@@ -63,13 +60,12 @@ function meanMeasures(attempts: readonly Attempt[]): Measures {
 }
 
 /**
- * A series as its trace and its attempts tell it: by run, with what changed and what broke. Any
+ * A series as its trace and its attempts tell it: by run, with what changed. Any
  * series: a round is a cycle or a response round alike, its measures and reasons as it has them.
  */
 export function summarizeSeries(input: {
 	series: Segment;
 	attempts: readonly Attempt[];
-	aided(attempt: Attempt): boolean;
 }): SeriesSummary {
 	const { series } = input;
 	const byId = new Map(input.attempts.map((attempt) => [attempt.id, attempt]));
@@ -107,11 +103,9 @@ export function summarizeSeries(input: {
 	return {
 		exerciseId: series.exerciseId ?? runs[0]?.exerciseId ?? '',
 		ended: series.reason ?? 'quit',
-		breaking: series.breaking ?? null,
 		levels,
 		rounds: played.length,
 		successes: played.filter((attempt) => attempt.success).length,
-		aided: played.filter((attempt) => attempt.success && input.aided(attempt)).length,
 		listens: all.filter((segment) => segment.role === 'listen').length,
 		playedShare: length > 0 ? inRounds / length : 0,
 		runs

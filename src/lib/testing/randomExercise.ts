@@ -1351,8 +1351,7 @@ export function randomPassagesExercise(random: () => number, id = 'passages'): E
 		round,
 		params,
 		passages,
-		...(shownLevels && { levels: shownLevels }),
-		...(chance(random, 0.5) && { flow: { antiBlocking: true } })
+		...(shownLevels && { levels: shownLevels })
 	};
 }
 
@@ -1543,13 +1542,10 @@ export interface ServicePlay {
 	checked: number;
 	/** Rounds it did not check, by why. */
 	excused: Record<VerdictExcuse, number>;
-	/** The announcements the session made, by kind, and the exercises it told leaving. */
+	/** The announcements the session made, by kind. */
 	announced: Set<string>;
-	leaving: number;
 	/** How the session's series ended, as its trace keeps it; null while it played on. */
 	end: string | null;
-	/** The exercises and scopes that left the series, as its trace keeps them. */
-	left: { exerciseId: string; scope?: string }[];
 }
 
 /**
@@ -1608,8 +1604,6 @@ export async function playService(
 	let lastOpenS = clock.now();
 	let longestGapS = 0;
 	const announced = new Set<string>();
-	let leaving = 0;
-	let wasLeaving = false;
 
 	const emitTo = (sensor: string, payload: unknown, time: number) => {
 		switch (sensor) {
@@ -1699,9 +1693,6 @@ export async function playService(
 		sendDue();
 		const announcement = controller.view.announcement;
 		if (announcement) announced.add(announcement.kind);
-		const isLeaving = controller.view.leaving !== null;
-		if (isLeaving && !wasLeaving) leaving++;
-		wasLeaving = isLeaving;
 		// The status moves under the awaits: read it as the view gives it now.
 		if ((controller.view.status as string) !== 'finished') {
 			longestGapS = Math.max(longestGapS, clock.now() - lastOpenS);
@@ -1772,8 +1763,6 @@ export async function playService(
 		checked,
 		excused,
 		announced,
-		leaving,
-		end: series?.reason ?? null,
-		left: [...(series?.left ?? [])]
+		end: series?.reason ?? null
 	};
 }

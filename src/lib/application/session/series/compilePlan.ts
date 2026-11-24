@@ -3,8 +3,6 @@ import { pacingAt } from '$lib/domain/exercise/levels';
 import { compileRound, roundAccompanimentOf, roundFigureOf } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
-	CYCLE_VERDICT,
-	MATCH_LIMIT,
 	METER_4_4,
 	ROUND_MODES,
 	accompanimentFrom,
@@ -12,10 +10,7 @@ import {
 	landingBar,
 	unmuted,
 	type Accompaniment,
-	type Aid,
-	type CycleReport,
 	type CycleThresholds,
-	type CycleVerdict,
 	type Figure,
 	Fraction,
 	type Meter,
@@ -24,7 +19,6 @@ import {
 	type RoundPlan
 } from '$lib/domain/time';
 import type { Attempt, CardKey, Execution, PlannedItem } from '$lib/domain/types';
-import { cycleAids, levelAided } from '../aids';
 import { recordedAttempt } from './recordResponse';
 
 /**
@@ -61,8 +55,6 @@ export function compilePlan(
 export interface RoundGiven {
 	/** The thresholds a verdict that reads them judges against; null for a verdict that reads none. */
 	thresholds: CycleThresholds | null;
-	/** The aids the round is played with. */
-	aids: Aid[];
 	/**
 	 * Bars after its handover the round keeps taking what it captured but was heard late, the next
 	 * round open meanwhile; null: it closes at its handover.
@@ -72,52 +64,22 @@ export interface RoundGiven {
 	liveMarks: boolean;
 }
 
-/** How the series helped a round beyond its item: its content heard before it, or played along. */
-export interface RoundHelp {
-	/** The content was just heard (a listen, a demonstration). */
-	listened: boolean;
-	/** The content sounds with the player (the anti-blocking's play-along). */
-	playAlong: boolean;
-}
-
-const UNHELPED: RoundHelp = { listened: false, playAlong: false };
-
 export function roundGiven(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
-	plan: RoundPlan,
-	help: RoundHelp = UNHELPED
+	plan: RoundPlan
 ): RoundGiven {
 	const params = figureParamsOf(definition, item.exerciseLevel);
 	return {
 		thresholds: ROUND_MODES.verdicts[plan.policy.verdict]?.readsThresholds
 			? params.thresholds
 			: null,
-		aids: cycleAids({
-			cursor: params.cursor,
-			listen: params.listen,
-			aidLevel: item.exerciseLevel < 0,
-			listened: help.listened,
-			playAlong: help.playAlong
-		}),
 		settleAfter: plan.policy.unit === 'cycle' ? SETTLE_AFTER_BARS : null,
 		liveMarks: params.liveMarks
 	};
 }
 
-/**
- * Whether a round's aids helped beyond what its level gives (`nextLevelState`'s `aided`): the aid
- * level, and the cursor its level gives, are the level itself (`levelAided`); any other aid helped.
- */
-export function aidedBeyondLevel(
-	definition: ExerciseDefinition,
-	item: PlannedItem,
-	aids: readonly Aid[]
-): boolean {
-	return levelAided(aids, figureParamsOf(definition, item.exerciseLevel).cursor);
-}
-
-/** The exercise can make its content sound (a figure): it can be listened to, and played along. */
+/** The exercise can make its content sound (a figure): it can be listened to. */
 export function canSound(definition: ExerciseDefinition): boolean {
 	return writesFigure(definition);
 }
@@ -135,27 +97,9 @@ export function contentFigure(definition: ExerciseDefinition, item: PlannedItem)
 	return roundFigureOf(definition, item, meterOf(definition))?.figure ?? null;
 }
 
-/** What listening to the content is worth at exercise level `level`: free, an aid, or none. */
+/** Whether the player may ask to hear the content at exercise level `level`: free, or none. */
 export function listenOf(definition: ExerciseDefinition, level: number): FigureParams['listen'] {
 	return figureParamsOf(definition, level).listen;
-}
-
-/**
- * What the anti-blocking reads of a settled round (`SettledRound`): a round judged by the cycle
- * verdict gives its report and verdict, and the spot (`MATCH_LIMIT` at a whole note of `wholeS`
- * seconds) within which extras fall on the same place; a round judged otherwise gives nothing to
- * compare.
- */
-export function blockReadingOf(
-	outcome: RoundOutcome,
-	wholeS: number
-): { report?: CycleReport; verdict?: CycleVerdict; spotMs: number } {
-	if (outcome.verdict.relation !== CYCLE_VERDICT) return { spotMs: 0 };
-	return {
-		report: outcome.detail as CycleReport,
-		verdict: outcome.verdict.value as CycleVerdict,
-		spotMs: MATCH_LIMIT.toNumber() * wholeS * 1000
-	};
 }
 
 /** How a run of an exercise opens and what plays under it. */

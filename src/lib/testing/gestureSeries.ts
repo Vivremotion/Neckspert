@@ -198,14 +198,13 @@ export const BENCH_LEVEL_STATES: LevelState[] = [
 
 /**
  * An exercise of the changes (it writes passages), or one a spec draws from it, on the bench's
- * levels, which no anti-blocking moves either; any other as it is.
+ * levels; any other as it is.
  */
 function onBenchLevels(definition: ExerciseDefinition): ExerciseDefinition {
 	if (definition.passages === undefined) return definition;
 	return {
 		...definition,
-		levels: BENCH_LEVELS,
-		flow: { ...definition.flow, antiBlocking: false }
+		levels: BENCH_LEVELS
 	};
 }
 

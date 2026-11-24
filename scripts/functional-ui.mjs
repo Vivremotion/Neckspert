@@ -1010,22 +1010,6 @@ try {
 		noteTiny('figure-derived', run.texts);
 	}
 
-	console.log('\nRythme /dev/rhythm?phase=along');
-	{
-		const call = await open(`${RHYTHM_URL}?phase=along`);
-		const run = await evaluate(
-			call,
-			`async () => {
-				await (${settle})();
-				return { status: document.querySelector('[role="status"]')?.textContent ?? null, texts: ${texts} };
-			}`
-		);
-		check(
-			assert(run.status === 'On la joue ensemble', `l’aide en cours est annoncée (${run.status})`)
-		);
-		noteTiny('figure-along', run.texts);
-	}
-
 	// The real pages, on a fresh profile: the home, the Library, every catalog routine, an
 	// exercise of each kind from the Library, then a file imported in the settings.
 	// Sent on a page's session: the browser's own session does not serve the Storage domain.

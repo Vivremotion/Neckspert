@@ -19,11 +19,6 @@ export interface ExerciseFlow {
 	/** Whether a miss can be contested in play (development builds). */
 	contestable?: boolean;
 	/**
-	 * Whether failures in a row at its first level bring the anti-blocking (a remedy, an aid
-	 * level, « On change d’air »); absent: no.
-	 */
-	antiBlocking?: boolean;
-	/**
 	 * When its instruction (`howTo`) is told: before its first round in every series
 	 * (`'each-series'`, the default), or only while the player has no attempt of it
 	 * (`'first-encounter'`).

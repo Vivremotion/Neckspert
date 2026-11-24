@@ -83,7 +83,7 @@ describe('figureParamsOf', () => {
 			liveMarks: false,
 			nextBeats: 0
 		});
-		expect(figureParamsOf(RHYTHM_TWO_FOUR, 0)).toMatchObject({ listen: 'aid', cursor: true });
+		expect(figureParamsOf(RHYTHM_TWO_FOUR, 0)).toMatchObject({ listen: 'free', cursor: true });
 	});
 
 	it('refuses a level the exercise does not have', () => {

@@ -1,23 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { type ExerciseDefinition } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
-import {
-	Fraction,
-	METER_4_4,
-	clickAccompaniment,
-	type CycleReport,
-	type RoundOutcome
-} from '$lib/domain/time';
+import { Fraction, METER_4_4, clickAccompaniment } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
-import {
-	aidedBeyondLevel,
-	blockReadingOf,
-	compilePlan,
-	contentFigure,
-	listenOf,
-	roundGiven,
-	runSetup
-} from './compilePlan';
+import { compilePlan, contentFigure, listenOf, roundGiven, runSetup } from './compilePlan';
 import { LOCATE_NECK, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const note: PlannedItem = {
@@ -68,7 +54,7 @@ describe('compilePlan', () => {
 		expect(first.mutedBars).toEqual([0]);
 	});
 
-	it('gives a cycle its level’s thresholds and aids, and a settlement past its end', () => {
+	it('gives a cycle its level’s thresholds and a settlement past its end', () => {
 		const given = roundGiven(
 			RHYTHM_SILENT_BARS,
 			eighths(0),
@@ -80,21 +66,13 @@ describe('compilePlan', () => {
 			holdDrift: 25,
 			precision: 60
 		});
-		expect(given.aids).toEqual(['cursor']);
 		expect(given.settleAfter).toEqual(Fraction.of(1, 4));
-		// The aid level is an aid of its own.
-		expect(
-			roundGiven(RHYTHM_SILENT_BARS, eighths(-1), planOf(RHYTHM_SILENT_BARS, eighths(-1))).aids
-		).toEqual(['cursor', 'aid-level']);
-		// The cursor and the aid level are the level's: a cycle with them alone is not helped.
-		expect(aidedBeyondLevel(RHYTHM_SILENT_BARS, eighths(-1), ['cursor', 'aid-level'])).toBe(false);
-		expect(aidedBeyondLevel(RHYTHM_SILENT_BARS, eighths(0), ['cursor', 'listen'])).toBe(true);
+		expect(given).not.toHaveProperty('aids');
 	});
 
-	it('gives a response round no aid, and thresholds only to a verdict that reads them', () => {
+	it('gives a response round thresholds only when its verdict reads them', () => {
 		expect(roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note))).toEqual({
 			thresholds: null,
-			aids: [],
 			settleAfter: null,
 			liveMarks: false
 		});
@@ -112,19 +90,6 @@ describe('compilePlan', () => {
 		expect(roundGiven(silent, eighths(0), planOf(silent, eighths(0))).thresholds).toEqual(
 			thresholds
 		);
-		expect(aidedBeyondLevel(LOCATE_NECK, note, ['show-position'])).toBe(true);
-		expect(aidedBeyondLevel(LOCATE_NECK, note, [])).toBe(false);
-		// The aid level is the level itself, for a response round too.
-		expect(aidedBeyondLevel(LOCATE_NECK, note, ['aid-level'])).toBe(false);
-		expect(aidedBeyondLevel(LOCATE_NECK, note, ['aid-level', 'show-position'])).toBe(true);
-		expect(aidedBeyondLevel(LOCATE_NECK, note, ['string-aid'])).toBe(true);
-		// A cursor its level gives is the level itself; one it does not give helped.
-		const withCursor: ExerciseDefinition = {
-			...LOCATE_NECK,
-			params: { ...LOCATE_NECK.params, cursor: true }
-		};
-		expect(aidedBeyondLevel(withCursor, note, ['cursor'])).toBe(false);
-		expect(aidedBeyondLevel(LOCATE_NECK, note, ['cursor'])).toBe(true);
 	});
 
 	it('opens a cycle’s run with its listen-in, its accompaniment and its entry', () => {
@@ -175,51 +140,12 @@ describe('compilePlan', () => {
 		expect(runSetup(leveled, 1)).toMatchObject({ listenInBars: 1, countIn: false });
 	});
 
-	it('gives a cycle the listening and the playing along it was helped with', () => {
-		const plan = planOf(RHYTHM_SILENT_BARS, eighths(0));
-		const helped = roundGiven(RHYTHM_SILENT_BARS, eighths(0), plan, {
-			listened: true,
-			playAlong: true
-		});
-		// Listening is free at this level: no aid; playing along is one.
-		expect(helped.aids).toEqual(['cursor', 'play-along']);
-		const heard = roundGiven(RHYTHM_SILENT_BARS, eighths(0), plan, {
-			listened: true,
-			playAlong: false
-		});
-		expect(heard.aids).toEqual(['cursor']);
-		// Where its level gives no listen, listening is worth nothing.
-		expect(
-			roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note), { listened: true, playAlong: false })
-				.aids
-		).toEqual([]);
-	});
-
-	it('makes a cycle’s figure sound, and lets its level say what listening is worth', () => {
+	it('makes a cycle’s figure sound, and lets its level say whether it can be listened to', () => {
 		const figure = contentFigure(RHYTHM_SILENT_BARS, eighths(0));
 		expect(figure).toBe(RHYTHM_SILENT_BARS.figures?.find((f) => f.id === 'eighths')?.figure);
 		expect(listenOf(RHYTHM_SILENT_BARS, 0)).toBe('free');
 		// A template has no content to sound, nor to listen to.
 		expect(contentFigure(LOCATE_NECK, note)).toBeNull();
 		expect(listenOf(LOCATE_NECK, 0)).toBe('none');
-	});
-
-	it('hands the anti-blocking a cycle’s report and its spot, a response round nothing to compare', () => {
-		const report = { expectations: [], extra: 0 } as unknown as CycleReport;
-		const outcome = {
-			detail: report,
-			verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: ['missed'] } }
-		} as unknown as RoundOutcome;
-		expect(blockReadingOf(outcome, 2)).toEqual({
-			report,
-			verdict: { passed: false, reasons: ['missed'] },
-			// A sixteenth of a whole note of two seconds.
-			spotMs: 125
-		});
-		const response = {
-			...outcome,
-			verdict: { relation: 'response', version: 1, value: { kind: 'wrong' } }
-		} as unknown as RoundOutcome;
-		expect(blockReadingOf(response, 2)).toEqual({ spotMs: 0 });
 	});
 });

@@ -83,8 +83,7 @@ function newOutcome(item: PlannedItem, decided: string | null, ms: number): Roun
 		clock: { map, start: Fraction.of(CHANGE_BEAT, 4) },
 		judges: contentJudges,
 		latency: { ms: 0, provenance: 'system' },
-		thresholds: null,
-		aids: []
+		thresholds: null
 	});
 	const time = CHANGE_S + ms / 1000;
 	const event = round.observe({
@@ -215,7 +214,7 @@ describe('recordedAttempt', () => {
 				)
 			);
 		const attempts = make();
-		const [line] = summarizePlayed({ executions: [RUN], attempts, aided: () => false });
+		const [line] = summarizePlayed({ executions: [RUN], attempts });
 		expect(line).toMatchObject({ passages: { played: 2, passed: 0 }, rounds: 8, passed: 4 });
 		expect(summaryMisses(attempts)).toHaveLength(2);
 	});
@@ -280,8 +279,7 @@ function offbeatsCycle(exact: boolean) {
 		clock: { map, start: Fraction.ZERO },
 		judges: contentJudges,
 		latency: null,
-		thresholds,
-		aids: ['cursor']
+		thresholds
 	});
 	if (exact) {
 		for (const at of attackPositions(offbeats.figure)) {
@@ -324,9 +322,9 @@ describe('recordedAttempt, a cycle', () => {
 			reactionMs: null,
 			// No content: a cycle of pure rhythm judges no note.
 			correct: null,
-			success: true,
-			aids: ['cursor']
+			success: true
 		});
+		expect(attempt).not.toHaveProperty('aids');
 		expect(attempt.verdict).toEqual({ relation: 'cycle', version: 1, value: { passed: true } });
 		expect(attempt.measures).toBe(outcome.measures);
 		// Placement needs offsets: an exact cycle has one, at 0 ms.

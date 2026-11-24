@@ -113,12 +113,12 @@ export const GLOSSARY: Record<TermId, Record<Locale, Term>> = {
 		fr: {
 			term: 'niveau',
 			definition:
-				'Le réglage de l’exercice que tu joues. Il monte après des cycles réussis sans aide, redescend après des échecs répétés.'
+				'Le réglage de l’exercice que tu joues. Il monte après des cycles réussis, redescend après des échecs répétés.'
 		},
 		en: {
 			term: 'level',
 			definition:
-				'The setting of the exercise you play. It goes up after cycles passed without help, down after repeated failures.'
+				'The setting of the exercise you play. It goes up after cycles passed, down after repeated failures.'
 		}
 	},
 	'aid-level': {
@@ -166,12 +166,11 @@ export const GLOSSARY: Record<TermId, Record<Locale, Term>> = {
 	'play-along': {
 		fr: {
 			term: 'jouer avec',
-			definition:
-				'La figure sonne en même temps que toi, dans un autre timbre. Un cycle joué ainsi est aidé.'
+			definition: 'La figure sonne en même temps que toi, dans un autre timbre.'
 		},
 		en: {
 			term: 'play-along',
-			definition: 'The figure sounds with you, in another timbre. A cycle played that way is aided.'
+			definition: 'The figure sounds with you, in another timbre.'
 		}
 	}
 };

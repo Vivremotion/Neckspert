@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
-	import { allGrids } from '$lib/domain/grid';
+	import type { PlaySessionController } from '$lib/application/session/contract';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -81,29 +80,11 @@
 				)
 			: null
 	);
-	/** The exercise that changes air and leaves, by its name: told in the status line. */
-	const leaving = $derived(view.leaving ? t.changeOfAirOf(leavingName(view.leaving)) : null);
-
-	/** The exercise that changes air, by its name, and its scope's (a grid's title when it is one). */
-	function leavingName(exercise: { title: { fr: string; en: string }; scope?: string }): string {
-		const name = exercise.title[i18n.locale];
-		if (exercise.scope === undefined) return name;
-		const grid = allGrids().find((candidate) => candidate.id === exercise.scope);
-		return `${name} · ${grid?.title ?? exercise.scope}`;
-	}
-
 	/**
 	 * A level reached is told before play only (the breath, the listen-in, the count: cleared from
-	 * its run's first bar), so it is told prominently, laid over the field, the view never moved;
-	 * a remedy or the change of air stays in the status line, whatever the status.
+	 * its run's first bar), so it is told prominently, laid over the field, the view never moved.
 	 */
-	const LEVEL_TOLD: ReadonlySet<Announcement> = new Set(['level-up', 'level-down', 'aid-level']);
-	const toldInField = $derived(view.announcement ? LEVEL_TOLD.has(view.announcement.kind) : false);
-	/**
-	 * The status line: the exercise that leaves, by its name (a level of the next one told in the
-	 * field beside it), else the announcement when it is not told in the field.
-	 */
-	const toldInLine = $derived(leaving ?? (toldInField ? null : announced));
+	const toldInField = $derived(view.announcement !== null);
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {
@@ -214,11 +195,8 @@
 					<Prompt main={String(view.countdown)} size="prompt" />
 				</div>
 			{/if}
-			{#if view.contest !== null || view.fatigueDetected || toldInLine !== null}
+			{#if view.contest !== null || view.fatigueDetected}
 				<div class="quiet-status">
-					{#if toldInLine !== null}
-						<p class="announcement" role="status">{toldInLine}</p>
-					{/if}
 					{#if view.contest === 'available'}
 						<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
 					{:else if view.contest === 'done'}
@@ -268,10 +246,6 @@
 		{/snippet}
 
 		<div class="status">
-			{#if toldInLine !== null}
-				<!-- A remedy under way, or the change of air. -->
-				<p class="announcement" role="status">{toldInLine}</p>
-			{/if}
 			{#if view.countdown !== null}
 				<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
 				<!-- In text: PixelWord draws the note letters only, no digit. -->
@@ -475,14 +449,6 @@
 		gap: var(--np-space-2, 16px);
 	}
 
-	.announcement {
-		margin: 0;
-		font-size: var(--np-type-body);
-		line-height: 1.2;
-		text-align: center;
-		text-transform: uppercase;
-	}
-
 	/* The pixel world: the level reached, centred over the view, at the size of a prompt. */
 	.frame .told {
 		inset-inline: var(--np-space-1, 8px);
@@ -495,11 +461,6 @@
 		text-transform: uppercase;
 		background: var(--np-bg);
 		border: calc(var(--np-tile) / 2) solid var(--np-ink);
-	}
-
-	.quiet-status .announcement {
-		font-size: var(--np-size-body);
-		text-transform: none;
 	}
 
 	.label,

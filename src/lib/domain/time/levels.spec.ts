@@ -24,8 +24,8 @@ function stateAt(level: number, extra: Partial<LevelState> = {}): LevelState {
 	};
 }
 
-const ok = { success: true, aided: false };
-const ko = { success: false, aided: false };
+const ok = { success: true };
+const ko = { success: false };
 
 /** Plays the results in order; returns the final state and the cycle index of each change. */
 function play(start: LevelState, levels: readonly Level[], results: (typeof ok)[]) {
@@ -124,23 +124,6 @@ describe('nextLevelState', () => {
 		expect(state.level).toBe(2);
 	});
 
-	it('an aided success neither counts nor goes up, and resets the successes', () => {
-		const aided = { success: true, aided: true };
-		const { state, changes } = play(stateAt(0), plain, [ok, ok, aided]);
-		expect(changes).toEqual([]);
-		expect(state).toMatchObject({ level: 0, successes: 0 });
-		// Three more unaided successes are needed.
-		expect(play(state, plain, [ok, ok]).changes).toEqual([]);
-		expect(play(state, plain, [ok, ok, ok]).changes).toEqual([{ at: 2, changed: 'up' }]);
-	});
-
-	it('an aided failure neither counts nor goes down', () => {
-		const aided = { success: false, aided: true };
-		const { state, changes } = play(stateAt(1, { failures: 1 }), plain, [aided, aided, aided]);
-		expect(changes).toEqual([]);
-		expect(state).toMatchObject({ level: 1, failures: 1, successes: 0 });
-	});
-
 	it('reads pass and drop conditions from the level it stands on', () => {
 		const levels: Level[] = [
 			{ params: {}, pass: { successes: 1 } },
@@ -161,7 +144,7 @@ describe('nextLevelState', () => {
 		expect(state.level).toBe(0);
 	});
 
-	it('keeps counting failures at the floor, for the anti-blocking to read', () => {
+	it('keeps counting failures at the floor', () => {
 		const { state, changes } = play(stateAt(0), plain, [ko, ko, ko, ko]);
 		expect(changes).toEqual([]);
 		expect(state).toMatchObject({ level: 0, failures: 4, successes: 0 });
@@ -172,25 +155,6 @@ describe('nextLevelState', () => {
 		const { state, changes } = play(stateAt(-1), levels, [ko, ko, ko]);
 		expect(changes).toEqual([]);
 		expect(state).toMatchObject({ level: -1, failures: 3 });
-	});
-
-	it('an aided cycle between two failures does not break their run', () => {
-		const aided = { success: false, aided: true };
-		const { state, changes } = play(stateAt(1), plain, [ko, aided, ko]);
-		expect(changes).toEqual([{ at: 2, changed: 'down' }]);
-		expect(state.level).toBe(0);
-	});
-
-	it("an aid level's own aid is not an aid: unaided successes climb out of it", () => {
-		const levels: Level[] = [{ params: {}, aid: true }, { params: {} }];
-		// `aided` means an aid other than the level's own (listen, play-along, cursor...).
-		const aided = { success: true, aided: true };
-		const held = play(stateAt(-1), levels, [ok, ok, aided, ok]);
-		expect(held.changes).toEqual([]);
-		expect(held.state).toMatchObject({ level: -1, successes: 1 });
-		const climbed = play(stateAt(-1), levels, [ok, ok, ok]);
-		expect(climbed.changes).toEqual([{ at: 2, changed: 'up' }]);
-		expect(climbed.state.level).toBe(0);
 	});
 
 	it('keeps identity and resumeAfter, and does not mutate the input', () => {
@@ -228,10 +192,10 @@ describe('generic levels', () => {
 			failures: 0,
 			resumeAfter: null
 		});
-		const up = nextLevelState(at(0), ladder, { success: true, aided: false });
+		const up = nextLevelState(at(0), ladder, { success: true });
 		expect(up.changed).toBe('up');
 		expect(up.state.level).toBe(1);
-		const down = nextLevelState(at(1), ladder, { success: false, aided: false });
+		const down = nextLevelState(at(1), ladder, { success: false });
 		expect(down.changed).toBe('down');
 		expect(down.state.level).toBe(0);
 	});

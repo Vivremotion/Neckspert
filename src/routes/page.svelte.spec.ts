@@ -17,8 +17,7 @@ function catalogRoutines(closed: readonly string[] = []): RoutineEntry[] {
 		title: { fr, en },
 		open: !closed.includes(id),
 		due: memory ? 0 : null,
-		nextReviewAt: null,
-		resting: false
+		nextReviewAt: null
 	});
 	return [
 		entry('notes', 'Apprentissage', 'Learn', true),
@@ -75,8 +74,7 @@ describe('/ page', () => {
 			title: { fr: 'Ma routine', en: 'My routine' },
 			open: true,
 			due: 0,
-			nextReviewAt: null,
-			resting: false
+			nextReviewAt: null
 		};
 		const services = createFakeAppServices({
 			routines: async () => [imported, ...catalogRoutines()]

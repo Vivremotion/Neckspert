@@ -60,8 +60,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		audioError: null,
 		stage: null,
 		briefing: null,
-		announcement: null,
-		leaving: null
+		announcement: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 

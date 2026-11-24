@@ -1,13 +1,12 @@
 <script lang="ts">
 	// Dev only: the figure view in its frame, with a still model, to look at it in a real browser
 	// (scripts/functional-ui.mjs checks the Bravura font, the cursor and the text sizes here).
-	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=along` a cycle played along
-	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, `?phase=wrong` a
-	// breath after wrong notes of a figure derived from a chord shape, its prompt above and the
-	// shape asked, the breath otherwise. `?shot=written` a figure written with its notes (a G
+	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=shift` a breath after a
+	// beat lost, `?phase=wrong` a breath after wrong notes of a figure derived from a chord shape,
+	// its prompt above and the shape asked, the breath otherwise. `?shot=written` a figure written with its notes (a G
 	// major scale in position), engraved as staff and tab; `?shot=derived` the triad arpeggio's
 	// aid level, the tab of the notes derived from its chord shape under its prompt.
-	// The frame tells what the series announces (a remedy, the level reached at the breath).
+	// The frame tells what the series announces (the level reached at the breath).
 	import { page } from '$app/state';
 	import type { PlayView } from '$lib/application/session/contract';
 	import {
@@ -233,7 +232,7 @@
 			? written
 			: shot === 'derived'
 				? derived()
-				: phase === 'play' || phase === 'along'
+				: phase === 'play'
 					? base
 					: phase === 'muted'
 						? { ...base, barInCycle: 0, muted: true }
@@ -247,11 +246,7 @@
 									}
 								: breath;
 	const announcement: PlayView['announcement'] =
-		phase === 'along'
-			? { kind: 'play-along', level: 2, of: 6, tempoBpm: 80 }
-			: phase === null && shot === null
-				? { kind: 'level-up', level: 3, of: 6, tempoBpm: 80 }
-				: null;
+		phase === null && shot === null ? { kind: 'level-up', level: 3, of: 6, tempoBpm: 80 } : null;
 
 	const controller = new DevRhythmController();
 	controller.view.status = 'awaiting';

@@ -2,19 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import type { FigureAttemptData } from '../series/recordResponse';
-import { aidedBeyondItsLevel, summarizeExercise } from './exerciseSummary';
+import { summarizeExercise } from './exerciseSummary';
 import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
-function cycle(
-	level: number,
-	success: boolean,
-	aids: Attempt['aids'] = ['cursor']
-): Attempt<FigureAttemptData> {
+function cycle(level: number, success: boolean): Attempt<FigureAttemptData> {
 	return {
 		sessionId: 's1',
 		exerciseId: RHYTHM_OFFBEATS.id,
 		skill: 'inner-pulse',
-		aids,
 		success,
 		data: { level }
 	} as unknown as Attempt<FigureAttemptData>;
@@ -35,32 +30,12 @@ function state(level: number): LevelState {
 // The offbeats exercise has four regular levels (the rhythm stage says « sur 4 » for it).
 const OF = 4;
 
-describe('summarizeExercise and aidedBeyondItsLevel', () => {
+describe('summarizeExercise', () => {
 	it('tells the level held at the end', () => {
 		const attempts = [cycle(0, true), cycle(0, false), cycle(1, true)];
 		expect(summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts, state: state(2) })).toEqual({
 			level: { shown: 3, of: OF, aid: false }
 		});
-	});
-
-	it('counts as aided a round that had an aid its level does not give', () => {
-		// The cursor of a level that gives one and the aid level are the level itself.
-		const aided = aidedBeyondItsLevel((id) =>
-			id === RHYTHM_OFFBEATS.id ? RHYTHM_OFFBEATS : undefined
-		);
-		expect(
-			[
-				cycle(0, true, ['listen']),
-				cycle(0, true, ['cursor', 'listen']),
-				cycle(0, true, ['cursor']),
-				cycle(0, true, ['aid-level']),
-				cycle(0, true, [])
-			].map(aided)
-		).toEqual([true, true, false, false, false]);
-		// An exercise no file defines: its levels are unknown, the cursor counts as an aid.
-		const gone = { ...cycle(0, true, ['cursor']), exerciseId: 'gone' } as Attempt;
-		expect(aided(gone)).toBe(true);
-		expect(aided({ ...gone, aids: ['aid-level'] })).toBe(false);
 	});
 
 	it('reads the level the session itself ended on before the stored one, which a later session moves', () => {

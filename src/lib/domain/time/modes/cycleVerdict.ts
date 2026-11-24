@@ -93,7 +93,6 @@ export const cycleVerdictMode: VerdictMode = {
 			correct: null,
 			verdict: { relation: CYCLE_VERDICT, version: CYCLE_VERDICT_VERSION, value },
 			measures: report.measures,
-			aids: [...context.aids],
 			detail: report
 		};
 	}

@@ -1,4 +1,4 @@
-/** Successes in a row, unaided, that move an exercise up a level (a level's `pass` overrides it). */
+/** Successes in a row that move an exercise up a level (a level's `pass` overrides it). */
 export const PASS_AFTER_CYCLES = 3;
 /** Failures in a row that move an exercise down a level (a level's `drop` overrides it). */
 export const DROP_AFTER_FAILS = 2;
@@ -67,7 +67,7 @@ export interface LevelState {
 	scope: string;
 	item: string;
 	level: number;
-	/** Unaided successes in a row at this level. */
+	/** Successes in a row at this level. */
 	successes: number;
 	/** Failures in a row at this level. */
 	failures: number;
@@ -75,28 +75,20 @@ export interface LevelState {
 }
 
 /**
- * The state after one cycle. An aided cycle counts neither way (it only resets the run of
- * successes) and leaves the run of failures as it is. `aided` means played with an aid
- * the level itself does not give (listen, play-along, a cursor the level does not give...):
- * the aids the level gives (its cursor, an aid level's aid) do not block, so the caller passes
- * `aided: false` for a cycle whose only aid is its level's, and the player can climb out of
- * the aid levels. Going down stops at level 1: the aid levels are reached by
- * the anti-blocking of a session, never by failing. At the floor (level 0 or an aid level)
- * failures keep counting, for that anti-blocking to read, and its owner resets them. A level
- * change starts both runs again.
+ * The state after one cycle: `pass` successes in a row move up a level, `drop` failures in a row
+ * move down (their defaults `PASS_AFTER_CYCLES` and `DROP_AFTER_FAILS`). Going down stops at
+ * level 1, where failures keep counting. A level change starts both runs again.
  */
 export function nextLevelState(
 	state: LevelState,
 	levels: readonly Level<unknown>[],
-	cycle: { success: boolean; aided: boolean }
+	cycle: { success: boolean }
 ): { state: LevelState; changed: 'up' | 'down' | null } {
 	const { lowest, highest } = levelRange(levels);
 	if (!Number.isInteger(state.level) || state.level < lowest || state.level > highest) {
 		throw new RangeError(`level ${state.level} is not in ${lowest}..${highest}`);
 	}
 	const here = levels[state.level - lowest];
-	if (cycle.aided) return { state: { ...state, successes: 0 }, changed: null };
-
 	if (cycle.success) {
 		const successes = state.successes + 1;
 		if (successes < (here.pass?.successes ?? PASS_AFTER_CYCLES)) {
@@ -116,7 +108,7 @@ export function nextLevelState(
 		return { state: { ...state, successes: 0, failures }, changed: null };
 	}
 	if (state.level <= 0) {
-		// The floor: keep counting, plan 2's anti-blocking reads the run and resets it when it acts.
+		// The floor: keep counting.
 		return { state: { ...state, successes: 0, failures }, changed: null };
 	}
 	return {

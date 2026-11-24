@@ -48,8 +48,7 @@ function context(thresholds: VerdictContext['thresholds']): VerdictContext {
 		times: roundTimes(plan, clock),
 		clock,
 		latency: { ms: 20, provenance: 'system' },
-		thresholds,
-		aids: ['cursor']
+		thresholds
 	};
 }
 
@@ -95,7 +94,6 @@ describe('cycleVerdictMode', () => {
 			correct: null,
 			verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: ['extra'] } },
 			measures,
-			aids: ['cursor'],
 			detail: {
 				expectations: offsets.map((offsetMs, index) => ({
 					index,

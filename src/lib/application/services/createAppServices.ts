@@ -9,10 +9,7 @@ import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import type { DefinitionsService } from '$lib/application/definitions/service';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
-import {
-	aidedBeyondItsLevel,
-	summarizeExercise
-} from '$lib/application/session/series/exerciseSummary';
+import { summarizeExercise } from '$lib/application/session/series/exerciseSummary';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
@@ -315,11 +312,7 @@ export function createAppServices(
 		const playback = deps.memory.get(sessionId);
 		const series = playback?.trace.children.find((segment) => segment.role === 'series');
 		if (!playback || !series) return {};
-		const summary = summarizeSeries({
-			series,
-			attempts,
-			aided: aidedBeyondItsLevel(exerciseFound)
-		});
+		const summary = summarizeSeries({ series, attempts });
 		const replayable = summary.runs
 			.map((run) => run.id)
 			.filter((id) => {
@@ -327,18 +320,6 @@ export function createAppServices(
 				return take !== undefined && deps.takes.holds(take.from, take.to);
 			});
 		return { series: summary, replayable };
-	};
-
-	/**
-	 * Every exercise and scope that changed air and left the session's series, still in memory, in
-	 * order, as its trace keeps them; none once the session is no longer in memory.
-	 */
-	const leftOf = (sessionId: string) => {
-		const series = deps.memory.get(sessionId)?.trace.children.find((s) => s.role === 'series');
-		return (series?.left ?? []).map(({ exerciseId, scope }) => ({
-			exerciseId,
-			...(scope !== undefined && scope !== '' && { scope })
-		}));
 	};
 
 	/**
@@ -374,22 +355,6 @@ export function createAppServices(
 	/** The keys of the cards marked acquired, as the passages' openings read them. */
 	const acquiredKeysOf = (cards: readonly CardState[]): Set<CardKey> =>
 		new Set(cards.filter((card) => card.acquiredAt !== null).map((card) => card.key));
-
-	/**
-	 * Whether one of `exerciseIds` rests after « On change d’air »: a level state of it, of any
-	 * scope, whose `resumeAfter` is ahead.
-	 */
-	const restsIn = (
-		levels: readonly LevelState[],
-		exerciseIds: readonly ExerciseId[],
-		now: number
-	) =>
-		levels.some(
-			(level) =>
-				exerciseIds.includes(level.exerciseId) &&
-				typeof level.resumeAfter === 'number' &&
-				level.resumeAfter > now
-		);
 
 	/**
 	 * Whether `startExercise` plays the exercise alone with something to play now: what it would
@@ -437,7 +402,6 @@ export function createAppServices(
 		const entryOf = (routine: ReturnType<typeof registeredRoutines>[number]): RoutineEntry => {
 			const found = routine.exercises.map((id) => exerciseFound(id));
 			const exercises = found.filter((exercise) => exercise !== undefined);
-			const resting = restsIn(levels, routine.exercises, now);
 			const memory =
 				exercises.length > 0 && exercises.every((exercise) => hasCards(exercise.practices));
 			let playable: boolean;
@@ -466,8 +430,7 @@ export function createAppServices(
 					exercises.length === found.length &&
 					(holdsCard || (playable && opened(routine.opens, known))),
 				due,
-				nextReviewAt: next,
-				resting
+				nextReviewAt: next
 			};
 		};
 		/** Its entry; a throw computing it (a damaged imported file) closes it, the others told. */
@@ -483,8 +446,7 @@ export function createAppServices(
 					title: routine.title,
 					open: false,
 					due: null,
-					nextReviewAt: null,
-					resting: false
+					nextReviewAt: null
 				};
 			}
 		};
@@ -527,7 +489,6 @@ export function createAppServices(
 					routines: routines
 						.filter((routine) => routine.exercises.includes(id))
 						.map((routine) => routine.title),
-					resting: restsIn(levels, [id], now),
 					playable: playableOf(exercise)
 				}
 			];
@@ -598,11 +559,9 @@ export function createAppServices(
 				allAttempts: allAttempts.filter((attempt) => played.skills.has(attempt.skill)),
 				cards: cardsListedBy(played.exercises, cards),
 				now: deps.now(),
-				aided: aidedBeyondItsLevel(exerciseFound),
 				// The level is told for the exercise played alone whose round writes a figure.
 				level: ({ exerciseId, scope }) =>
-					told && exerciseId === exercise?.id && scope === undefined ? told.level : null,
-				left: leftOf(sessionId)
+					told && exerciseId === exercise?.id && scope === undefined ? told.level : null
 			});
 			return {
 				...summary,

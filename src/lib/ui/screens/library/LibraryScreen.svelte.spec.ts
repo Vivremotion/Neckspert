@@ -14,7 +14,6 @@ function entry(exerciseId: string, over: Partial<LibraryEntry> = {}): LibraryEnt
 		exerciseId,
 		title: { fr: `Titre ${exerciseId}`, en: `Title ${exerciseId}` },
 		routines: [],
-		resting: false,
 		playable: true,
 		...over
 	};
@@ -58,17 +57,14 @@ describe('LibraryScreen', () => {
 						routines: [
 							{ fr: 'Apprentissage', en: 'Learn' },
 							{ fr: 'Triades', en: 'Triads' }
-						],
-						resting: true
+						]
 					}),
 					entry('b')
 				]
 			}
 		});
 		const [a, b] = rows();
-		expect(a.querySelector('.why')?.textContent).toBe(
-			'Apprentissage, Triades · On y revient plus tard'
-		);
+		expect(a.querySelector('.why')?.textContent).toBe('Apprentissage, Triades');
 		expect(b.querySelector('.why')).toBeNull();
 	});
 
@@ -84,7 +80,7 @@ describe('LibraryScreen', () => {
 		render(LibraryScreen, {
 			props: {
 				entries: [
-					entry('a', { routines: [{ fr: 'Triades', en: 'Triads' }], resting: true }),
+					entry('a', { routines: [{ fr: 'Triades', en: 'Triads' }] }),
 					entry('b', { playable: false })
 				]
 			}
@@ -92,7 +88,7 @@ describe('LibraryScreen', () => {
 		expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toBeTruthy();
 		const list = within(screen.getByRole('list', { name: 'Exercises' })).getAllByRole('listitem');
 		expect(list.map((row) => row.querySelector('.why')?.textContent)).toEqual([
-			'Triads · Back to it later',
+			'Triads',
 			'Nothing to play for now'
 		]);
 		expect(list[0].querySelector('b')?.textContent).toBe('Title a');

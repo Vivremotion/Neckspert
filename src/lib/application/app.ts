@@ -37,8 +37,6 @@ export interface RoutineEntry {
 	due: number | null;
 	/** When the next reviews come, for a routine of memory exercises with a card learned; else null. */
 	nextReviewAt: number | null;
-	/** One of its exercises rests after « On change d’air ». */
-	resting: boolean;
 }
 
 /** An exercise as the Library lists it. */
@@ -48,7 +46,6 @@ export interface LibraryEntry {
 	title: { fr: string; en: string };
 	/** The titles of the routines that list it. */
 	routines: { fr: string; en: string }[];
-	resting: boolean;
 	/** It has something to play now, alone. */
 	playable: boolean;
 }

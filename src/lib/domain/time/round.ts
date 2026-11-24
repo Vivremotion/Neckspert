@@ -16,19 +16,6 @@ import { roundTimes } from './modes/times';
 /** The sensor a rhythm plan listens to when its expectations do not name one. */
 export const RHYTHM_SENSOR = 'attack';
 
-/** Every aid a round can give; `Aid` is read from it, so the two never part. */
-export const AIDS = [
-	'show-position',
-	'string-aid',
-	'cursor',
-	'listen',
-	'play-along',
-	'aid-level'
-] as const;
-
-/** What a round showed or played for the player: recorded with the outcome, so a result is read with its aids. */
-export type Aid = (typeof AIDS)[number];
-
 /**
  * A verdict the core carries without reading: the relation that judged it and the version of
  * its value's shape say how to interpret `value`.
@@ -49,7 +36,6 @@ export interface RoundOutcome {
 	correct: boolean | null;
 	verdict: VerdictEnvelope;
 	measures: Measures;
-	aids: Aid[];
 	detail: unknown;
 }
 
@@ -116,7 +102,6 @@ export class PlanRound {
 		judges: ContentJudges;
 		latency: CycleReport['latency'];
 		thresholds: CycleThresholds | null;
-		aids: Aid[];
 		modes?: RoundModes;
 	}) {
 		const { plan, clock, judges } = input;
@@ -156,8 +141,7 @@ export class PlanRound {
 			times,
 			clock,
 			latency: input.latency,
-			thresholds: input.thresholds,
-			aids: [...input.aids]
+			thresholds: input.thresholds
 		};
 		this.#pairing = pairingMode.create({
 			plan,

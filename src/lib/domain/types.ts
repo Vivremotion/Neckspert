@@ -5,7 +5,6 @@ import type { Execution, ExerciseId } from './exercise/types';
 import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
-	Aid,
 	CycleReport,
 	CycleThresholds,
 	CycleVerdict,
@@ -15,7 +14,7 @@ import type {
 	VerdictEnvelope
 } from './time';
 
-export type { Aid, Execution, ExerciseId, LevelState, Measures, SkillId, VerdictEnvelope };
+export type { Execution, ExerciseId, LevelState, Measures, SkillId, VerdictEnvelope };
 
 export type Locale = 'fr' | 'en';
 
@@ -99,8 +98,8 @@ export interface Attempt<D = unknown> {
 	cardKey: CardKey;
 	phase: RecordedPhase;
 	temperature: Temperature;
-	/** What the round showed or played for the player. */
-	aids: Aid[];
+	/** Kept by the attempts stored before database 14; nothing reads it. */
+	aids?: readonly string[];
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
@@ -414,11 +413,6 @@ export interface PlayedExercise {
 	rounds: number;
 	passed: number;
 	/**
-	 * Of the rounds passed, those played with an aid that is not the level's own (they do not
-	 * count towards moving up).
-	 */
-	aided: number;
-	/**
 	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level);
 	 * null when the exercise writes no level, and for any exercise but one played alone whose
 	 * round writes a figure (the changes' levels are their tempos, told by `tempo`).
@@ -433,11 +427,6 @@ export interface PlayedExercise {
 	 * defines (its threshold is known); null otherwise.
 	 */
 	passages: { played: number; passed: number } | null;
-	/**
-	 * It left the session by « On change d’air »: known only while the session's series is in
-	 * memory. Computed, never stored.
-	 */
-	changedAir: boolean;
 }
 
 /** A missed change; `heard` and `expected` are the frets of a shape ("7-7-5"). */

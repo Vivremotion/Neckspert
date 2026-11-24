@@ -7,7 +7,7 @@ import { TraceBuilder, type Segment } from './trace';
 function attempt(
 	id: number,
 	reasons: CycleFailure[] | null,
-	options: { measures?: Measures; aids?: Attempt['aids'] } = {}
+	options: { measures?: Measures } = {}
 ): Attempt {
 	return {
 		id,
@@ -17,7 +17,6 @@ function attempt(
 		cardKey: `m:${id}`,
 		phase: 'free',
 		temperature: 'hot',
-		aids: options.aids ?? [],
 		promptedAt: id,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -65,14 +64,12 @@ function series(runs: { level: number; attempts: number[]; listen?: boolean }[],
 	return trace.tree().children[0] as Segment;
 }
 
-const aidedByListen = (a: Attempt) => a.aids.includes('listen');
-
 describe('summarizeSeries', () => {
-	it('counts rounds, successes, aided and listens', () => {
+	it('counts rounds, successes and listens', () => {
 		const attempts = [
 			attempt(1, []),
 			attempt(2, ['hold']),
-			attempt(3, [], { aids: ['listen'] }),
+			attempt(3, []),
 			attempt(4, ['hold']),
 			attempt(5, []),
 			attempt(6, ['hold']),
@@ -84,10 +81,10 @@ describe('summarizeSeries', () => {
 				{ level: 0, attempts: [1, 2, 3, 4], listen: true },
 				{ level: 0, attempts: [5, 6, 7, 8] }
 			]),
-			attempts,
-			aided: aidedByListen
+			attempts
 		});
-		expect(summary).toMatchObject({ rounds: 8, successes: 3, aided: 1, listens: 1 });
+		expect(summary).toMatchObject({ rounds: 8, successes: 3, listens: 1 });
+		expect(summary).not.toHaveProperty('aided');
 	});
 
 	it('levels merges repeats', () => {
@@ -98,8 +95,7 @@ describe('summarizeSeries', () => {
 				{ level: 1, attempts: [] },
 				{ level: -1, attempts: [] }
 			]),
-			attempts: [],
-			aided: aidedByListen
+			attempts: []
 		});
 		expect(summary.levels).toEqual([0, 1, -1]);
 	});
@@ -111,8 +107,7 @@ describe('summarizeSeries', () => {
 				{ level: 0, attempts: [1, 2, 3, 4] },
 				{ level: 0, attempts: [5, 6] }
 			]),
-			attempts: [],
-			aided: aidedByListen
+			attempts: []
 		});
 		expect(summary.playedShare).toBeCloseTo(60 / 70);
 	});
@@ -123,8 +118,7 @@ describe('summarizeSeries', () => {
 			attempts: [
 				attempt(1, [], { measures: { regularity: { value: 20, unit: 'ms' } } }),
 				attempt(2, [], { measures: { regularity: { value: 30, unit: 'ms' } } })
-			],
-			aided: aidedByListen
+			]
 		});
 		expect(summary.runs[0].measures).toEqual({ regularity: { value: 25, unit: 'ms' } });
 	});
@@ -132,8 +126,7 @@ describe('summarizeSeries', () => {
 	it("failed lists the run's failed rounds with their reasons", () => {
 		const summary = summarizeSeries({
 			series: series([{ level: 0, attempts: [1, 2] }]),
-			attempts: [attempt(1, []), attempt(2, ['regularity', 'hold'])],
-			aided: aidedByListen
+			attempts: [attempt(1, []), attempt(2, ['regularity', 'hold'])]
 		});
 		expect(summary.runs[0]).toMatchObject({
 			level: 0,
@@ -144,17 +137,11 @@ describe('summarizeSeries', () => {
 		});
 	});
 
-	it('ended and breaking come from the series segment', () => {
-		const segment = series([{ level: -1, attempts: [] }]);
-		const summary = summarizeSeries({
-			series: { ...segment, reason: 'change-of-air', breaking: 'hold' },
-			attempts: [],
-			aided: aidedByListen
-		});
-		expect(summary).toMatchObject({ exerciseId: 'x', ended: 'change-of-air', breaking: 'hold' });
-		expect(
-			summarizeSeries({ series: series([], 'quit'), attempts: [], aided: aidedByListen }).ended
-		).toBe('quit');
+	it('ended comes from the series segment', () => {
+		const segment = series([{ level: 0, attempts: [] }]);
+		const summary = summarizeSeries({ series: { ...segment, reason: 'time' }, attempts: [] });
+		expect(summary).toMatchObject({ exerciseId: 'x', ended: 'time' });
+		expect(summarizeSeries({ series: series([], 'quit'), attempts: [] }).ended).toBe('quit');
 	});
 });
 
@@ -171,8 +158,7 @@ describe('summarizeSeries, a round cut short', () => {
 		trace.closeAll(14, 'done');
 		const summary = summarizeSeries({
 			series: trace.tree().children[0],
-			attempts: [attempt(1, [])],
-			aided: () => false
+			attempts: [attempt(1, [])]
 		});
 		expect(summary.rounds).toBe(1);
 		expect(summary.runs[0]).toMatchObject({ rounds: 1, successes: 1, ended: 'interrupted' });
@@ -219,17 +205,14 @@ describe('summarizeSeries, response rounds', () => {
 		trace.closeAll(16, 'done');
 		const summary = summarizeSeries({
 			series: trace.tree().children[0],
-			attempts: [response(1, true), response(2, false), response(3, true)],
-			aided: (a) => a.aids.length > 0
+			attempts: [response(1, true), response(2, false), response(3, true)]
 		});
 		expect(summary).toMatchObject({
 			exerciseId: 'x',
 			ended: 'complete',
-			breaking: null,
 			levels: [1],
 			rounds: 3,
 			successes: 2,
-			aided: 0,
 			listens: 0
 		});
 		// 9 s in rounds over 16 s.

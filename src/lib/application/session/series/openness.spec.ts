@@ -445,16 +445,15 @@ const READ_A_GRID: ExerciseDefinition = {
 	passages: { of: { grid: [BENCH_GRIDS[1]] }, members: { family: 'grid-changes' }, restBars: 1 }
 };
 
-/** The same, blocking as its anti-blocking says: an aid level under its level, three misses each. */
-const READ_A_GRID_BLOCKING: ExerciseDefinition = {
+/** The same, with an aid level under its level 1, which nothing brings. */
+const READ_A_GRID_AID_LEVEL: ExerciseDefinition = {
 	...READ_A_GRID,
-	id: 'read-a-grid-blocking',
+	id: 'read-a-grid-aid-level',
 	practices: BENCH_PASSAGE_SKILLS.change[1],
 	levels: [
 		{ aid: true, params: { tempo: 100, 'presentation.picture': 'admitted' } },
 		{ params: { tempo: 100 }, pass: { successes: 10 }, drop: { failures: 3 } }
-	],
-	flow: { antiBlocking: true }
+	]
 };
 
 /**
@@ -510,12 +509,11 @@ const FLOORS = {
 	passagesAccepted: 157,
 	passagesPlayed: 137,
 	passagesRefused: 83,
-	passagesBlocking: 66,
+	passagesAllMissed: 134,
 	memoryAccepted: 39,
 	memoryRefused: 120,
 	memoryRoutinesPlayed: 16,
 	passagesRoutinesPlayed: 16,
-	routineLeaves: 20,
 	rightRoundsChecked: 2700,
 	noneRoundsChecked: 9100
 } as const;
@@ -564,19 +562,15 @@ const REFUSABLE_SHAPES: [string, (d: ExerciseDefinition) => boolean, RegExp][] =
 ];
 
 /**
- * Whether a drawn exercise blocks as its anti-blocking says, played with nothing: it asks it, and
- * every round asks a timed content (a bare attack in free time passes on anything).
+ * Whether a drawn exercise misses every round played with nothing: every round asks a timed
+ * content (a bare attack in free time passes on anything).
  */
-function blocks(definition: ExerciseDefinition): boolean {
-	return (
-		definition.flow?.antiBlocking === true &&
-		definition.round!.expectations.every((e) => e.at !== null && e.content !== null)
-	);
+function missesAll(definition: ExerciseDefinition): boolean {
+	return definition.round!.expectations.every((e) => e.at !== null && e.content !== null);
 }
 
-/** Whether it writes an aid level, which its anti-blocking brings before it changes air. */
-const hasAidLevel = (definition: ExerciseDefinition) =>
-	(definition.levels ?? []).some((level) => level.aid);
+/** What a session announces when its levels move: nothing else is ever announced. */
+const LEVEL_ANNOUNCEMENTS: ReadonlySet<string> = new Set(['level-up', 'level-down', 'aid-level']);
 const ROUTINE_SEEDS = Array.from({ length: 20 }, (_, i) => i + 1);
 /** A session that plays opens a round within this many audio seconds of the last, or ends. */
 const HANG_S = 40;
@@ -619,7 +613,7 @@ const successes = (play: ServicePlay) =>
 	[...play.attempts].sort((a, b) => a.promptedAt - b.promptedAt).map((a) => a.success);
 
 describe('every valid passages exercise and routine plays', () => {
-	for (const definition of [READ_A_GRID, READ_A_GRID_BLOCKING, CLIMB_SHAPES]) {
+	for (const definition of [READ_A_GRID, READ_A_GRID_AID_LEVEL, CLIMB_SHAPES]) {
 		registerExercise(definition, 'bench');
 	}
 	registerExercise(ROOT_THEN_CHORD_LISTED, 'bench');
@@ -647,22 +641,24 @@ describe('every valid passages exercise and routine plays', () => {
 		}
 	});
 
-	it('ends a passages exercise alone that blocks, as its anti-blocking says', async () => {
-		expect(benchRefusal(READ_A_GRID_BLOCKING)).toBeNull();
+	it('plays a passages exercise alone missed throughout past its length: it ends by itself, at level 1', async () => {
+		expect(benchRefusal(READ_A_GRID_AID_LEVEL)).toBeNull();
 		const bench = await serviceBench({ acquired: true });
 		const play = await playService(
 			bench,
-			() => bench.services.startExercise(READ_A_GRID_BLOCKING.id),
-			[READ_A_GRID_BLOCKING],
-			'none'
+			() => bench.services.startExercise(READ_A_GRID_AID_LEVEL.id),
+			[READ_A_GRID_AID_LEVEL],
+			'none',
+			{ maxS: NONE_PLAY_S }
 		);
 		expect(playProblems(play, 'none')).toEqual([]);
-		// Three misses at level 1 bring the aid level at the next passage, the passage under way
-		// (the nine changes of the blues) played to its end; three misses there, and it changes
-		// air: nothing is left to play.
+		// Misses in a row bring nothing: no aid level, no change of air; the passages go on until
+		// the session's length, and it ends there by itself.
 		expect(play.status).toBe('finished');
-		expect(play.attempts).toHaveLength(12);
+		expect(['time', 'complete']).toContain(play.end);
+		expect(play.attempts.length).toBeGreaterThan(12);
 		expect(successes(play).every((success) => !success)).toBe(true);
+		expect([...play.announced]).toEqual([]);
 	});
 
 	it('plays a routine of two memory exercises written only in this test, in two meters', async () => {
@@ -744,17 +740,15 @@ describe('every valid passages exercise and routine plays', () => {
 			passagesPlayed: 0,
 			/** Accepted, played no round: the source serves none of its passages. */
 			passagesNoPlayableIndex: 0,
-			/** Played alone with nothing, asking its anti-blocking: and changed air. */
-			passagesBlocking: 0,
-			passagesBlockingEnded: 0,
+			/** Played alone with nothing, every round missed: and ended by itself, by time or source. */
+			passagesAllMissed: 0,
+			passagesAllMissedEnded: 0,
 			memoryAccepted: 0,
 			memoryRefused: 0,
 			memoryRoutinesAccepted: 0,
 			memoryRoutinesPlayed: 0,
 			passagesRoutinesAccepted: 0,
 			passagesRoutinesPlayed: 0,
-			/** Exercises that changed air and left a routine's series, played with nothing. */
-			routineLeaves: 0,
 			/** Rounds whose verdict the bench checked, answered right and with nothing. */
 			rightRoundsChecked: 0,
 			noneRoundsChecked: 0,
@@ -835,18 +829,16 @@ describe('every valid passages exercise and routine plays', () => {
 					failures.push(`${label}: played no round, though its source serves one`);
 				}
 			}
-			if (blocks(definition) && none.rounds.length > 0) {
-				// Anti-blocking: misses in a row bring its aid level, announced, when it writes one;
-				// misses again at the lowest and it changes air, which ends a session of one exercise.
-				counts.passagesBlocking++;
-				if (
-					(!hasAidLevel(definition) || none.announced.has('aid-level')) &&
-					none.end === 'change-of-air'
-				) {
-					counts.passagesBlockingEnded++;
+			if (missesAll(definition) && none.rounds.length > 0) {
+				// Misses in a row bring nothing but the level's own move: the session runs past its
+				// length and ends by itself, by time or with its source.
+				counts.passagesAllMissed++;
+				const announced = [...none.announced].filter((kind) => !LEVEL_ANNOUNCEMENTS.has(kind));
+				if (announced.length === 0 && (none.end === 'time' || none.end === 'complete')) {
+					counts.passagesAllMissedEnded++;
 				} else {
 					failures.push(
-						`${label} (none): blocks, but ${[...none.announced].join(', ') || 'nothing announced'}, ended ${none.end}`
+						`${label} (none): missed throughout, but ${announced.join(', ') || 'nothing announced'}, ended ${none.end}`
 					);
 				}
 			}
@@ -888,20 +880,6 @@ describe('every valid passages exercise and routine plays', () => {
 				];
 				if (plays.some((play) => play && play.rounds.length > 0)) {
 					counts[`${kind}RoutinesPlayed`]++;
-				}
-				// Only an exercise that asks its anti-blocking may change air and leave the routine's
-				// series, and the screen names each that leaves.
-				const none = plays[1];
-				if (none) {
-					const stayed = none.left.filter(
-						(left) =>
-							!exercises.some((e) => e.id === left.exerciseId && e.flow?.antiBlocking === true)
-					);
-					counts.routineLeaves += none.left.length;
-					if (stayed.length > 0) failures.push(`${label} (none): left ${JSON.stringify(stayed)}`);
-					if (none.leaving < none.left.length) {
-						failures.push(`${label} (none): ${none.left.length} left, ${none.leaving} told`);
-					}
 				}
 			}
 		}
@@ -966,7 +944,6 @@ describe('every valid passages exercise and routine plays', () => {
 		expect(values((d) => d.passages!.again ?? null)).toEqual(both('until-passed', null));
 		expect(values((d) => d.passages!.each !== undefined)).toEqual(both(true, false));
 		expect(values((d) => d.levels !== undefined)).toEqual(both(true, false));
-		expect(values((d) => d.flow?.antiBlocking ?? false)).toEqual(both(true, false));
 		expect(values((d) => d.round!.policy.pairing.mode)).toEqual(both('first-answer', 'alignment'));
 		expect(values((d) => d.view).accepted).toEqual(new Set(['grid-scroll', 'link-lane', 'lane']));
 		// Every filter a passage param reads is accepted somewhere.

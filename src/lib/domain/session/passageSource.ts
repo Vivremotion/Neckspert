@@ -71,8 +71,6 @@ interface IndexState {
 	started: Values | null;
 	/** Nothing of it can be played: left out for this session. */
 	unplayable: boolean;
-	/** Its exercise changed air on its scope (`leave`): left out for this session. */
-	left: boolean;
 }
 
 /** A passage under way. */
@@ -180,38 +178,11 @@ class PassageSource implements ItemSource {
 
 	cardChanged(): void {}
 
-	/**
-	 * Leaves out the indices of `exerciseId` whose scope value is `scope` (every index of an exercise
-	 * without a scope, or when no scope is named), its passage under way dropped; whether an index
-	 * of any exercise is still left to serve. Optimistic: an index left that is unplayable but not
-	 * yet found so counts, and then `next` gives null and the series ends.
-	 */
-	leave(exerciseId: ExerciseId, scope?: string): boolean {
-		for (const exercise of this.exercises) {
-			if (exercise.definition.id !== exerciseId) continue;
-			for (const index of exercise.indices) {
-				if (inScope(exercise.definition, index, scope)) {
-					this.state(exerciseId, index.key).left = true;
-				}
-			}
-		}
-		const under = this.passage;
-		if (under && this.state(under.exercise.definition.id, under.index.key).left) {
-			this.passage = null;
-		}
-		return this.exercises.some(({ definition, indices }) =>
-			indices.some((index) => {
-				const state = this.state(definition.id, index.key);
-				return !state.left && !state.unplayable;
-			})
-		);
-	}
-
 	private state(exerciseId: string, index: string): IndexState {
 		const key = stateKey(exerciseId, index);
 		let state = this.states.get(key);
 		if (!state) {
-			state = { lastPlayedAt: -Infinity, started: null, unplayable: false, left: false };
+			state = { lastPlayedAt: -Infinity, started: null, unplayable: false };
 			this.states.set(key, state);
 		}
 		return state;
@@ -252,7 +223,7 @@ class PassageSource implements ItemSource {
 		const candidates = exercise.indices
 			.filter((index) => {
 				const state = this.state(definition.id, index.key);
-				return !state.unplayable && !state.left;
+				return !state.unplayable;
 			})
 			.sort(
 				(a, b) =>
@@ -389,13 +360,6 @@ class PassageSource implements ItemSource {
 	}
 }
 
-/** Whether `index` is of `scope`: always for an exercise without a scope, or no scope named. */
-function inScope(definition: ExerciseDefinition, index: PassageIndex, scope: string | undefined) {
-	const key = definition.passages?.scope;
-	if (key === undefined || scope === undefined) return true;
-	return String(index.of[key]) === scope;
-}
-
 /** The indices of an exercise that are open, in the order written. */
 function openIndices(definition: ExerciseDefinition, acquired: ReadonlySet<string>) {
 	return passageIndices(definition).filter((index) => indexOpen(definition, index, acquired));
@@ -451,7 +415,6 @@ function playableItems(
  * `MAX_PASSAGE_TRIES` in one call. The first round counts in, after `passages.restBars` of silence when
  * it follows a passage of the session; a passage under `passages.passes` comes back whole with
  * `again: 'until-passed'`, without that silence. No passage starts after `durationMs` or once fatigued.
- * An exercise that changed air leaves on its scope (`leave`): its indices are served no more.
  */
 export function createPassageSource(input: {
 	exercises: readonly ExerciseDefinition[];

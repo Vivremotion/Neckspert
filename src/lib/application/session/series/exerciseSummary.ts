@@ -10,7 +10,6 @@ import {
 	type LevelState
 } from '$lib/domain/time';
 import type { Attempt, PlayedExercise, SessionSummary } from '$lib/domain/types';
-import { levelAided } from '../aids';
 import type { FigureAttemptData, RoundPlanRecord } from './recordResponse';
 import { levelView } from './figureStage';
 
@@ -47,30 +46,6 @@ function playedOf(
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Whether a round had an aid beyond its level's own (`levelAided`): the cursor counts as the
- * level's when the level it was played at (`data.level`, else the first) gives one in its
- * exercise (`find`); for an exercise no file defines, that is unknown, and the cursor counts as
- * an aid, as for a level that gives none.
- */
-export function aidedBeyondItsLevel(
-	find: (id: string) => ExerciseDefinition | undefined
-): (attempt: Attempt) => boolean {
-	return (attempt) => {
-		const exercise = find(attempt.exerciseId);
-		const level = (attempt.data as { level?: unknown } | null)?.level;
-		let cursor = false;
-		try {
-			cursor = exercise
-				? figureParamsOf(exercise, typeof level === 'number' ? level : 0).cursor
-				: false;
-		} catch {
-			cursor = false;
-		}
-		return levelAided(attempt.aids, cursor);
-	};
 }
 
 /**

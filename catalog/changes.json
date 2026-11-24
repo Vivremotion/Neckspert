@@ -380,9 +380,6 @@
 					}
 				}
 			],
-			"flow": {
-				"antiBlocking": true
-			},
 			"view": "link-lane",
 			"presentation": {
 				"primary": "{chord}",
@@ -598,9 +595,6 @@
 					}
 				}
 			],
-			"flow": {
-				"antiBlocking": true
-			},
 			"view": "grid-scroll",
 			"presentation": {
 				"primary": "{symbol}",
@@ -823,9 +817,6 @@
 					}
 				}
 			],
-			"flow": {
-				"antiBlocking": true
-			},
 			"view": "grid-scroll",
 			"presentation": {
 				"primary": "{symbol}",
@@ -1025,9 +1016,6 @@
 					}
 				}
 			],
-			"flow": {
-				"antiBlocking": true
-			},
 			"view": "grid-scroll",
 			"presentation": {
 				"primary": "{symbol}",

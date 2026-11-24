@@ -12,7 +12,7 @@ import {
 } from './recordResponse';
 import { SETTLE_AFTER_BARS } from './compilePlan';
 import { PLAIN_WORDS_SESSIONS } from './figureStage';
-import { aidedBeyondItsLevel, summarizeExercise } from './exerciseSummary';
+import { summarizeExercise } from './exerciseSummary';
 import { summarizePlayed } from '$lib/domain/session';
 import type { SessionMemory } from '../sessionMemory';
 import type { SessionController } from '../SessionController.svelte';
@@ -86,8 +86,6 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			cardKey: 'figure-independence:offbeats-1@0',
 			phase: 'free',
 			temperature: 'hot',
-			// The cursor the level gives.
-			aids: ['cursor'],
 			tempoBpm: 80,
 			leadBeats: null,
 			reactionMs: null,
@@ -95,6 +93,8 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			success: true,
 			verdict: { relation: 'cycle', version: 1, value: { passed: true } }
 		});
+		// A success at a level is a success at it: the attempt keeps no aid.
+		expect(first).not.toHaveProperty('aids');
 		expect(first.measures).toHaveProperty('fidelity');
 		const plan = first.plan as RoundPlanRecord;
 		// The round of its figure, one bar from the first of its run, the click on every bar.
@@ -751,7 +751,7 @@ async function watch(
 	return seen;
 }
 
-/** Offbeats from the aid level: its stored level. */
+/** Offbeats' stored level, at the aid level. */
 const AID_STATE = {
 	exerciseId: RHYTHM_OFFBEATS.id,
 	scope: '',
@@ -969,8 +969,8 @@ describe('the rhythm on the series, plain words', () => {
 });
 
 describe('the rhythm on the series, listening to the figure', () => {
-	it('turns the next cycle into one heard, then marks the cycle after it as helped', async () => {
-		const { controller, stored, sounds, memory, advance } = await rhythmSeries(
+	it('turns the next cycle into one heard, and counts the cycles after it as any other', async () => {
+		const { controller, stored, sounds, memory, levels, advance } = await rhythmSeries(
 			counted(RHYTHM_TWO_FOUR),
 			{ met: true }
 		);
@@ -987,17 +987,19 @@ describe('the rhythm on the series, listening to the figure', () => {
 			.map((s) => s.time);
 		expect(demo.length).toBeGreaterThan(0);
 		expect(Math.min(...demo)).toBeCloseTo(ORIGIN + 9 * TWO_FOUR_BAR_S, 9);
-		// the played cycle 13-16, settled during the breath that follows
-		await advance(ORIGIN + 17.6 * TWO_FOUR_BAR_S);
+		// the played cycles 13-16 and, after the breath 17-18, 19-22: three successes in a row
+		await advance(ORIGIN + 23.6 * TWO_FOUR_BAR_S);
 		const attempts = await stored();
-		expect(attempts).toHaveLength(2);
 		expect(attempts.map((a) => a.promptedAt)).toEqual([
 			epochOfBar(3, TWO_FOUR_BAR_S),
-			epochOfBar(13, TWO_FOUR_BAR_S)
+			epochOfBar(13, TWO_FOUR_BAR_S),
+			epochOfBar(19, TWO_FOUR_BAR_S)
 		]);
-		expect(attempts[0].aids).not.toContain('listen');
-		expect(attempts[1].aids).toContain('listen');
 		expect(attempts.every((a) => a.success)).toBe(true);
+		expect(attempts.every((a) => a.aids === undefined)).toBe(true);
+		// The listen asked does not hold the level back: three successes move it up.
+		const state = await levels.get({ exerciseId: RHYTHM_TWO_FOUR.id, scope: '', item: '' });
+		expect(state?.level).toBe(1);
 		controller.quit();
 		await settled();
 		// The heard cycle opens the second run, before its round.
@@ -1020,154 +1022,40 @@ describe('the rhythm on the series, listening to the figure', () => {
 	});
 });
 
-describe('the rhythm on the series, the anti-blocking', () => {
-	it('a reading block is heard, then played along, both announced', async () => {
-		const { controller, memory, sounds, stored, player, clock, advance } = await rhythmSeries(
-			RHYTHM_OFFBEATS,
-			{ met: true }
-		);
-		player.skip = 3;
-		await controller.start();
-		// run 1 on bars 3-6 (all fail), breath 7-8, run 2 from 9: a listen, then a play-along
-		const seen = await watch(controller, advance, clock, ORIGIN + 12.5 * OFFBEATS_BAR_S);
-		// Read before quitting: stopping empties the journal of the sounds.
-		const emitted = sounds.emitted();
-		controller.quit();
-		await settled();
-		expect(seen.has('listen-remedy')).toBe(true);
-		expect(seen.has('play-along')).toBe(true);
-		const runs = runsOf(memory);
-		expect(roles(runs[1]).slice(0, 2)).toEqual(['listen', 'round']);
-		const along = (await stored()).find((a) => a.id === runs[1].children[1].attemptId);
-		expect(along?.aids).toContain('play-along');
-		const alongFrom = runs[1].children[1].startS;
-		expect(
-			emitted.some((s) => s.sound === 'play-along' && Math.abs(s.time - alongFrom) < 0.6)
-		).toBe(true);
-	});
+describe('the rhythm on the series, failures in a row', () => {
+	const ways = [
+		['a note missed at the same spot', (player: { skip: number | null }) => (player.skip = 3)],
+		['played unevenly', (player: { jitterS: number }) => (player.jitterS = 0.1)]
+	] as const;
 
-	it('keeps the remedies of a reading block through a pause, and plays them on resume', async () => {
-		const { controller, memory, stored, player, clock, advance } = await rhythmSeries(
-			RHYTHM_OFFBEATS,
-			{ met: true }
-		);
-		player.skip = 3;
-		await controller.start();
-		// cycles 3, 4, 5 fail: the third settles a quarter into bar 6, the remedies queued; pause
-		// in the cycle of bar 6.
-		await advance(ORIGIN + 6.5 * OFFBEATS_BAR_S);
-		controller.pause();
-		controller.resume();
-		await settled();
-		const resumedAt = clock.now();
-		// listen-in 0-1, count 2, the listen on bar 3, the cycle played along on bar 4
-		const seen = await watch(controller, advance, clock, resumedAt + ORIGIN + 5.5 * OFFBEATS_BAR_S);
-		controller.quit();
-		await settled();
-		expect(seen.has('listen-remedy')).toBe(true);
-		expect(seen.has('play-along')).toBe(true);
-		const resumed = runsOf(memory).at(-1) as Segment;
-		expect(roles(resumed).slice(0, 2)).toEqual(['listen', 'round']);
-		const along = (await stored()).find((a) => a.id === resumed.children[1].attemptId);
-		expect(along?.aids).toContain('play-along');
-	});
-
-	it('an execution block takes the aid level at the breath', async () => {
-		const { controller, memory, stored, player, clock, advance } = await rhythmSeries(
-			RHYTHM_OFFBEATS,
-			{ met: true }
-		);
-		player.jitterS = 0.1;
-		await controller.start();
-		// the aid level is at ♩ = 70 bpm: a listen-in and a counted bar after the breath
-		const seen = await watch(controller, advance, clock, ORIGIN + 16 * OFFBEATS_BAR_S);
-		controller.quit();
-		await settled();
-		expect(seen.has('aid-level')).toBe(true);
-		expect(seen.has('level-down')).toBe(false);
-		const runs = runsOf(memory);
-		expect(runs[1].level).toBe(-1);
-		const first = (await stored()).find((a) => a.id === runs[1].children[0].attemptId);
-		expect(first?.aids).toContain('aid-level');
-	});
-
-	it('announces a deeper aid level as an aid level', async () => {
-		// Two aid levels below level 1.
-		const exercise: ExerciseDefinition = {
-			...RHYTHM_OFFBEATS,
-			levels: [{ aid: true, params: { tempo: 60 } }, ...(RHYTHM_OFFBEATS.levels ?? [])]
-		};
-		const { controller, levels, player, clock, advance } = await rhythmSeries(exercise, {
-			met: true
-		});
-		await levels.put(AID_STATE);
-		player.jitterS = 0.1;
-		await controller.start();
-		// ♩ = 70 bpm: run 1 on bars 3-6 blocks, the breath 7-8, at ♩ = 60 after it
-		const seen = await watch(controller, advance, clock, ORIGIN + 9 * (60 / 70) * 4);
-		controller.quit();
-		await settled();
-		expect((await levels.get({ exerciseId: exercise.id, scope: '', item: '' }))?.level).toBe(-2);
-		expect([...seen]).toEqual(['aid-level']);
-	});
-
-	it('a change of air never plays the cycle laid out ahead', async () => {
-		// Eight cycles a run: the third failure settles while the fourth plays.
-		const long: ExerciseDefinition = {
-			...RHYTHM_OFFBEATS,
-			params: {
-				...RHYTHM_OFFBEATS.params,
-				pacing: { ...(RHYTHM_OFFBEATS.params.pacing as object), roundsPerBreath: 8 }
-			}
-		};
-		const { controller, memory, stored, levels, player, advance } = await rhythmSeries(long, {
-			met: true
-		});
-		await levels.put(AID_STATE);
-		player.jitterS = 0.1;
-		await controller.start();
-		const barS = (60 / 70) * 4;
-		await advance(ORIGIN + 12 * barS);
-		expect(controller.view.status).toBe('finished');
-		await settled();
-		// cycles on bars 3, 4, 5 fail; the third settles a quarter into bar 6, under way: judged;
-		// bar 7 is never played.
-		expect(await stored()).toHaveLength(4);
-		const series = seriesOf(memory);
-		expect(series.reason).toBe('change-of-air');
-		const [run] = runsOf(memory);
-		expect(run).toMatchObject({ ended: 'done' });
-		expect(run.children).toHaveLength(4);
-		expect(run.endS).toBeCloseTo(ORIGIN + 7 * barS, 9);
-	});
-
-	it('the lowest aid level that blocks changes the air, and the exercise rests', async () => {
-		const { controller, memory, stored, levels, player, advance, clock } = await rhythmSeries(
-			RHYTHM_OFFBEATS,
-			{ met: true }
-		);
-		await levels.put(AID_STATE);
-		player.jitterS = 0.1;
-		await controller.start();
-		// ♩ = 70 bpm at the aid level: bars of 60 / 70 * 4 s; run 1 on bars 3-6.
-		const barS = (60 / 70) * 4;
-		await advance(ORIGIN + 9 * barS);
-		expect(controller.view.status).toBe('finished');
-		await settled();
-		const series = seriesOf(memory);
-		expect(series.reason).toBe('change-of-air');
-		expect(series.breaking).toBe('regularity');
-		expect(await stored()).toHaveLength(4);
-		const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
-		expect(state?.resumeAfter).toBeGreaterThan(clock.toEpochMs(0));
-		expect(state?.failures).toBe(0);
-		expect(controller.view.announcement?.kind).toBe('change-of-air');
-		// Played again: the new series does not say it.
-		await controller.start();
-		expect(controller.view.status).toBe('count-in');
-		expect(controller.view.announcement).toBeNull();
-		controller.quit();
-	});
+	it.each(ways)(
+		'at level 1, failed %s, plays rounds and breaths only, nothing imposed, nothing rested',
+		async (_, play) => {
+			const { controller, memory, sounds, stored, levels, player, clock, advance } =
+				await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+			play(player as never);
+			await controller.start();
+			// run 1 on bars 3-6, breath 7-8, run 2 on bars 9-12, its last cycle settled in bar 13
+			const seen = await watch(controller, advance, clock, ORIGIN + 13.5 * OFFBEATS_BAR_S);
+			const emitted = sounds.emitted();
+			expect(controller.view.status).not.toBe('finished');
+			controller.quit();
+			await settled();
+			expect([...seen]).toEqual([]);
+			const runs = runsOf(memory);
+			expect(runs.slice(0, 2).map(roles)).toEqual([
+				['round', 'round', 'round', 'round'],
+				['round', 'round', 'round', 'round']
+			]);
+			expect(emitted.some((s) => s.sound === 'play-along' || s.sound === 'demo')).toBe(false);
+			const attempts = await stored();
+			expect(attempts.length).toBeGreaterThanOrEqual(6);
+			expect(attempts.every((a) => !a.success && a.aids === undefined)).toBe(true);
+			const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
+			expect(state).toMatchObject({ level: 0, resumeAfter: null });
+			expect(state?.failures).toBe(attempts.length);
+		}
+	);
 });
 
 describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () => {
@@ -1320,7 +1208,6 @@ describe('the rhythm on the series, another series', () => {
 		const [line] = summarizePlayed({
 			executions: record?.executions ?? [],
 			attempts,
-			aided: aidedBeyondItsLevel(() => RHYTHM_OFFBEATS),
 			alone: RHYTHM_OFFBEATS.id,
 			level: () => level
 		});
@@ -1328,8 +1215,7 @@ describe('the rhythm on the series, another series', () => {
 			exerciseId: RHYTHM_OFFBEATS.id,
 			level: { shown: 2, of: 4, aid: false },
 			rounds: 4,
-			passed: 4,
-			aided: 0
+			passed: 4
 		});
 	});
 

@@ -142,15 +142,14 @@ function harness(options: { development?: boolean; random?: () => number } = {})
 }
 
 /** A learned triad card, due at once. */
-/** A routine as the home is told it on a fresh install: closed, nothing due, nothing resting. */
+/** A routine as the home is told it on a fresh install: closed, nothing due. */
 function entry(id: string, fr: string, en: string) {
 	return {
 		id,
 		title: { fr, en },
 		open: false,
 		due: null as number | null,
-		nextReviewAt: null,
-		resting: false
+		nextReviewAt: null
 	};
 }
 
@@ -495,7 +494,7 @@ describe('createAppServices', () => {
 		});
 	});
 
-	it('marks a routine resting while one of its exercises rests, in any scope', async () => {
+	it('marks no routine resting, whatever rest an older level state kept', async () => {
 		const { services, deps } = harness();
 		const now = deps.now();
 		await deps.levels.put({
@@ -516,13 +515,14 @@ describe('createAppServices', () => {
 			failures: 0,
 			resumeAfter: now - 1
 		});
-		const resting = (await services.routines()).map((routine) => [routine.id, routine.resting]);
-		expect(resting).toEqual([
-			['notes', false],
-			['chords', false],
-			['chords-zone', false],
-			['changes', true]
+		const routines = await services.routines();
+		expect(routines.map((routine) => routine.id)).toEqual([
+			'notes',
+			'chords',
+			'chords-zone',
+			'changes'
 		]);
+		for (const routine of routines) expect(routine).not.toHaveProperty('resting');
 	});
 });
 
@@ -611,8 +611,7 @@ describe('a routine whose entry cannot be computed', () => {
 			title: { fr: 'Abîmée', en: 'Damaged' },
 			open: false,
 			due: null,
-			nextReviewAt: null,
-			resting: false
+			nextReviewAt: null
 		});
 		expect(error).toHaveBeenCalledWith(expect.stringContaining('broken'), expect.anything());
 	});
@@ -768,10 +767,8 @@ describe('the gesture track', () => {
 	});
 
 	// What a player who starts well then struggles lives today: fatigue (`detectFatigue`, a drop of
-	// 20 points between the first six answers and the last six, over twelve) stops the passages
-	// before an aid level or « On change d’air » can come. A question for the author, pinned here
-	// as it is, not a rule this test decides.
-	it('ends a session of changes on fatigue, before any exercise can leave, after a good start', async () => {
+	// 20 points between the first six answers and the last six, over twelve) stops the passages.
+	it('ends a session of changes on fatigue, after a good start', async () => {
 		const { services, deps, chords } = harness();
 		for (const [root, quality] of IOHEFY_TRIADS) {
 			await deps.cards.putMany(triadCards('chord-anchor', root, quality, [3, 2, 1]));
@@ -813,10 +810,8 @@ describe('the gesture track', () => {
 		}
 		expect(controller.view.status).toBe('finished');
 		expect(controller.view.fatigueDetected).toBe(true);
-		expect(controller.view.leaving).toBeNull();
 		const series = deps.memory.get(controller.sessionId)?.trace.children[0];
 		expect(series?.reason).toBe('complete');
-		expect(series?.left ?? []).toEqual([]);
 		await vi.waitFor(async () =>
 			expect((await deps.sessions.get(controller.sessionId))?.fatigueDetected).toBe(true)
 		);
@@ -834,7 +829,6 @@ describe('the gesture track', () => {
 			['grid-reading', false, 9]
 		]);
 		expect((await deps.levels.all()).every((level) => level.resumeAfter === null)).toBe(true);
-		expect((await services.routines()).find((r) => r.id === 'changes')?.resting).toBe(false);
 	});
 });
 
@@ -986,11 +980,9 @@ describe('the rhythm exercises', () => {
 				level: { shown: 2, of: 4, aid: false },
 				rounds: 3,
 				passed: 2,
-				aided: 0,
 				tempo: { first: 80, last: 80 },
 				inPassages: false,
-				passages: null,
-				changedAir: false
+				passages: null
 			}
 		]);
 	});
@@ -1124,12 +1116,10 @@ describe('the rhythm exercises', () => {
 				exerciseId: 'rhythm-removed',
 				rounds: 2,
 				passed: 1,
-				aided: 1,
 				level: null,
 				tempo: { first: 80, last: 80 },
 				inPassages: false,
-				passages: null,
-				changedAir: false
+				passages: null
 			}
 		]);
 	});
@@ -1571,7 +1561,7 @@ describe('the library', () => {
 		}
 		for (const entry of library) {
 			expect(entry.title, entry.exerciseId).toEqual(exerciseTitle(entry.exerciseId));
-			expect(entry.resting, entry.exerciseId).toBe(false);
+			expect(entry, entry.exerciseId).not.toHaveProperty('resting');
 		}
 		// The skill's name stands for a title the exercise does not write.
 		expect(byId.get('locate-note-string')?.title).toEqual(
@@ -1627,14 +1617,15 @@ describe('the library', () => {
 		await expect(services.startExercise('memory-with-figure')).rejects.toThrow(/not played/);
 	});
 
-	it('marks an exercise resting while a level state of it, of any scope, rests', async () => {
+	it('marks no exercise resting, whatever rest an older level state kept', async () => {
 		const { services, deps } = harness();
 		const now = deps.now();
 		await deps.levels.put(restingLevel(RHYTHM_OFFBEATS.id, now + 1));
 		await deps.levels.put(restingLevel('grid-reading', now + 1, 'blues-f'));
 		await deps.levels.put(restingLevel(RHYTHM_TWO_FOUR.id, now - 1));
-		const resting = (await services.library()).filter((e) => e.resting).map((e) => e.exerciseId);
-		expect(resting).toEqual(['grid-reading', RHYTHM_OFFBEATS.id]);
+		const library = await services.library();
+		expect(library.map((e) => e.exerciseId)).toContain(RHYTHM_OFFBEATS.id);
+		for (const entry of library) expect(entry).not.toHaveProperty('resting');
 	});
 
 	it('lists what is left of a catalog with a file refused, and nothing throws (Review Focus 4)', async () => {

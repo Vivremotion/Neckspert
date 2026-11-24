@@ -138,7 +138,7 @@ class Procedure implements LearningProcedure {
 				? this.subject.recall(ref.skill)(attempt)
 				: attempt.success;
 		const learned = attempt.phase === 'learning' && passesTop(state, ladder, success);
-		const level = nextLevelState(state, ladder, { success, aided: false }).state;
+		const level = nextLevelState(state, ladder, { success }).state;
 		this.setLevel(level);
 		if (attempt.phase !== 'learning') return { level };
 

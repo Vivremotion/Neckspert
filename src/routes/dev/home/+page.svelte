@@ -14,7 +14,6 @@
 		open: true,
 		due: 0,
 		nextReviewAt: null,
-		resting: false,
 		...over
 	});
 
@@ -31,7 +30,7 @@
 				routine('a', 'Apprentissage', 'Learn', { due: 6 }),
 				routine('b', 'Triades', 'Triads', { due: 4 }),
 				routine('c', 'Triades vers une case', 'Triads around a fret', { due: 2 }),
-				routine('d', 'Changements', 'Changes', { due: null, resting: true })
+				routine('d', 'Changements', 'Changes', { due: null })
 			]
 		},
 		{

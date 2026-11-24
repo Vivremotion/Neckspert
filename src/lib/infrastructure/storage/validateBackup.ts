@@ -1,4 +1,3 @@
-import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
 	LATENCY_PROVENANCES,
@@ -31,6 +30,19 @@ import {
 } from './migrations/v12';
 import { hasCards, hasSkill, skillById } from '$lib/domain/skill/registry';
 import { ITEM_SETS, type ItemSet } from '$lib/domain/sets';
+
+/**
+ * The aids an attempt could keep up to database 13, frozen: nothing writes them since issue #19,
+ * an attempt stored before keeps its list, which nothing reads.
+ */
+export const AIDS_V13 = [
+	'show-position',
+	'string-aid',
+	'cursor',
+	'listen',
+	'play-along',
+	'aid-level'
+] as const;
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -296,8 +308,12 @@ function checkTargetOutcome(attempt: Fields): string | null {
 	) {
 		return `verdict.value ${VERDICT_PROBLEM}`;
 	}
-	if (!Array.isArray(attempt.aids) || !attempt.aids.every((aid) => isOneOf(aid, AIDS))) {
-		return `aids must be a list of ${AIDS.join(', ')}`;
+	// Absent on an attempt stored since issue #19; an older one's list is read as it was written.
+	if (
+		attempt.aids !== undefined &&
+		(!Array.isArray(attempt.aids) || !attempt.aids.every((aid) => isOneOf(aid, AIDS_V13)))
+	) {
+		return `aids must be a list of ${AIDS_V13.join(', ')}`;
 	}
 	if (!isFields(attempt.measures)) return 'measures must be an object';
 	if (!Object.hasOwn(attempt, 'plan') || attempt.plan === undefined) {

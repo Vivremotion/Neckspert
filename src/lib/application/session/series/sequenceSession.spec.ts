@@ -125,10 +125,10 @@ describe('a sequence of chord shapes on the series', () => {
 		controller.quit();
 	});
 
-	it('fails every chord when nothing is played, the anti-blocking left off', async () => {
+	it('fails every chord when nothing is played, and nothing comes but the next runs', async () => {
 		const { controller, stored, advance, levels } = await series();
 		await controller.start();
-		// Two runs of three, a breath between them: no remedy, no aid level, no change of air.
+		// Two runs of three, a breath between them: nothing announced, nothing imposed.
 		const seen = new Set<string>();
 		for (let to = ORIGIN; to < ORIGIN + 10.5 * BAR_S; to += 0.25) {
 			await advance(to, false);
@@ -140,7 +140,7 @@ describe('a sequence of chord shapes on the series', () => {
 		for (const attempt of attempts) {
 			expect(attempt.success).toBe(false);
 			expect(attempt.correct).toBe(false);
-			expect(attempt.aids).not.toContain('play-along');
+			expect(attempt).not.toHaveProperty('aids');
 			expect((attempt.data as FigureAttemptData).level).toBe(0);
 		}
 		expect(seen).toEqual(new Set());
@@ -155,7 +155,7 @@ describe('a sequence of chord shapes on the series', () => {
 		const { controller, stored, advance } = await series();
 		await controller.start();
 		await advance(ORIGIN + 4.5 * BAR_S);
-		// Three chords right unaided: level 2, told at the breath, played from the next run.
+		// Three chords right: level 2, told at the breath, played from the next run.
 		expect(controller.view.announcement?.kind).toBe('level-up');
 		expect(stageOf(controller).next?.voices[0].elements).toHaveLength(8);
 		await advance(ORIGIN + 12 * BAR_S);

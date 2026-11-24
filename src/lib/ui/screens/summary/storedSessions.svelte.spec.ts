@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { introduceCard, markLearned } from '$lib/domain/progress';
-import { TraceBuilder } from '$lib/domain/session';
 import type { Attempt, CardState, SessionRecord } from '$lib/domain/types';
 import { responseAttempt } from '$lib/testing/attempts';
 import {
@@ -77,7 +76,7 @@ function change(
 }
 
 /** A cycle of a figure exercise as its session stored it, at the level played. */
-function cycle(exerciseId: string, level: number, success: boolean, aids: Attempt['aids'] = []) {
+function cycle(exerciseId: string, level: number, success: boolean, aids?: Attempt['aids']) {
 	return {
 		sessionId: 's1',
 		exerciseId,
@@ -85,7 +84,7 @@ function cycle(exerciseId: string, level: number, success: boolean, aids: Attemp
 		cardKey: `inner-pulse:offbeats-1@${level}`,
 		phase: 'free',
 		temperature: 'hot',
-		aids,
+		...(aids && { aids }),
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -105,19 +104,13 @@ function cycle(exerciseId: string, level: number, success: boolean, aids: Attemp
  * The summary screen of a stored session, its text, as the service sums it up: only the stores
  * `sessionSummary` reads are given.
  */
-async function shown(
-	record: SessionRecord,
-	stored: readonly Attempt[] = [],
-	remember?: (memory: SessionMemory, ids: number[]) => void
-): Promise<string> {
+async function shown(record: SessionRecord, stored: readonly Attempt[] = []): Promise<string> {
 	const sessions = new InMemorySessionRepository();
 	const cards = new InMemoryCardStateRepository();
 	const attempts = new InMemoryAttemptRepository();
 	await sessions.put(record);
-	const ids: number[] = [];
-	for (const attempt of stored) ids.push(await attempts.add(attempt));
+	for (const attempt of stored) await attempts.add(attempt);
 	const memory = new SessionMemory();
-	remember?.(memory, ids);
 	await cards.putMany([
 		learned('locate-note-string:6:G', 'locate-note-string', { string: 6, pitch: 'G' }),
 		learned('chord-anchor:D|maj|3:5,2:1,1:3', 'chord-anchor', {
@@ -212,7 +205,7 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 		expect(text).not.toContain('Niveau atteint');
 	});
 
-	it('tells an exercise of figures played alone as it did: its level, its cycles, its aided successes', async () => {
+	it('tells an exercise of figures played alone: its level and its cycles, nothing of the aids an old attempt kept', async () => {
 		const text = await shown(stored({ exercise: RHYTHM_OFFBEATS.id, levelReached: 1 }), [
 			cycle(RHYTHM_OFFBEATS.id, 0, true, ['listen']),
 			cycle(RHYTHM_OFFBEATS.id, 1, true, ['cursor']),
@@ -221,47 +214,8 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 		expect(text).toContain('Contretemps');
 		expect(text).toContain('Niveau atteint : 2 sur 4');
 		expect(text).toContain('2 cycles réussis sur 3');
-		expect(text).toContain('dont 1 avec aide');
+		expect(text).not.toMatch(/aide|aidé/);
 		expect(text).not.toContain('Notes apprises');
-	});
-
-	it('tells a figure exercise that changed air, once, with what breaks and what to try instead', async () => {
-		const text = await shown(
-			stored({ exercise: RHYTHM_OFFBEATS.id, levelReached: -1 }),
-			[0, 1, 2].map(() => cycle(RHYTHM_OFFBEATS.id, -1, false)),
-			// Its series, still in memory, ended by a change of air: the exercise left it.
-			(memory, ids) => {
-				const trace = new TraceBuilder(0);
-				const series = trace.open('series', 0, { exerciseId: RHYTHM_OFFBEATS.id });
-				const run = trace.open('run', 1, { level: -1 });
-				for (const attemptId of ids) trace.open('round', 1, { level: -1, attemptId });
-				trace.close(run, 5);
-				trace.set(series, {
-					reason: 'change-of-air',
-					breaking: 'hold',
-					left: [{ exerciseId: RHYTHM_OFFBEATS.id }]
-				});
-				trace.closeAll(5, 'done');
-				memory.remember({
-					sessionId: 's1',
-					trace: trace.tree(),
-					takes: new Map(),
-					latencyS: 0
-				});
-			}
-		);
-		expect(text.split('On change d’air')).toHaveLength(2);
-		const told = [...document.querySelectorAll('.change-of-air')];
-		expect(told).toHaveLength(1);
-		expect([...told[0].querySelectorAll(':scope > span')].map((span) => span.textContent)).toEqual([
-			'Contretemps',
-			'Ce qui casse : tenue',
-			'Essaie plutôt :'
-		]);
-		const links = [...told[0].querySelectorAll('a')].map((link) => link.getAttribute('href'));
-		expect(links).toContain('/session?exercise=rhythm-silent-bars');
-		expect(links).toContain('/session?exercise=rhythm-two-four');
-		expect(links).not.toContain('/session?exercise=rhythm-offbeats');
 	});
 
 	it('gives no line to a passages exercise played alone with no change, as before', async () => {

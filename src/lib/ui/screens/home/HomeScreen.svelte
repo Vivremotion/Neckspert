@@ -56,12 +56,9 @@
 		return `${t.nextReviews} · ${delay}`;
 	}
 
-	/** Its reviews, and « au repos » as an exercise's entry marks it. */
+	/** Its reviews. */
 	function whyOf(routine: RoutineEntry): string | undefined {
-		const lines = [reviewsOf(routine), routine.resting ? t.resting : null].filter(
-			(line) => line !== null
-		);
-		return lines.length > 0 ? lines.join(' · ') : undefined;
+		return reviewsOf(routine) ?? undefined;
 	}
 
 	const blocks = $derived(

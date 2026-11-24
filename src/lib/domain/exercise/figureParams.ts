@@ -12,12 +12,12 @@ export interface Notation {
 
 /**
  * What a round that plays a figure reads of its exercise level, beyond its template: how its
- * marks are told, what listening to the figure is worth, the cursor over it, the thresholds
+ * marks are told, whether the player may ask to hear the figure, the cursor over it, the thresholds
  * its verdict judges against, and how it is engraved. Absent from the params: the defaults below.
  */
 export interface FigureParams {
 	feedback: Feedback;
-	listen: 'free' | 'aid' | 'none';
+	listen: 'free' | 'none';
 	cursor: boolean;
 	thresholds: CycleThresholds;
 	/**
@@ -35,7 +35,7 @@ export interface FigureParams {
 }
 
 const FEEDBACKS: readonly Feedback[] = ['every-cycle', 'summary', 'out-of-tolerance'];
-const LISTENS: readonly FigureParams['listen'][] = ['free', 'aid', 'none'];
+const LISTENS: readonly FigureParams['listen'][] = ['free', 'none'];
 
 /** The figure params of an exercise that writes none. */
 export const DEFAULT_FIGURE_PARAMS: FigureParams = {

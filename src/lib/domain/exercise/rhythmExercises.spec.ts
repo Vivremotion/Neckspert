@@ -39,7 +39,7 @@ interface RhythmLevelParams {
 	tempo: number;
 	window: ExpectationWindow;
 	feedback: Feedback;
-	listen: 'free' | 'aid' | 'none';
+	listen: 'free' | 'none';
 	cursor: boolean;
 	thresholds: CycleThresholds;
 }
@@ -112,6 +112,7 @@ const TWO_AND_FOUR = {
  * params before H6 (JSON, the tempo as its quarter-note bpm): frozen, the proof that writing the
  * levels as paths changed nothing. Since plan S (D7), the listen-in and the count are in the
  * pacing: the two bars the cycle always listened in, `countIn` written by « 2 et 4 » alone.
+ * Since issue #19 (D11), « 2 et 4 » writes `listen: 'free'`: asking to listen is no longer an aid.
  */
 const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>> = {
 	'rhythm-silent-bars': {
@@ -200,7 +201,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 100,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: true,
 			pacing: {
 				respirationBars: 1,
@@ -217,7 +218,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 100,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: true,
 			pacing: {
 				respirationBars: 1,
@@ -234,7 +235,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 120,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: true,
 			pacing: {
 				respirationBars: 1,
@@ -251,7 +252,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 140,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: false,
 			pacing: {
 				respirationBars: 1,
@@ -448,7 +449,7 @@ describe('the rhythm exercises', () => {
 		expect(RHYTHM_TWO_FOUR.params).toMatchObject({
 			cycleBars: 4,
 			pacing: { roundsPerBreath: 1 },
-			listen: 'aid'
+			listen: 'free'
 		});
 		const clicks = (index: number) =>
 			attackPositions(paramsAt(RHYTHM_TWO_FOUR, index).accompaniment.figure).map((p) =>

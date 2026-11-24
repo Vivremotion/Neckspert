@@ -39,6 +39,59 @@ describe('retiredProblem', () => {
 		);
 	});
 
+	it('refuses flow.antiBlocking: nothing is triggered after failures', () => {
+		expect(retiredProblem({ flow: { antiBlocking: true } })).toBe(
+			'flow.antiBlocking is no longer read: nothing is triggered after failures; a level says what it shows and plays, and its "drop" when the player leaves it'
+		);
+		expect(retiredProblem({ flow: { antiBlocking: false } })).not.toBeNull();
+	});
+
+	it('refuses a listen worth an aid, in the params or at any level', () => {
+		expect(retiredProblem({ params: { listen: 'aid' } })).toBe(
+			'params.listen "aid" is no longer read: write "free"'
+		);
+		expect(retiredProblem({ levels: [{ params: {} }, { params: { listen: 'aid' } }] })).toBe(
+			'levels[1].params.listen "aid" is no longer read: write "free"'
+		);
+		expect(
+			retiredProblem({ params: { listen: 'free' }, levels: [{ params: { listen: 'none' } }] })
+		).toBeNull();
+	});
+
+	it.each([
+		[
+			'presentation.aided.line',
+			'presentation.aided is no longer read: write "presentation.detail" or "presentation.picture" in the params of the level that shows it'
+		],
+		[
+			'presentation.aided',
+			'presentation.aided is no longer read: write "presentation.detail" or "presentation.picture" in the params of the level that shows it'
+		],
+		[
+			'presentation.fading',
+			'presentation.fading is no longer read: no aid comes back after a miss; write "presentation.picture" in the params of the level that draws it'
+		],
+		[
+			'presentation.fading.picture',
+			'presentation.fading is no longer read: no aid comes back after a miss; write "presentation.picture" in the params of the level that draws it'
+		]
+	])('refuses a level that writes %s, naming the level', (path, advice) => {
+		expect(retiredProblem({ levels: [{ params: {} }, { params: { [path]: 'x' } }] })).toBe(
+			`levels[1].params["${path}"]: ${advice}`
+		);
+		expect(retiredProblem({ params: { ladder: ladder({ [path]: 'x' }) } })).toBe(
+			`params.ladder[1].params["${path}"]: ${advice}`
+		);
+	});
+
+	it('lets a level rewrite another slot of the presentation', () => {
+		expect(
+			retiredProblem({
+				levels: [{ params: { 'presentation.detail': '{fret}', 'presentation.aidedness': 1 } }]
+			})
+		).toBeNull();
+	});
+
 	it.each(['presentAtOnce', 'aidFadeSuccesses'])('refuses params.learning.%s', (key) => {
 		expect(retiredProblem({ params: { learning: { [key]: 1 } } })).toBe(
 			`params.learning.${key} is no longer read: remove it`

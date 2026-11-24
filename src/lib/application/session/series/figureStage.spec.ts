@@ -120,7 +120,6 @@ function outcome(report: CycleReport, reasons: string[]): RoundOutcome {
 			value: reasons.length === 0 ? { passed: true } : { passed: false, reasons }
 		},
 		measures: report.measures,
-		aids: [],
 		detail: report
 	};
 }

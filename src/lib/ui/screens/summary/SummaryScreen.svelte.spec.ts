@@ -2,12 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlayedExercise, SessionSummary } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
-import { allExercises, clearExercises, registerExercise } from '$lib/domain/exercise';
-import { skillById } from '$lib/domain/skill/registry';
-import { RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 import SummaryScreen from './SummaryScreen.svelte';
-
-const catalog = allExercises();
 
 afterEach(() => {
 	cleanup();
@@ -35,12 +30,10 @@ const summary: SessionSummary = {
 			exerciseId: 'locate-note-string',
 			rounds: 10,
 			passed: 8,
-			aided: 0,
 			level: null,
 			tempo: { first: 92, last: 92 },
 			inPassages: false,
-			passages: null,
-			changedAir: false
+			passages: null
 		}
 	],
 	misses: []
@@ -52,12 +45,10 @@ const played = (
 ): PlayedExercise => ({
 	rounds: 0,
 	passed: 0,
-	aided: 0,
 	level: null,
 	tempo: null,
 	inPassages: false,
 	passages: null,
-	changedAir: false,
 	...fields
 });
 
@@ -209,53 +200,6 @@ describe('SummaryScreen of a gesture session', () => {
 		]
 	};
 
-	it('says « On change d’air » with every exercise that left the session, its grid named, in order', () => {
-		render(SummaryScreen, {
-			props: {
-				summary: {
-					...gesture,
-					exercises: [
-						{ ...gesture.exercises[0], changedAir: true },
-						played({
-							exerciseId: 'grid-in-direction',
-							scope: 'iohefy-a',
-							rounds: 3,
-							inPassages: true,
-							passages: { played: 1, passed: 0 },
-							changedAir: true
-						}),
-						played({
-							exerciseId: 'grid-reading',
-							scope: 'iohefy-a',
-							rounds: 9,
-							passed: 9,
-							inPassages: true,
-							passages: { played: 1, passed: 1 }
-						})
-					]
-				},
-				now: 0,
-				onhome: () => {},
-				onmap: () => {}
-			}
-		});
-		const lines = document.querySelectorAll('.change-of-air');
-		expect(lines).toHaveLength(1);
-		const line = lines[0];
-		expect(line.textContent).toContain('On change d’air');
-		expect([...line.querySelectorAll('span')].map((span) => span.textContent)).toEqual([
-			'Relier les formes',
-			'Contrainte de déplacement · I Only Have Eyes for You'
-		]);
-	});
-
-	it('says nothing of a change of air when no exercise left', () => {
-		render(SummaryScreen, {
-			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }
-		});
-		expect(document.querySelector('.change-of-air')).toBeNull();
-	});
-
 	it('shows each exercise played, its passages, its changes and its tempos, and nothing of the notes', () => {
 		render(SummaryScreen, {
 			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }
@@ -340,7 +284,6 @@ describe('SummaryScreen of a rhythm session', () => {
 				level: { shown: 3, of: 6, aid: false },
 				rounds: 14,
 				passed: 11,
-				aided: 2,
 				tempo: { first: 80, last: 80 }
 			})
 		]
@@ -353,17 +296,17 @@ describe('SummaryScreen of a rhythm session', () => {
 		expect(screen.getByText('Contretemps')).toBeTruthy();
 		expect(screen.getByText('Niveau atteint : 3 sur 6')).toBeTruthy();
 		expect(screen.getByText('11 cycles réussis sur 14')).toBeTruthy();
-		expect(screen.getByText('dont 2 avec aide')).toBeTruthy();
+		expect(document.body.textContent).not.toMatch(/aide|aidé|change d’air/);
 		expect(screen.queryByText('Notes apprises')).toBeNull();
 		expect(screen.queryByText('Précision à froid')).toBeNull();
 		expect(screen.queryByText(/fatigue/i)).toBeNull();
 	});
 
-	it('says nothing of aids when no success had one, and speaks English in English', () => {
+	it('speaks English in English, and says nothing of aids', () => {
 		i18n.locale = 'en';
 		const unaided: SessionSummary = {
 			...rhythm,
-			exercises: [{ ...rhythm.exercises[0], rounds: 1, passed: 1, aided: 0 }]
+			exercises: [{ ...rhythm.exercises[0], rounds: 1, passed: 1 }]
 		};
 		render(SummaryScreen, {
 			props: { summary: unaided, now: 0, onhome: () => {}, onmap: () => {} }
@@ -374,29 +317,20 @@ describe('SummaryScreen of a rhythm session', () => {
 		expect(screen.queryByText(/aid/i)).toBeNull();
 	});
 
-	it('reads the aided successes as part of the successes, in English too', () => {
-		i18n.locale = 'en';
-		render(SummaryScreen, {
-			props: { summary: rhythm, now: 0, onhome: () => {}, onmap: () => {} }
-		});
-		expect(screen.getByText('11 cycles succeeded out of 14')).toBeTruthy();
-		expect(screen.getByText('of which 2 with aid')).toBeTruthy();
-	});
-
 	it('names an aid level as the play header does, in French and in English', () => {
-		const aided: SessionSummary = {
+		const atAidLevel: SessionSummary = {
 			...rhythm,
 			exercises: [{ ...rhythm.exercises[0], level: { shown: 0, of: 6, aid: true } }]
 		};
 		render(SummaryScreen, {
-			props: { summary: aided, now: 0, onhome: () => {}, onmap: () => {} }
+			props: { summary: atAidLevel, now: 0, onhome: () => {}, onmap: () => {} }
 		});
 		expect(screen.getByText('Niveau atteint : niveau d’aide')).toBeTruthy();
 		expect(screen.queryByText(/0 sur 6/)).toBeNull();
 		cleanup();
 		i18n.locale = 'en';
 		render(SummaryScreen, {
-			props: { summary: aided, now: 0, onhome: () => {}, onmap: () => {} }
+			props: { summary: atAidLevel, now: 0, onhome: () => {}, onmap: () => {} }
 		});
 		expect(screen.getByText('Level reached: aid level')).toBeTruthy();
 		expect(screen.queryByText(/0 of 6/)).toBeNull();
@@ -420,11 +354,9 @@ describe('SummaryScreen of a series in memory', () => {
 		series: {
 			exerciseId: 'rhythm-offbeats',
 			ended: 'time',
-			breaking: null,
 			levels: [0, 1, -1],
 			rounds: 8,
 			successes: 3,
-			aided: 0,
 			listens: 1,
 			playedShare: 0.62,
 			runs: [
@@ -481,49 +413,6 @@ describe('SummaryScreen of a series in memory', () => {
 		expect(screen.getByText('niveau 1 → niveau 2 → niveau d’aide')).toBeTruthy();
 		expect(screen.getByText('1 écoute')).toBeTruthy();
 		expect(screen.getByText('62 % du temps joué')).toBeTruthy();
-	});
-
-	it('a change of air names what breaks and offers the other exercises, said once with the exercise', () => {
-		// As the service gives it: the series ended by a change of air, the exercise left it.
-		const blocked: SessionSummary = {
-			...base,
-			exercises: [{ ...base.exercises[0], changedAir: true }],
-			series: { ...base.series!, ended: 'change-of-air', breaking: 'hold' }
-		};
-		render(SummaryScreen, {
-			props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
-		});
-		expect(screen.getAllByText('On change d’air')).toHaveLength(1);
-		expect(document.querySelectorAll('.change-of-air')).toHaveLength(1);
-		expect(screen.getAllByText('Contretemps')).toHaveLength(2);
-		expect(screen.getByText('Ce qui casse :')).toBeTruthy();
-		expect(screen.getByText('tenue')).toBeTruthy();
-		const links = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
-		expect(links).toContain('/session?exercise=rhythm-silent-bars');
-		expect(links).toContain('/session?exercise=rhythm-two-four');
-		expect(links).not.toContain('/session?exercise=rhythm-offbeats');
-	});
-
-	it('names the exercises to try instead as everywhere else, its skill’s name for one without a title', () => {
-		const untitled = { ...RHYTHM_TWO_FOUR, id: 'untitled-two-four', title: undefined };
-		registerExercise(untitled, 'test');
-		try {
-			const blocked: SessionSummary = {
-				...base,
-				exercises: [{ ...base.exercises[0], changedAir: true }],
-				series: { ...base.series!, ended: 'change-of-air', breaking: 'hold' }
-			};
-			render(SummaryScreen, {
-				props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
-			});
-			const link = screen
-				.getAllByRole('link')
-				.find((a) => a.getAttribute('href') === '/session?exercise=untitled-two-four');
-			expect(link?.textContent).toBe(skillById(RHYTHM_TWO_FOUR.practices).name.fr);
-		} finally {
-			clearExercises();
-			for (const exercise of catalog) registerExercise(exercise, 'catalog');
-		}
 	});
 
 	it('draws no block for a series with no run', () => {
@@ -590,7 +479,6 @@ describe('SummaryScreen: one list for any session', () => {
 					scope: 'iohefy-a',
 					rounds: 9,
 					passed: 9,
-					aided: 1,
 					tempo: { first: 80, last: 85 },
 					inPassages: true,
 					passages: { played: 1, passed: 1 }
@@ -623,7 +511,6 @@ describe('SummaryScreen: one list for any session', () => {
 				'Jam · I Only Have Eyes for You',
 				'1 / 1 passages réussis',
 				'100 % justes et à temps',
-				'dont 1 avec aide',
 				'♩ = 80 → 85'
 			],
 			['Jam · Blues F', '0 / 1 passages réussis', '50 % justes et à temps', '♩ = 100'],

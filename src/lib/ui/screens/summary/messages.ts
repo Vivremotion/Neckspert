@@ -41,7 +41,6 @@ export const summaryMessages = defineMessages({
 		aidLevelReached: 'Niveau atteint : niveau d’aide',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
-		successesAided: (n: number) => `dont ${n} avec aide`,
 		run: (n: number) => `Suite ${n}`,
 		runCycles: (successes: number, rounds: number) => `${successes} réussis sur ${rounds}`,
 		runCut: 'interrompue',
@@ -50,9 +49,6 @@ export const summaryMessages = defineMessages({
 		levelName: (index: number) => (index < 0 ? 'niveau d’aide' : `niveau ${index + 1}`),
 		listens: (n: number) => (n === 1 ? '1 écoute' : `${n} écoutes`),
 		playedShare: (percent: number) => `${percent} % du temps joué`,
-		changeOfAir: 'On change d’air',
-		breaking: 'Ce qui casse :',
-		tryInstead: 'Essaie plutôt :',
 		inPlace: 'C’était en place ·',
 		perBar: 'ms/mesure',
 		report: {
@@ -137,7 +133,6 @@ export const summaryMessages = defineMessages({
 		aidLevelReached: 'Level reached: aid level',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
-		successesAided: (n: number) => `of which ${n} with aid`,
 		run: (n: number) => `Run ${n}`,
 		runCycles: (successes: number, rounds: number) => `${successes} passed out of ${rounds}`,
 		runCut: 'cut short',
@@ -146,9 +141,6 @@ export const summaryMessages = defineMessages({
 		levelName: (index: number) => (index < 0 ? 'aid level' : `level ${index + 1}`),
 		listens: (n: number) => (n === 1 ? '1 listen' : `${n} listens`),
 		playedShare: (percent: number) => `${percent} % of the time played`,
-		changeOfAir: 'Time for a change of air',
-		breaking: 'What breaks:',
-		tryInstead: 'Try instead:',
 		inPlace: 'It was in place ·',
 		perBar: 'ms/bar',
 		report: {

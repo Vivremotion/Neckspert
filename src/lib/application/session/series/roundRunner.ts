@@ -4,7 +4,6 @@ import {
 	PlanRound,
 	POSITION_RESOLUTION,
 	segmentAt,
-	type Aid,
 	type CycleReport,
 	type CycleThresholds,
 	type LiveReading,
@@ -98,8 +97,6 @@ export class RoundRunner {
 		latencyOf: (sensor: SensorKind) => CycleReport['latency'];
 		/** The level's thresholds, for a verdict that reads them; none by default. */
 		thresholds?: CycleThresholds | null;
-		/** The aids the round is played with; none by default. */
-		aids?: Aid[];
 		sources: ReadonlyMap<SensorKind, ObservationSource>;
 		expectation: Partial<Record<SensorKind, unknown>>;
 		/** The presenter's lines for an observation's payload, written to the detection log. */
@@ -126,8 +123,7 @@ export class RoundRunner {
 			chained: input.chained,
 			judges: contentJudges,
 			latency: first ? input.latencyOf(first.sensor) : null,
-			thresholds: input.thresholds ?? null,
-			aids: input.aids ?? []
+			thresholds: input.thresholds ?? null
 		});
 		this.handoverTime = this.#round.handoverTime;
 		this.span = new ObservationSpan(this.#round.promptTime, input.item);

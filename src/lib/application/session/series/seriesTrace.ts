@@ -1,4 +1,3 @@
-import type { CycleFailure } from '$lib/domain/time';
 import {
 	TraceBuilder,
 	type Segment,
@@ -20,8 +19,6 @@ export class SeriesTrace {
 	private leaf: number | null = null;
 	private run: number | null = null;
 	private stop: number | null = null;
-	/** The (exercise, scope) that changed air and left the series, in order. */
-	private readonly left: { exerciseId: string; scope?: string }[] = [];
 
 	constructor(startS: number, fields: SegmentFields = {}) {
 		this.builder = new TraceBuilder(startS);
@@ -86,15 +83,9 @@ export class SeriesTrace {
 		this.stop = null;
 	}
 
-	/** (exercise, scope) changed air and leaves the series: kept on it, in order. */
-	leave(left: { exerciseId: string; scope?: string }): void {
-		this.left.push({ ...left });
-		this.builder.set(this.series, { left: [...this.left] });
-	}
-
-	/** Ends the series, with why, and the measure that breaks when the air changed. */
-	close(time: number, reason: SeriesEnd | 'quit', breaking: CycleFailure | null = null): void {
-		this.builder.set(this.series, { reason, ...(breaking && { breaking }) });
+	/** Ends the series, with why. */
+	close(time: number, reason: SeriesEnd | 'quit'): void {
+		this.builder.set(this.series, { reason });
 		this.builder.closeAll(Math.max(time, this.builder.tree().endS), 'done');
 	}
 }

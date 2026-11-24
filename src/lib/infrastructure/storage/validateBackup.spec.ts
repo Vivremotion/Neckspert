@@ -676,6 +676,11 @@ describe('target attempts', () => {
 			'Invalid attempts entry at index 0: plan is required (null without one)'
 		);
 	});
+
+	it('accept an attempt without aids, as written since issue #19', () => {
+		expect(() => invalid({ aids: undefined })).not.toThrow();
+		expect(() => invalid({ aids: ['listen', 'play-along'] })).not.toThrow();
+	});
 });
 
 describe('with a version 2 file', () => {
