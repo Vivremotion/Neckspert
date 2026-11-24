@@ -2,19 +2,18 @@
 	import { useAppServices } from '$lib/application/app';
 	import type { AudioInputDevice, ChordReport, NoteOnset } from '$lib/application/ports';
 	import { createDiagnosticJournal } from '$lib/composition/diagnostics';
-	import {
-		closeTriadVoicings,
-		parseSpelledNote,
-		qualityById,
-		voicingCandidates,
-		voicingOccurrences,
-		type StringNumber,
-		type VoicingOccurrence
-	} from '$lib/domain/music';
+	import type { StringNumber } from '$lib/domain/music';
 	import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 	import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
 	import { WebAudioNoteDetector, frequencyToMidi } from '$lib/infrastructure/audio/detection';
 	import { WebAudioInput } from '$lib/infrastructure/audio/input';
+	import {
+		benchExpectation,
+		benchOccurrences,
+		fretsOf,
+		STRING_NAMES,
+		STRING_SETS
+	} from './triadBench';
 
 	const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 
@@ -62,48 +61,33 @@
 	}
 
 	const CHORD_ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-	const ROOT_STRINGS: { label: string; string: StringNumber }[] = [
-		{ label: 'sol', string: 3 },
-		{ label: 'si', string: 2 },
-		{ label: 'mi', string: 1 }
-	];
-	/** closeTriadVoicings order: root on the lowest string, on the highest, on the middle one. */
-	const INVERSION_OF: Partial<Record<StringNumber, number>> = { 3: 0, 1: 1, 2: 2 };
 
 	let chordRoot = $state('D');
 	let chordQuality = $state<'maj' | 'min'>('maj');
+	let stringSetIndex = $state(0);
 	let rootString = $state<StringNumber>(2);
 	let occurrenceIndex = $state(0);
 	let listening = $state<string | null>(null);
 	let reports = $state<ChordReport[]>([]);
 
-	const inversions = $derived(
-		closeTriadVoicings(
-			{ root: parseSpelledNote(chordRoot), quality: qualityById(chordQuality) },
-			[3, 2, 1]
-		)
-	);
-	const occurrences = $derived(voicingOccurrences(inversions[INVERSION_OF[rootString] ?? 0]));
-
-	function fretsOf(occurrence: VoicingOccurrence): string {
-		return occurrence.notes.map((n) => n.fret).join('-');
-	}
+	const strings = $derived(STRING_SETS[stringSetIndex].strings);
+	/** The root may be on any string of the set; another set moves it to the same rank. */
+	const rootChoices = $derived(strings.map((string) => ({ string, label: STRING_NAMES[string] })));
+	const rootStringOnSet = $derived(strings.includes(rootString) ? rootString : strings[1]);
+	const occurrences = $derived(benchOccurrences(chordRoot, chordQuality, strings, rootStringOnSet));
 
 	function listen() {
 		if (!verifier || !context) return;
 		const occurrence = occurrences[Math.min(occurrenceIndex, occurrences.length - 1)];
-		const candidates = voicingCandidates(occurrence, inversions).map((c) => ({
-			id: fretsOf(c.occurrence),
-			kind: c.kind,
-			notes: c.occurrence.notes.map(({ string, fret, midi }) => ({ string, fret, midi }))
-		}));
-		verifier.expect({
-			opensAt: context.currentTime,
-			expected: [fretsOf(occurrence)],
-			candidates,
-			style: 'unknown'
-		});
-		listening = `${chordRoot}${chordQuality === 'min' ? 'm' : ''} ${fretsOf(occurrence)}`;
+		const { expectation, label } = benchExpectation(
+			chordRoot,
+			chordQuality,
+			strings,
+			occurrence,
+			context.currentTime
+		);
+		verifier.expect(expectation);
+		listening = label;
 	}
 	let unsubNote: (() => void) | null = null;
 	let unsubLevel: (() => void) | null = null;
@@ -194,8 +178,13 @@
 	</label>
 
 	<section>
-		<h2>Accords (sol-si-mi)</h2>
+		<h2>Accords</h2>
 		<div class="row">
+			<select bind:value={stringSetIndex} aria-label="Cordes">
+				{#each STRING_SETS as set, i (set.label)}
+					<option value={i}>cordes {set.label}</option>
+				{/each}
+			</select>
 			<select bind:value={chordRoot} aria-label="Fondamentale">
 				{#each CHORD_ROOTS as root (root)}
 					<option value={root}>{root}</option>
@@ -206,8 +195,10 @@
 				<option value="min">mineur</option>
 			</select>
 			<select bind:value={rootString} aria-label="Corde de la fondamentale">
-				{#each ROOT_STRINGS as choice (choice.string)}
-					<option value={choice.string}>fondamentale sur {choice.label}</option>
+				{#each rootChoices as choice (choice.string)}
+					<option value={choice.string} selected={choice.string === rootStringOnSet}>
+						fondamentale sur {choice.label}
+					</option>
 				{/each}
 			</select>
 			<select bind:value={occurrenceIndex} aria-label="Position">
