@@ -66,7 +66,7 @@
 	}
 
 	.word:focus-visible {
-		outline: 2px solid var(--term-text, var(--np-ink));
+		outline: 2px solid var(--term-text, var(--np-text));
 		outline-offset: 2px;
 	}
 
@@ -77,11 +77,11 @@
 		z-index: 2;
 		width: max-content;
 		max-width: min(22rem, 80vw);
-		margin-top: var(--term-gap, var(--np-space-1));
-		padding: var(--term-pad, var(--np-space-2));
-		background: var(--term-ground, var(--np-bg));
-		color: var(--term-text, var(--np-ink));
-		border: 1px solid var(--term-rule, var(--np-shade));
+		margin-top: var(--term-gap, var(--np-step-1));
+		padding: var(--term-pad, var(--np-step-2));
+		background: var(--term-ground, var(--np-ground));
+		color: var(--term-text, var(--np-text));
+		border: 1px solid var(--term-rule, var(--np-rule));
 		font-size: max(16px, 1rem);
 		line-height: 1.35;
 	}

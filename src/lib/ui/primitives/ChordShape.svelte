@@ -102,12 +102,12 @@
 <style>
 	/*
 	 * Colours from --shape-ink (strings played, dots, names), --shape-ground (the tile under a
-	 * fret) and --shape-accent (strings and frets not played); unset, the Game Boy tones, which
-	 * exist only in the pixel world. Its sizes likewise: the pixel world's, else the quiet meta.
+	 * fret) and --shape-accent (strings and frets not played); unset, the tones of a light page.
+	 * Its sizes are the meta size.
 	 */
 	.chord-shape {
-		--shape-name-size: var(--np-type-meta, var(--np-size-meta));
-		color: var(--shape-ink, var(--np-ink));
+		--shape-name-size: var(--np-size-meta);
+		color: var(--shape-ink, var(--np-text));
 		font-size: var(--shape-name-size);
 		line-height: 1;
 	}
@@ -117,7 +117,7 @@
 		display: grid;
 		inline-size: 240px;
 		max-inline-size: 100%;
-		padding-block: var(--np-space-1, 8px);
+		padding-block: var(--np-step-1);
 	}
 
 	/* A fixed width: inside a centered column, the strings would shrink to nothing. */
@@ -128,7 +128,7 @@
 
 	.row {
 		display: grid;
-		grid-template-columns: var(--np-space-4, 32px) 1fr;
+		grid-template-columns: var(--np-step-4) 1fr;
 		align-items: center;
 		block-size: 12px;
 	}
@@ -145,12 +145,12 @@
 		position: relative;
 		display: block;
 		block-size: 4px;
-		background: var(--shape-accent, var(--np-mid));
+		background: var(--shape-accent, var(--np-muted));
 	}
 
 	.played .line {
-		block-size: var(--np-tile, 8px);
-		background: var(--shape-ink, var(--np-ink));
+		block-size: var(--np-step-1);
+		background: var(--shape-ink, var(--np-text));
 	}
 
 	/* The fret sits on its string, in a tile of the background. */
@@ -160,8 +160,8 @@
 		inset-inline-start: 50%;
 		transform: translate(-50%, -50%);
 		padding-inline: 6px;
-		background: var(--shape-ground, var(--np-bg));
-		border: 2px solid var(--shape-ink, var(--np-ink));
+		background: var(--shape-ground, var(--np-ground));
+		border: 2px solid var(--shape-ink, var(--np-text));
 	}
 
 	/* Grid: strings down, frets across, the fret it starts from written beside it. */
@@ -169,7 +169,7 @@
 		position: relative;
 		inline-size: 160px;
 		max-inline-size: 100%;
-		padding-inline-start: var(--np-space-3, 24px);
+		padding-inline-start: var(--np-step-3);
 	}
 
 	.grid.small {
@@ -191,17 +191,17 @@
 
 	.nut,
 	.dot {
-		fill: var(--shape-ink, var(--np-ink));
+		fill: var(--shape-ink, var(--np-text));
 	}
 
 	.fret-line,
 	.string-line {
-		fill: var(--shape-accent, var(--np-shade));
+		fill: var(--shape-accent, var(--np-muted));
 	}
 
 	.open {
 		fill: none;
-		stroke: var(--shape-ink, var(--np-ink));
+		stroke: var(--shape-ink, var(--np-text));
 		stroke-width: 1.5;
 	}
 </style>

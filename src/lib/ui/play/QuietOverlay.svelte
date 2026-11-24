@@ -2,6 +2,7 @@
 	import type { PlayView } from '$lib/application/session/contract';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import { playMessages } from './messages';
+	import type { ReplayGate } from './replay.svelte';
 
 	/** Start, end and pause of the quiet play screen: a light page over the field, one button. */
 	let {
@@ -9,6 +10,8 @@
 		audioError,
 		how,
 		briefing,
+		replay = null,
+		replayKey = '',
 		onstart,
 		onresume
 	}: {
@@ -18,6 +21,9 @@
 		how: string;
 		/** An exercise met for the first time, at its own stop: its instruction, then a counted bar. */
 		briefing: string | null;
+		/** A session that replays its last run (the figures): offered on the pause, with its key. */
+		replay?: ReplayGate | null;
+		replayKey?: string;
 		onstart: () => void;
 		onresume: () => void;
 	} = $props();
@@ -48,6 +54,11 @@
 {:else if status === 'paused'}
 	<div class="overlay">
 		<Button onclick={onresume}>{t.resume}</Button>
+		{#if replay}
+			<Button variant="quiet" disabled={replay.pending} onclick={() => replay.run()}>
+				{replay.pending ? t.replaying : `${t.replay} (${replayKey})`}
+			</Button>
+		{/if}
 	</div>
 {/if}
 

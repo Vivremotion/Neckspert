@@ -18,6 +18,8 @@ export interface LaneTile {
 	 * sides); null inside it and elsewhere.
 	 */
 	bandEdge: 'start' | 'end' | 'both' | null;
+	/** Words of the tile's own (the link's way, ↗ or ↘, on the first beat of a bar); absent otherwise. */
+	label?: string | null;
 }
 
 /** Beats where an extended expectation is played (`untilBeat` excluded). */

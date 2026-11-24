@@ -20,18 +20,3 @@ export const PLAY_VIEWS: Record<string, Component<PlayViewProps>> = {
 	lane: LaneView,
 	'link-lane': LinkLaneView
 };
-
-/**
- * The visual world a view is drawn in: « Près du silence » (`quiet`) or the Game Boy (`pixel`),
- * until plan 3 migrates the last ones (the gesture's). The frame takes the world of its view: one
- * screen never mixes the two.
- */
-export type PlayWorld = 'quiet' | 'pixel';
-
-export const VIEW_WORLDS: Record<string, PlayWorld> = {
-	'answer-keys': 'quiet',
-	figure: 'quiet',
-	'grid-scroll': 'pixel',
-	lane: 'quiet',
-	'link-lane': 'pixel'
-};

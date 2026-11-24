@@ -357,16 +357,7 @@
 <style>
 	/* The view in the field: mist on the haze, the family of the quiet world. */
 	.figure-view {
-		/* The neck's notes and the terms' definitions take the field's tones. */
-		--neck-tile: var(--np-step-1);
-		--neck-size: var(--np-size-meta);
-		--neck-gap: var(--np-step-1);
-		--neck-ink: var(--np-on-field);
-		--neck-ground: var(--np-text);
-		--neck-muted: var(--np-cell-band);
-		--neck-fret: var(--np-on-field);
-		--neck-next: var(--np-cell-band);
-		--neck-next-text: var(--np-text);
+		/* The terms' definitions take the field's tones. */
 		--term-ground: var(--np-on-field);
 		--term-text: var(--np-text);
 		--term-rule: var(--np-rule);

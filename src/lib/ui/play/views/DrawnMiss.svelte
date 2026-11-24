@@ -5,8 +5,8 @@
 	import { PICTURE_VIEWS } from './pictures';
 
 	/**
-	 * A miss drawn as the play frame drew its verdict: what was played, what was due (their
-	 * pictures, chord shapes in `chordDiagram`), the gap.
+	 * A miss drawn as the notes' lane draws its own: what was played, what was due (their
+	 * pictures, chord shapes in `chordDiagram`), the gap between them in words.
 	 */
 	let { miss, chordDiagram }: { miss: MissView; chordDiagram: ChordDiagramStyle } = $props();
 
@@ -31,33 +31,36 @@
 		{/if}
 	</div>
 	{#if miss.gap}
-		<p class="label">{miss.gap}</p>
+		<p class="gap">{miss.gap}</p>
 	{/if}
 </div>
 
 <style>
 	.miss {
-		display: grid;
-		justify-items: center;
-		gap: var(--np-space-1, 8px);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-step-3);
+		font-family: var(--np-font-text);
 	}
 
 	.drawn {
 		display: flex;
-		gap: var(--np-space-3, 24px);
+		justify-content: center;
+		gap: var(--np-step-6);
 	}
 
 	.drawn-part {
 		display: grid;
 		justify-items: center;
-		gap: 4px;
+		align-content: start;
+		gap: var(--np-step-1);
 	}
 
-	.label {
+	.label,
+	.gap {
 		margin: 0;
-		font-size: var(--np-type-meta);
-		line-height: 1;
+		font-size: var(--np-size-meta);
 		text-align: center;
-		text-transform: uppercase;
 	}
 </style>

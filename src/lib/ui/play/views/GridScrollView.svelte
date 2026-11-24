@@ -1,11 +1,21 @@
 <script lang="ts">
 	import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
+	import VerdictMark from '$lib/ui/primitives/VerdictMark.svelte';
+	import { verdictTone } from '$lib/ui/primitives/verdictTone';
+	import { useInfoLine } from '../infoLine.svelte';
 	import DrawnMiss from './DrawnMiss.svelte';
 	import { gridPlacement } from './gridScroll';
-	import { viewMessages } from './messages';
 	import { PICTURE_VIEWS } from './pictures';
+
+	/**
+	 * A chart played on the beat (« Près du silence »): the chord on show in the middle of the
+	 * field, as large as a note, the next one beside it with an arrow; the chart under it as rows
+	 * of bars, the chords in their cells, the cell on show light as a target, the cells played
+	 * carrying the form of their verdict, the bars behind stepped back. The chart moves on bar by
+	 * bar, never slides. The exercise's cue (the way, the zone) under the chord; the chart's title
+	 * in the frame's info line. Aided, the neck under the chart.
+	 */
 
 	/** Bars on the line: the one before the current one, with its verdicts, then the next ones. */
 	const VISIBLE_BARS = 4;
@@ -14,16 +24,17 @@
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
 	const stage = $derived(model as PassageStageModel);
-	const t = $derived(viewMessages());
+	const view = $derived(controller.view);
 
-	let nowBeat = $state(0);
+	// svelte-ignore state_referenced_locally
+	let nowBeat = $state(controller.timeline.nowBeat());
 	$effect(() => {
 		let raf = 0;
 		const loop = () => {
 			nowBeat = controller.timeline.nowBeat();
 			raf = requestAnimationFrame(loop);
 		};
-		loop();
+		raf = requestAnimationFrame(loop);
 		return () => cancelAnimationFrame(raf);
 	});
 
@@ -35,36 +46,48 @@
 		placement.current === null ? null : stage.rounds[placement.current].label
 	);
 	const next = $derived(placement.next === null ? null : stage.rounds[placement.next].label);
-	const firstBar = $derived(placement.bars[0]?.bar ?? 0);
+
+	/** The chart's title (the prompt's secondary) goes to the info line; said here without a frame. */
+	const parts = $derived(stage.prompt.secondary ? [stage.prompt.secondary] : []);
+	const info = useInfoLine();
+	$effect(() => {
+		if (!info) return;
+		info.parts = parts;
+		return () => {
+			info.parts = [];
+		};
+	});
 </script>
 
 <div class="grid-scroll">
-	<header class="head">
-		{#if stage.prompt.secondary}
-			<p class="title">{stage.prompt.secondary}</p>
+	{#if !info && parts.length > 0}
+		<p class="meta" data-testid="grid-title">{parts.join(' · ')}</p>
+	{/if}
+
+	<div class="centre">
+		{#if view.countdown !== null}
+			<p class="count" data-testid="grid-countdown" aria-live="polite">{view.countdown}</p>
 		{/if}
+		<div class="now" aria-live="polite">
+			{#if current !== null}
+				<p class="current" data-testid="current-chord">{current}</p>
+			{/if}
+			{#if next !== null}
+				<!-- The next chord, with its arrow: no word for it. Announced a beat ahead, it lights up. -->
+				<p class="next" class:announced={placement.nextAnnounced} data-testid="next-chord">
+					<span class="arrow" aria-hidden="true">→</span>{next}
+				</p>
+			{/if}
+		</div>
 		{#if stage.prompt.detail}
 			<p class="cue">{stage.prompt.detail}</p>
 		{/if}
-	</header>
-
-	<div class="now">
-		<div class="current" aria-live="polite">
-			{#if current !== null}
-				<p class="symbol" data-testid="current-chord">{current}</p>
-			{/if}
-		</div>
-		<div class="next" class:announced={placement.nextAnnounced}>
-			<p class="label">{t.next}</p>
-			<p class="symbol next-symbol" data-testid="next-chord">{next ?? t.end}</p>
-		</div>
+		{#each stage.verdict?.misses ?? [] as miss, i (i)}
+			<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
+		{/each}
 	</div>
 
-	{#each stage.verdict?.misses ?? [] as miss, i (i)}
-		<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
-	{/each}
-
-	{#key firstBar}
+	<div class="bottom">
 		<ol class="bars">
 			{#each placement.bars as bar (bar.bar)}
 				<li class="bar">
@@ -72,153 +95,191 @@
 						<div
 							class="cell {cell.state}"
 							class:continued={cell.continued}
+							data-tone={cell.verdict ? verdictTone(cell.verdict) : undefined}
 							style:flex-grow={cell.beats}
 						>
 							{#if !cell.continued}
 								<span class="chord">{cell.symbol}</span>
 							{/if}
 							{#if cell.verdict}
-								<span class="verdict"><VerdictSprite verdict={cell.verdict} size={24} /></span>
+								<span class="verdict"><VerdictMark verdict={cell.verdict} size={24} /></span>
 							{/if}
 						</div>
 					{/each}
 				</li>
 			{/each}
 		</ol>
-	{/key}
 
-	{#if stage.aid}
-		{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
-		<!-- Its own row under the cells, as the link's under its lane. No legend: the neck tells now
-		from next by the colour of its notes. -->
-		<div class="aid" data-testid="grid-aid">
-			<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
-		</div>
-	{/if}
+		{#if stage.aid}
+			{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
+			<!-- Its own row under the cells. No legend: the neck tells now from next by the tone of its notes. -->
+			<div class="aid" data-testid="grid-aid">
+				<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>
+	/* The chord over the chart; the frame paints the field. */
 	.grid-scroll {
-		display: flex;
+		display: grid;
+		grid-template-rows: auto 1fr auto;
 		flex: 1;
-		flex-direction: column;
-		gap: var(--np-space-2, 16px);
 		min-width: 0;
-		padding: var(--np-space-2, 16px);
-		background: var(--np-bg);
-		color: var(--np-ink);
-		font-family: var(--np-font-pixel);
-		font-weight: 700;
+		gap: var(--np-step-4);
+		font-family: var(--np-font-text);
 	}
 
-	.head {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		gap: var(--np-space-1, 8px);
+	/* Without a title the first row is empty: the chord still takes the middle. */
+	.grid-scroll > .centre:first-child {
+		grid-row: 1 / 3;
 	}
 
-	.title,
-	.cue,
-	.label {
+	.grid-scroll p {
 		margin: 0;
-		font-size: var(--np-type-meta);
-		line-height: 1;
-		text-transform: uppercase;
 	}
 
-	.cue {
-		font-size: var(--np-type-body);
+	.meta {
+		font-size: var(--np-size-meta);
+		opacity: 0.8;
 	}
 
+	.centre {
+		container-type: inline-size;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--np-step-3);
+		min-width: 0;
+		text-align: center;
+	}
+
+	.count {
+		font-size: var(--np-size-prompt);
+		font-weight: 300;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* The chord on show and the next one on one line, both one word, never cut. */
 	.now {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: flex-end;
+		align-items: baseline;
 		justify-content: center;
-		gap: var(--np-space-4, 32px);
+		gap: var(--np-step-2) var(--np-step-5);
 	}
 
-	.symbol {
-		margin: 0;
+	.current {
+		font-size: min(var(--np-size-hero), 22cqi);
+		font-weight: 300;
 		line-height: 1;
-		text-transform: none;
-	}
-
-	.current .symbol {
-		font-size: var(--np-type-hero);
+		white-space: nowrap;
 	}
 
 	.next {
-		display: grid;
-		justify-items: center;
-		gap: var(--np-space-1, 8px);
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--np-step-2);
+		font-size: var(--np-size-prompt);
+		line-height: 1.1;
+		white-space: nowrap;
+		opacity: 0.6;
 	}
 
-	/* The aid's neck at the view's width: a climb's first change spans the whole neck. */
-	.aid {
-		--neck-max: none;
+	/* A beat or less before it: the next chord stands as clear as the one on show. */
+	.next.announced {
+		opacity: 1;
+	}
+
+	.cue {
+		font-size: var(--np-size-body);
+		opacity: 0.85;
+	}
+
+	.bottom {
+		display: flex;
+		flex-direction: column;
+		gap: var(--np-step-4);
 		min-width: 0;
 	}
 
-	.next-symbol {
-		font-size: var(--np-type-title);
-		color: var(--np-shade);
-	}
-
-	/* A beat or less before it: the next chord turns to ink, inverted. */
-	.next.announced .next-symbol {
-		background: var(--np-ink);
-		color: var(--np-bg);
-		padding: 0 var(--np-space-1, 8px);
-	}
-
+	/* The chart: four bars a row, each a row of cells; a cell's width is its beats. */
 	.bars {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: var(--np-space-1, 8px);
-		animation: scroll-in 160ms ease-out both;
+		gap: var(--np-step-1);
 	}
 
 	.bar {
 		display: flex;
+		gap: var(--np-cell-gap);
 		min-width: 0;
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
 	}
 
 	.cell {
+		position: relative;
 		display: flex;
 		flex-basis: 0;
+		flex-wrap: wrap;
 		align-items: center;
-		justify-content: space-between;
-		gap: 4px;
+		align-content: center;
+		justify-content: center;
+		gap: var(--np-step-1);
 		min-width: 0;
-		min-height: calc(var(--np-tile) * 6);
-		padding: 4px var(--np-space-1, 8px);
-		font-size: var(--np-type-meta);
-		background: var(--np-bg);
+		min-height: clamp(var(--np-step-6), 5.6vw, var(--np-step-8));
+		padding: var(--np-step-1);
+		box-sizing: border-box;
+		background: var(--np-cell);
+		color: var(--np-on-field);
+		font-size: var(--np-size-cell);
+		font-weight: 500;
+		line-height: 1;
+		border: 2px solid transparent;
 		overflow: hidden;
 	}
 
-	.cell + .cell {
-		border-inline-start: calc(var(--np-tile) / 4) solid var(--np-ink);
+	/* A change that began in the bar before: its cell runs on, its name already written. */
+	.cell.continued {
+		opacity: 0.7;
 	}
 
+	/* Behind us: stepped back, the verdict still read. */
 	.cell.past {
-		background: var(--np-mid);
+		opacity: var(--np-cell-past-opacity);
 	}
 
+	/* On show: the target's tile, light, the name in ink. */
 	.cell.current {
-		background: var(--np-ink);
-		color: var(--np-bg);
+		background: var(--np-on-field);
+		color: var(--np-text);
 	}
 
+	/* Next: outlined, not yet lit. */
 	.cell.next {
-		background: var(--np-mid);
-		color: var(--np-ink);
+		border-color: var(--np-on-field);
+	}
+
+	/* A cell played takes the tone of its verdict, as a lane cell does. */
+	.cell[data-tone='hit'] {
+		background: var(--np-on-field);
+		color: var(--np-text);
+	}
+
+	.cell[data-tone='partial'] {
+		background: transparent;
+		border-color: var(--np-on-field);
+		color: var(--np-on-field);
+	}
+
+	.cell[data-tone='miss'] {
+		background: var(--np-text);
+		color: var(--np-on-field);
 	}
 
 	.chord {
@@ -229,18 +290,14 @@
 
 	.verdict {
 		display: inline-flex;
-		animation: imprint 120ms ease-out both;
+		flex: none;
+		animation: imprint var(--np-motion-imprint) var(--np-motion-ease);
 	}
 
-	@keyframes scroll-in {
-		from {
-			transform: translateX(var(--np-space-4, 32px));
-			opacity: 0.6;
-		}
-		to {
-			transform: none;
-			opacity: 1;
-		}
+	/* The aid's neck at the chart's width: a climb's first change spans the whole neck. */
+	.aid {
+		--neck-max: none;
+		min-width: 0;
 	}
 
 	@keyframes imprint {
@@ -253,7 +310,6 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.bars,
 		.verdict {
 			animation: none;
 		}

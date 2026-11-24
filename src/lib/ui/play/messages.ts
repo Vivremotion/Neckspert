@@ -29,11 +29,9 @@ export const playMessages = defineMessages({
 		aidFret: (fret: number) => `case ${fret}`,
 		finished: 'Série terminée',
 		go: 'C’est parti',
-		startsIn: (beats: number) => `Départ dans ${beats} temps`,
 		fatigue: 'Fatigue détectée : la session s’arrête à la fin du passage',
 		bleed:
 			'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.',
-		quitExercise: 'Quitter l’exercice',
 		/** The header of a session played freely. */
 		freePlay: 'Jeu libre',
 		playedAs: (label: string) => `${label} joué`,
@@ -84,11 +82,9 @@ export const playMessages = defineMessages({
 		aidFret: (fret: number) => `fret ${fret}`,
 		finished: 'Series over',
 		go: 'Let’s go',
-		startsIn: (beats: number) => `Starting in ${beats} ${beats === 1 ? 'beat' : 'beats'}`,
 		fatigue: 'Fatigue detected: the session stops at the end of the passage',
 		bleed:
 			'The microphone hears the click: plug in headphones, or your guitar through an interface, then start again.',
-		quitExercise: 'Quit the exercise',
 		freePlay: 'Free play',
 		playedAs: (label: string) => `${label} played`,
 		nothingHeard: 'nothing heard',

@@ -128,12 +128,12 @@ describe('/session page, a routine', () => {
 			const services = createFakeAppServices({ startRoutine });
 			const { container } = render(SessionHarness, { props: { services } });
 			await waitFor(() => expect(startRoutine).toHaveBeenCalledWith(id, { free }));
-			await waitFor(() => expect(container.querySelector('[data-world="quiet"]')).toBeTruthy());
+			await waitFor(() => expect(container.querySelector('.play')).toBeTruthy());
 			expect(ready).toHaveBeenCalled();
 		}
 	);
 
-	it('renders no frame, no pixel chrome, until ready() has put the first view on stage', async () => {
+	it('renders no frame until ready() has put the first view on stage', async () => {
 		nav.search = '?routine=notes';
 		let finish: () => void = () => {};
 		const idle = idleController();
@@ -151,9 +151,8 @@ describe('/session page, a routine', () => {
 		const services = createFakeAppServices({ startRoutine });
 		const { container } = render(SessionHarness, { props: { services } });
 		await waitFor(() => expect(ready).toHaveBeenCalled());
-		expect(container.querySelector('[data-world]')).toBeNull();
+		expect(container.querySelector('.play')).toBeNull();
 		finish();
-		await waitFor(() => expect(container.querySelector('[data-world="quiet"]')).toBeTruthy());
-		expect(container.querySelector('[data-world="pixel"]')).toBeNull();
+		await waitFor(() => expect(container.querySelector('.play')).toBeTruthy());
 	});
 });

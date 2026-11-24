@@ -1,20 +1,16 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
 	import { allGrids } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
-	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import { provideInfoLine } from './infoLine.svelte';
 	import { playMessages } from './messages';
-	import PixelWord from './PixelWord.svelte';
 	import QuietField from './QuietField.svelte';
 	import QuietOverlay from './QuietOverlay.svelte';
 	import QuietTop from './QuietTop.svelte';
 	import { replayOf } from './replay.svelte';
-	import { PLAY_VIEWS, VIEW_WORLDS, type PlayViewProps, type PlayWorld } from './views';
+	import { PLAY_VIEWS, type PlayViewProps } from './views';
 	import type { Component } from 'svelte';
 
 	let {
@@ -33,19 +29,6 @@
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
 	/** What the view on stage adds to the info line (its exercise, its level, its bar). */
 	const infoLine = provideInfoLine();
-	/** The world of the last view shown: the frame keeps it when the stage empties (the end). */
-	let shownWorld: PlayWorld | null = null;
-	/**
-	 * The frame is drawn in the world of the view on stage, from the start screen on (the
-	 * controller places its first exercise's view at `ready()`, and the page shows the frame
-	 * only then). When the stage empties (the end) it keeps the world it showed; with none ever
-	 * shown it is neutral, in the pixel world. The world never reads what the session plays (its
-	 * origin, which names the header and gives the how-to when the exercise tells none).
-	 */
-	const world: PlayWorld = $derived.by(() => {
-		if (view.stage) shownWorld = VIEW_WORLDS[view.stage.view] ?? 'pixel';
-		return shownWorld ?? 'pixel';
-	});
 	/**
 	 * The header names what plays: the routine, or the exercise alone; « Jeu libre » alone for a
 	 * routine played freely (the notes' free play), in front of an exercise played alone freely.
@@ -73,7 +56,7 @@
 	 */
 	const how = $derived(view.briefing?.text ?? controller.origin?.howTo?.[i18n.locale] ?? t.howTo);
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
-	/** In the quiet world, start, end and pause are a light page over the field. */
+	/** Start, end and pause are a light page over the field. */
 	const light = $derived(showStart || view.status === 'paused');
 	const running = $derived(
 		view.status === 'count-in' || view.status === 'awaiting' || view.status === 'verdict'
@@ -125,12 +108,6 @@
 			return;
 		}
 		if (view.status !== 'idle' && view.status !== 'finished') controller.quit();
-	}
-
-	/** « Quitter l’exercice », from the pause: no shortcut, on purpose. */
-	function quitExercise() {
-		controller.quit();
-		if (!quitToSummary) void goto(resolve('/'));
 	}
 
 	/** E (L in English) listens to the figure, R replays the last run, Escape closes the pause. */
@@ -202,159 +179,74 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} onkeyup={onKeyup} />
-{#if world === 'quiet'}
-	<QuietField {light} data-world="quiet" data-status={view.status}>
-		<QuietTop
-			parts={infoParts}
-			playing={running}
-			{light}
-			onpause={() => controller.pause()}
-			onleave={leave}
-		/>
+<QuietField {light} data-status={view.status}>
+	<QuietTop
+		parts={infoParts}
+		playing={running}
+		{light}
+		onpause={() => controller.pause()}
+		onleave={leave}
+	/>
 
-		<div class="quiet-stage">
-			{#if toldInField && announced !== null}
-				<!-- Before play: the level reached and its tempo, laid over the field, as large as a prompt line. -->
-				<div class="told" role="status">
-					<Prompt main={announced} size="prompt" />
-				</div>
-			{/if}
-			{#if Stage && view.stage}
-				<Stage {controller} model={view.stage.model} />
-			{:else if view.countdown !== null}
-				<!-- No view yet: the frame counts the bar down in the middle of the field. -->
-				<div class="quiet-count" aria-live="polite">
-					<Prompt main={String(view.countdown)} size="prompt" />
-				</div>
-			{/if}
-			{#if view.contest !== null || view.fatigueDetected || toldInLine !== null}
-				<div class="quiet-status">
-					{#if toldInLine !== null}
-						<p class="announcement" role="status">{toldInLine}</p>
-					{/if}
-					{#if view.contest === 'available'}
-						<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
-					{:else if view.contest === 'done'}
-						<p>{t.contested}</p>
-					{/if}
-					{#if view.fatigueDetected}
-						<p role="status">{t.fatigue}</p>
-					{/if}
-				</div>
-			{/if}
-		</div>
-
-		<QuietOverlay
-			status={view.status}
-			audioError={view.audioError}
-			{how}
-			briefing={view.briefing?.text ?? null}
-			onstart={() => controller.start()}
-			onresume={() => controller.resume()}
-		/>
-	</QuietField>
-{:else}
-	<section class="frame" data-world="pixel" data-status={view.status}>
-		<div class="chrome">
-			{#if running}
-				<PixelButton size="large" onclick={() => controller.pause()}>{t.pause}</PixelButton>
-			{/if}
-			<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
-		</div>
-
-		<div class="stage">
-			{#if toldInField && announced !== null}
-				<!-- Before play: the level reached and its tempo, laid over the view, as large as a prompt. -->
-				<p class="told" role="status">{announced}</p>
-			{/if}
-			{#if Stage && view.stage}
-				<Stage {controller} model={view.stage.model} />
-			{/if}
-		</div>
-
-		{#snippet contestOffer()}
-			{#if view.contest === 'available'}
-				<PixelButton size="large" onclick={() => controller.contest()}>{t.playedRight}</PixelButton>
-			{:else if view.contest === 'done'}
-				<p class="label">{t.contested}</p>
-			{/if}
-		{/snippet}
-
-		<div class="status">
-			{#if toldInLine !== null}
-				<!-- A remedy under way, or the change of air. -->
-				<p class="announcement" role="status">{toldInLine}</p>
-			{/if}
-			{#if view.countdown !== null}
-				<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
-				<!-- In text: PixelWord draws the note letters only, no digit. -->
-				<div class="counting">
-					<p class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
-						{t.startsIn(view.countdown)}
-					</p>
-				</div>
-			{:else if view.contest !== null}
-				<!-- The view draws the verdict: the frame offers « Joué juste ». -->
-				<div class="verdict">
-					{@render contestOffer()}
-				</div>
-			{/if}
-			{#if view.fatigueDetected}
-				<p class="fatigue" role="status">{t.fatigue}</p>
-			{/if}
-		</div>
-
-		{#if showStart}
-			<div class="overlay">
-				{#if view.status === 'finished'}
-					<p class="how">{t.finished}</p>
-				{:else if view.audioError === 'input'}
-					<p class="how" role="alert">{t.noInput}</p>
-				{:else if view.audioError === 'bleed'}
-					<!-- The game is not refused: a first encounter still reads its instruction. -->
-					<p class="how" role="alert">{t.bleed}</p>
-					<p class="how">{how}</p>
-				{:else}
-					<p class="how">{how}</p>
-				{/if}
-				<PixelButton size="huge" onclick={() => controller.start()}
-					>{view.status === 'finished' ? t.again : t.start}</PixelButton
-				>
+	<div class="stage">
+		{#if toldInField && announced !== null}
+			<!-- Before play: the level reached and its tempo, laid over the field, as large as a prompt line. -->
+			<div class="told" role="status">
+				<Prompt main={announced} size="prompt" />
 			</div>
-		{:else if view.status === 'paused' && view.briefing}
-			<!-- An exercise met for the first time: its instruction, then a counted bar. -->
-			<div class="overlay" role="dialog" aria-label={t.go}>
-				<p class="how">{view.briefing.text}</p>
-				<PixelButton size="huge" onclick={() => controller.resume()}>{t.go}</PixelButton>
+		{/if}
+		{#if Stage && view.stage}
+			<Stage {controller} model={view.stage.model} />
+		{:else if view.countdown !== null}
+			<!-- No view yet: the frame counts the bar down in the middle of the field. -->
+			<div class="count" aria-live="polite">
+				<Prompt main={String(view.countdown)} size="prompt" />
 			</div>
-		{:else if view.status === 'paused'}
-			<div class="overlay">
-				<PixelButton size="huge" onclick={() => controller.resume()}>{t.resume}</PixelButton>
-				{#if controller.replay}
-					<PixelButton size="large" disabled={replay.pending} onclick={() => replay.run()}
-						>{replay.pending ? t.replaying : `${t.replay} (${t.replayKey})`}</PixelButton
-					>
+		{/if}
+		{#if view.contest !== null || view.fatigueDetected || toldInLine !== null}
+			<div class="status">
+				{#if toldInLine !== null}
+					<p class="announcement" role="status">{toldInLine}</p>
 				{/if}
-				{#if figures}
-					<PixelButton size="large" onclick={quitExercise}>{t.quitExercise}</PixelButton>
+				{#if view.contest === 'available'}
+					<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
+				{:else if view.contest === 'done'}
+					<p>{t.contested}</p>
+				{/if}
+				{#if view.fatigueDetected}
+					<p role="status">{t.fatigue}</p>
 				{/if}
 			</div>
 		{/if}
-	</section>
-{/if}
+	</div>
+
+	<QuietOverlay
+		status={view.status}
+		audioError={view.audioError}
+		{how}
+		briefing={view.briefing?.text ?? null}
+		replay={controller.replay ? replay : null}
+		replayKey={t.replayKey}
+		onstart={() => controller.start()}
+		onresume={() => controller.resume()}
+	/>
+</QuietField>
 
 <style>
-	/* The quiet world: the view fills the field under the info line, its status line below it. */
-	.quiet-stage {
+	/* The view fills the field under the info line, its status line below it. */
+	.stage {
 		position: relative;
 		grid-row: 2 / -1;
 		display: flex;
 		flex-direction: column;
 		gap: var(--np-step-4);
 		min-width: 0;
+		/* The band a level reached is told in, declared once: a view whose content starts at the
+		   top keeps it free (`--play-told-band`). */
+		--play-told-band: calc(var(--np-size-prompt) * 1.1 + 2 * var(--np-step-2));
 	}
 
-	.quiet-count {
+	.count {
 		display: flex;
 		flex: 1;
 		align-items: center;
@@ -369,21 +261,12 @@
 		inset-inline: 0;
 		display: flex;
 		justify-content: center;
+		padding-block: var(--np-step-2);
+		background: var(--np-field);
 		pointer-events: none;
 	}
 
-	/* The band's height is declared once, on the stage: a view whose content starts at the top
-	   keeps it free (`--play-told-band`). */
-	.quiet-stage {
-		--play-told-band: calc(var(--np-size-prompt) * 1.1 + 2 * var(--np-step-2));
-	}
-
-	.quiet-stage .told {
-		padding-block: var(--np-step-2);
-		background: var(--np-field);
-	}
-
-	.quiet-status {
+	.status {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
@@ -393,167 +276,11 @@
 		text-align: center;
 	}
 
-	.quiet-status p {
+	.status p {
 		margin: 0;
-	}
-
-	.frame {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: var(--np-space-2, 16px);
-		box-sizing: border-box;
-		width: 100%;
-		max-width: 1280px;
-		min-height: 100dvh;
-		margin-inline: auto;
-		padding: var(--np-space-1, 8px);
-		padding-block-start: calc(var(--np-tile) * 9);
-		container: play / inline-size;
-		background-color: var(--np-bg);
-		background-image:
-			linear-gradient(
-				45deg,
-				var(--np-mid) 25%,
-				transparent 25%,
-				transparent 75%,
-				var(--np-mid) 75%
-			),
-			linear-gradient(45deg, var(--np-mid) 25%, transparent 25%, transparent 75%, var(--np-mid) 75%);
-		background-position:
-			0 0,
-			8px 8px;
-		background-size: 16px 16px;
-		color: var(--np-ink);
-		font-family: var(--np-font-pixel);
-		font-weight: 700;
-	}
-
-	.chrome {
-		position: absolute;
-		z-index: 8;
-		top: var(--np-space-1, 8px);
-		inset-inline: var(--np-space-1, 8px);
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		align-items: center;
-		gap: var(--np-space-1, 8px);
-	}
-
-	.leave {
-		color: var(--np-ink);
-		font: inherit;
-		font-size: var(--np-type-body);
-		text-transform: uppercase;
-		text-decoration: none;
-		background: var(--np-bg);
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
-		padding: var(--np-space-1, 8px) 12px;
-	}
-
-	/* The view takes the room it needs; the verdict follows right under it, in sight. */
-	.counting {
-		display: flex;
-		align-items: center;
-		gap: var(--np-space-2, 16px);
-	}
-
-	.countdown {
-		margin: 0;
-		font-size: var(--np-type-display);
-		line-height: 1;
-		text-align: center;
-	}
-
-	.stage {
-		position: relative;
-		display: flex;
-		flex: 0 1 auto;
-		min-width: 0;
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
-		background: var(--np-bg);
-	}
-
-	.status {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--np-space-1, 8px);
-		min-block-size: calc(var(--np-tile) * 8);
-		padding: var(--np-space-1, 8px);
-		background: var(--np-bg);
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
-	}
-
-	.verdict {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: center;
-		gap: var(--np-space-2, 16px);
 	}
 
 	.announcement {
-		margin: 0;
-		font-size: var(--np-type-body);
-		line-height: 1.2;
-		text-align: center;
-		text-transform: uppercase;
-	}
-
-	/* The pixel world: the level reached, centred over the view, at the size of a prompt. */
-	.frame .told {
-		inset-inline: var(--np-space-1, 8px);
-		inset-block-start: var(--np-space-1, 8px);
-		margin: 0;
-		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
-		font-size: var(--np-type-prompt);
-		line-height: 1.1;
-		text-align: center;
-		text-transform: uppercase;
-		background: var(--np-bg);
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
-	}
-
-	.quiet-status .announcement {
 		font-size: var(--np-size-body);
-		text-transform: none;
-	}
-
-	.label,
-	.fatigue {
-		margin: 0;
-		font-size: var(--np-type-meta);
-		line-height: 1;
-		text-align: center;
-		text-transform: uppercase;
-	}
-
-	.fatigue {
-		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
-		background: var(--np-ink);
-		color: var(--np-bg);
-	}
-
-	.overlay {
-		position: absolute;
-		inset: 0;
-		z-index: 6;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: var(--np-space-3, 24px);
-		padding: var(--np-space-4, 32px);
-		background: var(--np-bg);
-	}
-
-	.how {
-		margin: 0;
-		max-width: 36rem;
-		text-align: center;
-		font-size: var(--np-type-body);
-		text-transform: uppercase;
 	}
 </style>

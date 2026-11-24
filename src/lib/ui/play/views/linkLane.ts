@@ -1,6 +1,7 @@
 import type { PassageRound, PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { LaneEntry } from '$lib/application/session/contract';
 import type { ResponseVerdict } from '$lib/domain/types';
+import type { LaneTile } from '$lib/ui/play/lane';
 
 /** Beats on show behind the hit line, as on the notes' lane. */
 export const LANE_BEATS_BEFORE = 4;
@@ -27,8 +28,8 @@ export interface LinkLaneTile {
 	symbol: string | null;
 	/** The change asked: the session listens for it. */
 	due: boolean;
-	/** Beat in the bar, 1 to 4, on the beats ahead, once the lane runs in time. */
-	label: number | null;
+	/** The first beat of a bar, once the lane runs in time; a tone lighter on the lane. */
+	downbeat: boolean;
 	verdict: ResponseVerdict | null;
 	/** The latest verdict played. */
 	justPlayed: boolean;
@@ -37,7 +38,8 @@ export interface LinkLaneTile {
 /**
  * The link's lane (spec 2026-10-10, second redesign, after trying it): the notes' lane, a tile per
  * beat, the way only on the first beat of each round (the first round's words), the round asked
- * due; nothing after the last round. The model's `anchorBeat`
+ * due; nothing after the last round; no beat numbers (« Près du silence », 2026-10-22: the first
+ * beat of a bar is a tone lighter instead). The model's `anchorBeat`
  * is the beat of the change on show once its round is open; before, `countedBeat` is where the
  * counted bar ends. Without either, that change waits on the next beat and nothing counts.
  */
@@ -82,10 +84,28 @@ export function linkLaneLayout(
 			offset: beat - time.nowBeat,
 			symbol: on?.symbol ?? null,
 			due: on?.change === index,
-			label: anchored && beat >= current ? inBar + 1 : null,
+			downbeat: anchored && inBar === 0,
 			verdict: entry?.verdict ?? null,
 			justPlayed: entry !== null && entry === latest
 		});
 	}
 	return tiles;
+}
+
+/**
+ * The link's tiles as the notes' lane draws them (`Lane`): a played beat is history with its
+ * verdict, the change asked is the target, the way of a round is the words of its first beat.
+ */
+export function laneTilesOfLink(tiles: readonly LinkLaneTile[]): LaneTile[] {
+	return tiles.map((tile) => ({
+		beatIndex: tile.beatIndex,
+		offset: tile.offset,
+		downbeat: tile.downbeat,
+		kind: tile.verdict !== null ? 'history' : tile.due ? 'target' : 'empty',
+		verdict: tile.verdict,
+		justPlayed: tile.justPlayed,
+		current: tile.offset > 0 && tile.offset <= 1,
+		bandEdge: null,
+		label: tile.symbol
+	}));
 }

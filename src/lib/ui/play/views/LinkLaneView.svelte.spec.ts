@@ -70,37 +70,33 @@ describe('LinkLaneView', () => {
 		expect(PLAY_VIEWS['link-path']).toBeUndefined();
 	});
 
+	/** The chord in the middle of the field, as the notes' lane shows a note. */
+	const root = () => screen.getByTestId('link-root').querySelector('.main')?.textContent;
+
 	it('shows the root big, its quality and the strings', () => {
 		render(LinkLaneView, { props: { controller: running(0.5), model: model(0, false) } });
-		expect(screen.getByTestId('link-root').textContent).toBe('E');
+		expect(root()).toBe('E');
 		expect(screen.getByText('majeur')).toBeTruthy();
 		// One line, the strings named as the triads' lane names them (plan 4c, decided).
 		expect(screen.getByText('sur cordes sol‑si‑mi')).toBeTruthy();
 	});
 
-	it('draws the root on the first tile, arrows after', () => {
+	it('draws the root on the first tile of the notes’ lane, arrows after', () => {
 		render(LinkLaneView, { props: { controller: running(0.5), model: model(0, false) } });
-		// A tile per beat: the way on the first beat of each bar only, two bars ahead.
-		expect(screen.getAllByTestId('link-tile').map((t) => t.textContent?.trim())).toEqual([
-			'E',
-			'↗',
-			'↗'
-		]);
+		// A tile per beat on the lane: the way on the first beat of each bar only, two bars ahead.
+		const words = [...document.querySelectorAll('.lane .cell .label')].map((l) =>
+			l.textContent?.trim()
+		);
+		expect(words).toEqual(['E', '↗', '↗']);
 	});
 
-	it('numbers the beats ahead, as on the notes lane, the change asked due', () => {
+	it('writes no beat number: the first beat of each bar is a downbeat, the change asked the target', () => {
 		render(LinkLaneView, { props: { controller: running(9), model: model(2, false) } });
-		expect(screen.getAllByTestId('link-beat').map((b) => b.textContent?.trim())).toEqual([
-			'3',
-			'4',
-			'1',
-			'2',
-			'3',
-			'4',
-			'1',
-			'2'
-		]);
-		const due = document.querySelectorAll('.body.due');
+		const cells = [...document.querySelectorAll('.lane .cell')];
+		expect(cells.some((cell) => /^[0-9]$/.test(cell.textContent?.trim() ?? ''))).toBe(false);
+		// Twelve beats on the lane, three of them downbeats.
+		expect(cells.filter((cell) => cell.hasAttribute('data-downbeat'))).toHaveLength(3);
+		const due = document.querySelectorAll('.lane .cell[data-kind="target"]');
 		expect(due).toHaveLength(1);
 		expect(due[0].textContent?.trim()).toBe('↗');
 	});
@@ -126,27 +122,29 @@ describe('LinkLaneView', () => {
 		).toEqual(['mi', 'si', 'sol']);
 	});
 
-	it('shows the root bigger during the silence before the counted bar', () => {
+	it('keeps the root on screen during the silence before the counted bar, with no count yet', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';
 		render(LinkLaneView, { props: { controller, model: model(0, false, null) } });
-		expect(screen.getByTestId('link-root').classList.contains('counting')).toBe(true);
+		expect(root()).toBe('E');
+		expect(screen.queryByTestId('link-countdown')).toBeNull();
 	});
 
-	it('shows the root bigger during the counted bar', () => {
+	it('writes the count above the root during the counted bar, the change where the count ends', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';
 		controller.view.countdown = 3;
 		controller.nowBeat = 37;
 		render(LinkLaneView, { props: { controller, model: model(0, false, null) } });
-		expect(screen.getByTestId('link-root').classList.contains('counting')).toBe(true);
-		expect(screen.getAllByTestId('link-tile')[0].textContent?.trim()).toBe('E');
-		// The change falls where the count ends: beats 38 to 40 numbered 3, 4, 1.
-		expect(
-			screen
-				.getAllByTestId('link-beat')
-				.slice(0, 3)
-				.map((b) => b.textContent?.trim())
-		).toEqual(['3', '4', '1']);
+		expect(screen.getByTestId('link-countdown').textContent?.trim()).toBe('3');
+		expect(root()).toBe('E');
+		// The change falls where the count ends, on beat 40: its tile is the target, the root on it.
+		const target = document.querySelector('.lane .cell[data-kind="target"]');
+		expect(target?.textContent?.trim()).toBe('E');
+		// The bars run from there: a downbeat on it, and every four beats either side.
+		const cells = [...document.querySelectorAll('.lane .cell')];
+		const downbeats = cells.flatMap((cell, i) => (cell.hasAttribute('data-downbeat') ? [i] : []));
+		const at = cells.indexOf(target as Element);
+		expect(downbeats).toEqual([at - 4, at, at + 4]);
 	});
 });

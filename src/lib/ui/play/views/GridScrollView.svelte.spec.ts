@@ -75,8 +75,11 @@ describe('GridScrollView', () => {
 		controller.nowBeat = 12.2;
 		render(GridScrollView, { props: { controller, model: model({ anchorBeat: 12 }) } });
 		expect(screen.getByTestId('current-chord').textContent).toBe('G7');
-		expect(screen.getByTestId('next-chord').textContent).toBe('Dm7');
+		// The next chord with its arrow, no « Ensuite ».
+		expect(screen.getByTestId('next-chord').textContent?.replace(/\s+/g, '')).toBe('→Dm7');
+		expect(screen.queryByText('Ensuite')).toBeNull();
 		expect(screen.getByText('sol‑si‑mi · ↑ en montant')).toBeTruthy();
+		// Without a frame, the chart's title is said by the view; in the frame it goes to the info line.
 		expect(screen.getByText('I Only Have Eyes for You')).toBeTruthy();
 	});
 
@@ -166,7 +169,7 @@ describe('GridScrollView', () => {
 			props: { controller, model: passageModel(GESTURE_JAM, 'grid=iohefy-a', 0) }
 		});
 		expect(screen.queryByTestId('current-chord')).toBeNull();
-		expect(screen.getByTestId('next-chord').textContent).toBe('Dm7');
+		expect(screen.getByTestId('next-chord').textContent).toContain('Dm7');
 		// The jam says no more than its grid.
 		expect(document.querySelector('.cue')).toBeNull();
 		expect(screen.getByText('I Only Have Eyes for You')).toBeTruthy();

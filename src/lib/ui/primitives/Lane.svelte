@@ -24,8 +24,9 @@
 	const bandPast = $derived(band !== null && tiles[band.start].offset <= 0);
 	const back = $derived(caption ? justPlayedBack(tiles) : null);
 
+	/** A tile's own words first, else the target's name on the target. */
 	function labelOf(tile: LaneTile): string | null {
-		return tile.kind === 'target' ? targetLabel : null;
+		return tile.label ?? (tile.kind === 'target' ? targetLabel : null);
 	}
 </script>
 

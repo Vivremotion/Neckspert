@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from '$lib/application/presentation/playViews';
-import { PLAY_VIEWS, VIEW_WORLDS } from './index';
+import { PLAY_VIEWS } from './index';
 
 /**
  * Tripwire: the application checks the views an exercise names against its own list
@@ -8,9 +8,8 @@ import { PLAY_VIEWS, VIEW_WORLDS } from './index';
  * those.
  */
 describe('the play views', () => {
-	it('are the views the application knows, each in a world', () => {
+	it('are the views the application knows', () => {
 		expect(Object.keys(PLAY_VIEWS).sort()).toEqual([...PLAY_VIEW_NAMES].sort());
-		expect(Object.keys(VIEW_WORLDS).sort()).toEqual([...PLAY_VIEW_NAMES].sort());
 		expect(PLAY_VIEW_NAMES).toContain('figure');
 	});
 

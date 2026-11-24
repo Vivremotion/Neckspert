@@ -554,7 +554,7 @@ try {
 					labels: buttons.map((b) => b.getAttribute('aria-label')),
 					group: document.querySelector('[role="group"]')?.getAttribute('aria-label'),
 					status: document.querySelector('[data-status]')?.getAttribute('data-status'),
-					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
+					world: document.querySelector('.play') ? 'quiet' : undefined,
 					keys: Boolean(document.querySelector('.answer-keys')),
 					lane: Boolean(document.querySelector('.lane')),
 					prompt: document.body.innerText.includes('case 8'),
@@ -617,7 +617,7 @@ try {
 				}
 				return {
 					status: document.querySelector('[data-status]')?.getAttribute('data-status') ?? 'absent',
-					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
+					world: document.querySelector('.play') ? 'quiet' : undefined,
 					lane: Boolean(document.querySelector('.lane-view .lane')),
 					prompt: document.body.innerText.includes('corde de B'),
 					pad: [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'C').length,
@@ -657,7 +657,7 @@ try {
 					await new Promise((resolve) => setTimeout(resolve, 50));
 				}
 				return {
-					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
+					world: document.querySelector('.play') ? 'quiet' : undefined,
 					lane: Boolean(document.querySelector('.lane-view .lane')),
 					shapes: document.querySelectorAll('.lane-view .centre .chord-shape').length,
 					misses: document.querySelectorAll('[data-testid="miss"]').length,
@@ -801,7 +801,7 @@ try {
 				const played = document.querySelector('[data-testid="figure-played"]');
 				const next = document.querySelector('[data-testid="figure-score"][data-shows="next"]');
 				return {
-					quiet: document.querySelector('[data-world="quiet"] .figure-view') !== null,
+					quiet: document.querySelector('.play .figure-view') !== null,
 					pixel: getComputedStyle(document.documentElement).getPropertyValue('--np-bg').trim(),
 					check: document.fonts.check('30px Bravura'),
 					loaded: faces.length > 0 && faces.every((face) => face.status === 'loaded'),

@@ -9,7 +9,7 @@ import type { PlannedItem } from '$lib/domain/types';
 import { figureStage } from '$lib/application/session/series/figureStage';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { playOriginOf } from '$lib/application/session/playOrigin';
-import { PLAY_VIEWS, VIEW_WORLDS } from './index';
+import { PLAY_VIEWS } from './index';
 import FigureView from './FigureView.svelte';
 import PlayFrame from '../PlayFrame.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
@@ -155,10 +155,6 @@ describe('FigureView', () => {
 		expect(PLAY_VIEWS['figure']).toBe(FigureView);
 	});
 
-	it('is drawn in the quiet world', () => {
-		expect(VIEW_WORLDS['figure']).toBe('quiet');
-	});
-
 	it('without a frame, says its parts itself: the exercise, its level, the bar played, the tempo with its unit', () => {
 		render(FigureView, { props: { controller: running(), model: model() } });
 		expect(screen.getByTestId('figure-header').textContent?.trim()).toBe(
@@ -179,7 +175,7 @@ describe('FigureView', () => {
 			model: model({ barInCycle: 1, cycleBars: 4, tempo: { bpm: 90, unit: '♪' } })
 		};
 		const { container } = render(PlayFrame, { props: { controller } });
-		expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
+		expect(container.querySelector('.play')).toBeTruthy();
 		// The frame alone would write a quarter: the view knows the beat is an eighth.
 		expect(infoLine(container)).toBe(
 			'Contretemps · niveau 3 sur 6 · mesure 2 / 4 · ♪ = 90 Pause Quitter'
