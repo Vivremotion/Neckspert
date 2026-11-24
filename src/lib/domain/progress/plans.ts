@@ -3,7 +3,7 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { ladderLevel } from '$lib/domain/learning/ladder';
 import type { CardRef, LadderParams, LearningSubject } from '$lib/domain/learning/subject';
 import { setOfSkill } from '$lib/domain/sets';
-import { levelRange, type LevelState } from '$lib/domain/time/levels';
+import type { LevelState } from '$lib/domain/time/levels';
 import { cardKey, type LeadBeats, type PlannedItem } from '$lib/domain/types';
 import { FREE_PLAY_COUNT } from './constants';
 
@@ -36,8 +36,7 @@ export function freeLevelOf(input: {
 			item: key,
 			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
 		return ladderLevel(held, subject.ladder(card.skill)).level;
 	};
@@ -54,16 +53,16 @@ export function freeLeadOf(input: {
 	const levelOf = freeLevelOf(input);
 	return (card) => {
 		const ladder = input.subject.ladder(card.skill);
-		const { lowest } = levelRange(ladder);
-		return (ladder[levelOf(card) - lowest].params as LadderParams).leadBeats;
+		return (ladder[levelOf(card)].params as LadderParams).leadBeats;
 	};
 }
 
 /**
  * Free-play prompts drawn among the items the given exercises list (`definition.items`, read by
- * their skill's set), with or without a card. An item whose level gives a lead is played at that
- * lead and that level (`freeLeadOf`, `freeLevelOf`); one answered in free time at none. A prompt
- * that asks a member of its item (`subject.promptItem`) is drawn once the plan is.
+ * their skill's set), with or without a card. Every item is played at its level (`freeLevelOf`):
+ * its screen, and whether its attempt may count cold, are that level's; at that level's lead
+ * (`freeLeadOf`), none for an item answered in free time. A prompt that asks a member of its item
+ * (`subject.promptItem`) is drawn once the plan is.
  */
 export function buildFreePlan(input: {
 	exercises: readonly ExerciseDefinition[];
@@ -88,18 +87,16 @@ export function buildFreePlan(input: {
 		.slice(0, count)
 		.map(({ exerciseId, skill, item }) => {
 			const card = { skill, item };
-			const leadBeats = leadOf(card);
-			const level = leadBeats === null ? null : levelOf(card);
-			const asked = input.subject.promptItem?.(card, random, level ?? 0) ?? item;
+			const level = levelOf(card);
+			const asked = input.subject.promptItem?.(card, random, level) ?? item;
 			return {
 				exerciseId,
 				skill,
 				item: asked,
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
-				leadBeats,
-				...(level !== null && { level }),
+				leadBeats: leadOf(card),
+				level,
 				exerciseLevel: 0
 			};
 		});

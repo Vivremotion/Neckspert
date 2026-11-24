@@ -56,7 +56,7 @@ export function levelStateRepositoryContract(
 
 		it('replaces the state stored under the same key', async () => {
 			await repo.put(makeLevelState());
-			const next = makeLevelState({ level: 1, successes: 0, failures: 0, resumeAfter: 5000 });
+			const next = makeLevelState({ level: 1, successes: 0, failures: 2 });
 			await repo.put(next);
 			expect(await repo.all()).toEqual([next]);
 		});

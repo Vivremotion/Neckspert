@@ -13,14 +13,12 @@ describe('/library page', () => {
 					exerciseId: 'a',
 					title: { fr: 'Exercice A', en: 'Exercise A' },
 					routines: [],
-					resting: false,
 					playable: true
 				},
 				{
 					exerciseId: 'b',
 					title: { fr: 'Exercice B', en: 'Exercise B' },
 					routines: [],
-					resting: false,
 					playable: false
 				}
 			]

@@ -26,7 +26,6 @@ export const playMessages = defineMessages({
 		playedRight: 'Joué juste',
 		contested: 'Contesté',
 		stringOf: (name: string) => `corde de ${name}`,
-		aidFret: (fret: number) => `case ${fret}`,
 		finished: 'Série terminée',
 		go: 'C’est parti',
 		startsIn: (beats: number) => `Départ dans ${beats} temps`,
@@ -44,14 +43,8 @@ export const playMessages = defineMessages({
 			'level-up': (shown: number, of: number, bpm: number) =>
 				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`,
 			'level-down': (shown: number, of: number, bpm: number) =>
-				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`,
-			'aid-level': (_shown: number, _of: number, bpm: number) => `Niveau d’aide · ♩ = ${bpm}`,
-			'listen-remedy': () => 'On réécoute la figure',
-			'play-along': () => 'On la joue ensemble',
-			'change-of-air': () => 'On change d’air'
+				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`
 		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
-		/** « On change d’air » of an exercise that leaves a session of several, by its name. */
-		changeOfAirOf: (name: string) => `On change d’air : ${name}`,
 		replay: 'Réécouter',
 		replaying: 'Réécoute…',
 		/** The key of « Écouter la figure »: E, for écouter. */
@@ -81,7 +74,6 @@ export const playMessages = defineMessages({
 		playedRight: 'Played right',
 		contested: 'Contested',
 		stringOf: (name: string) => `${name} string`,
-		aidFret: (fret: number) => `fret ${fret}`,
 		finished: 'Series over',
 		go: 'Let’s go',
 		startsIn: (beats: number) => `Starting in ${beats} ${beats === 1 ? 'beat' : 'beats'}`,
@@ -97,13 +89,8 @@ export const playMessages = defineMessages({
 			'level-up': (shown: number, of: number, bpm: number) =>
 				`Level ${shown} of ${of} · ♩ = ${bpm}`,
 			'level-down': (shown: number, of: number, bpm: number) =>
-				`Level ${shown} of ${of} · ♩ = ${bpm}`,
-			'aid-level': (_shown: number, _of: number, bpm: number) => `Aid level · ♩ = ${bpm}`,
-			'listen-remedy': () => 'Let’s hear the figure again',
-			'play-along': () => 'Let’s play it together',
-			'change-of-air': () => 'Time for a change of air'
+				`Level ${shown} of ${of} · ♩ = ${bpm}`
 		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
-		changeOfAirOf: (name: string) => `Time for a change of air: ${name}`,
 		replay: 'Replay',
 		replaying: 'Replaying…',
 		/** The key of “Listen to the figure”: L, for listen. */

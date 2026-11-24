@@ -18,8 +18,7 @@ function context(plan: RoundPlan, clock: RoundClock = beatClock()): VerdictConte
 		times: firstAnswerTimes(plan, clock, false, roundTimes(plan, clock)),
 		clock,
 		latency: null,
-		thresholds: null,
-		aids: ['show-position']
+		thresholds: null
 	};
 }
 
@@ -239,7 +238,6 @@ describe('responseVerdict', () => {
 		expect(outcome.verdict.relation).toBe('response');
 		expect(outcome.verdict.version).toBe(1);
 		expect(outcome.measures).toEqual({});
-		expect(outcome.aids).toEqual(['show-position']);
 		expect(outcome.detail).toEqual(result([pair(0, 6.1)]));
 	});
 

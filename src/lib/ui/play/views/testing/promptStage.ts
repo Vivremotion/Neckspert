@@ -13,7 +13,6 @@ export function presented(over: Partial<PresentedPrompt> = {}): PresentedPrompt 
 		target: null,
 		band: null,
 		preview: null,
-		aid: null,
 		pictures: [],
 		...over
 	};

@@ -91,8 +91,7 @@ export function levelOf(card: NeckCard, level: number): LevelState {
 		item: key.slice(key.indexOf(':') + 1),
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	};
 }
 

@@ -12,8 +12,6 @@ describe('progress index', () => {
 			'classifyTemperature',
 			'introduceCard',
 			'applyColdAttempt',
-			'probeCard',
-			'probeTemperature',
 			'markLearned',
 			'isAcquired',
 			'isMastered',
@@ -33,5 +31,7 @@ describe('progress index', () => {
 		expect(progress).not.toHaveProperty('introScheduling');
 		expect(progress).not.toHaveProperty('computeHomeStats');
 		expect(progress).not.toHaveProperty('isNeck');
+		expect(progress).not.toHaveProperty('probeCard');
+		expect(progress).not.toHaveProperty('probeTemperature');
 	});
 });

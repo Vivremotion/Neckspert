@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseLevelsOf, overrideParams, pacingAt, resolvedParamsOf, tempoOf } from './levels';
+import {
+	exerciseLevelsOf,
+	exerciseParamsOf,
+	overrideParams,
+	pacingAt,
+	presentationOf,
+	resolvedParamsOf,
+	tempoOf
+} from './levels';
 import type { ExerciseDefinition } from './types';
 import { LOCATE_NECK } from '$lib/testing/catalog';
 import { wallClockMs } from '$lib/testing/wallClock';
@@ -77,7 +85,7 @@ describe('resolvedParamsOf', () => {
 			levels: [{ params: { tempo: 90, 'windows.perfectMs': 60 } }],
 			params: {
 				...LOCATE_NECK.params,
-				ladder: [{ params: { leadBeats: 4, aided: false, 'windows.perfectMs': 100 } }]
+				ladder: [{ params: { leadBeats: 4, 'windows.perfectMs': 100 } }]
 			}
 		};
 		const exerciseOnly = resolvedParamsOf(definition, { exerciseLevel: 0, itemLevel: null });
@@ -86,16 +94,16 @@ describe('resolvedParamsOf', () => {
 		const both = resolvedParamsOf(definition, { exerciseLevel: 0, itemLevel: 0 });
 		expect(both.tempo).toBe(90);
 		expect(both.windows).toMatchObject({ perfectMs: 100, lateMs: 400 });
-		expect(both).toMatchObject({ leadBeats: 4, aided: false });
+		expect(both).toMatchObject({ leadBeats: 4 });
 		expect(tempoOf(definition, 0)).toBe(90);
 	});
 
-	it('reads aid levels at negative indexes, -1 closest to level 1, and refuses one outside', () => {
+	it('reads a level by its place in the list, from 0, and refuses one outside', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,
 			levels: [
-				{ params: { cycleBars: 1 }, aid: true },
-				{ params: { cycleBars: 2 }, aid: true },
+				{ params: { cycleBars: 1 } },
+				{ params: { cycleBars: 2 } },
 				{ params: { cycleBars: 4 } },
 				{ params: {} }
 			],
@@ -103,9 +111,9 @@ describe('resolvedParamsOf', () => {
 		};
 		const bars = (exerciseLevel: number) =>
 			resolvedParamsOf(definition, { exerciseLevel, itemLevel: null }).cycleBars;
-		expect([-2, -1, 0, 1].map(bars)).toEqual([1, 2, 4, 8]);
-		expect(() => bars(2)).toThrow(RangeError);
-		expect(() => bars(-3)).toThrow(RangeError);
+		expect([0, 1, 2, 3].map(bars)).toEqual([1, 2, 4, 8]);
+		expect(() => bars(4)).toThrow(RangeError);
+		expect(() => bars(-1)).toThrow(RangeError);
 	});
 
 	it('takes the tempo the definition writes, never a tempo of its params', () => {
@@ -139,5 +147,85 @@ describe('pacingAt', () => {
 		});
 		expect(pacingAt(paced, 1)).toMatchObject({ roundsPerBreath: 8, breathMinMs: 4000 });
 		expect(pacingAt(LOCATE_NECK, 0)).toEqual({ respirationBars: 1 });
+	});
+});
+
+describe('presentationOf', () => {
+	const presented: ExerciseDefinition = {
+		...LOCATE_NECK,
+		presentation: { primary: '{note}', secondary: '{string}', preview: '{string}' },
+		levels: [
+			{ params: {} },
+			{ params: { 'presentation.detail': '{fret}' } },
+			{ params: { 'presentation.detail': '{fret}', 'presentation.picture': 'string' } }
+		],
+		params: {
+			...LOCATE_NECK.params,
+			ladder: [
+				{ params: { leadBeats: 4 } },
+				{ params: { leadBeats: 2, 'presentation.detail': '{note}' } }
+			]
+		}
+	};
+
+	it("is the exercise's presentation where no level rewrites it", () => {
+		expect(presentationOf(presented, { exerciseLevel: 0, itemLevel: null })).toEqual(
+			presented.presentation
+		);
+		expect(presentationOf(presented, { exerciseLevel: 0, itemLevel: 0 })).toEqual(
+			presented.presentation
+		);
+	});
+
+	it('changes the slot an exercise level writes and nothing else, at any level', () => {
+		expect(presentationOf(presented, { exerciseLevel: 1, itemLevel: null })).toEqual({
+			...presented.presentation,
+			detail: '{fret}'
+		});
+		expect(presentationOf(presented, { exerciseLevel: 2, itemLevel: null })).toEqual({
+			...presented.presentation,
+			detail: '{fret}',
+			picture: 'string'
+		});
+		expect(presented.presentation).toEqual({
+			primary: '{note}',
+			secondary: '{string}',
+			preview: '{string}'
+		});
+	});
+
+	it('applies the item level after the exercise level', () => {
+		expect(presentationOf(presented, { exerciseLevel: 2, itemLevel: 1 })).toEqual({
+			...presented.presentation,
+			detail: '{note}',
+			picture: 'string'
+		});
+		expect(presentationOf(presented, { exerciseLevel: 0, itemLevel: 1 })).toEqual({
+			...presented.presentation,
+			detail: '{note}'
+		});
+	});
+
+	it('is the presentation of the resolved params: one source, the exercise root', () => {
+		for (const exerciseLevel of [0, 1, 2]) {
+			for (const itemLevel of [null, 0, 1]) {
+				const at = { exerciseLevel, itemLevel };
+				expect(resolvedParamsOf(presented, at).presentation).toEqual(presentationOf(presented, at));
+			}
+		}
+		const written = {
+			...presented,
+			params: { ...presented.params, presentation: { primary: 'x' } }
+		};
+		expect(exerciseParamsOf(written).presentation).toEqual(presented.presentation);
+		expect(
+			Object.hasOwn(exerciseParamsOf({ ...written, presentation: undefined }), 'presentation')
+		).toBe(false);
+	});
+
+	it('is undefined for an exercise that writes no presentation', () => {
+		expect(
+			presentationOf({ ...presented, presentation: undefined }, { exerciseLevel: 1, itemLevel: 1 })
+		).toBeUndefined();
 	});
 });

@@ -28,7 +28,6 @@ function previous(voicingKey: string): PlannedItem {
 		item: { voicingKey },
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		leadBeats: 2
 	};
 }

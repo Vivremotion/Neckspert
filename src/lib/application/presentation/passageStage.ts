@@ -1,3 +1,4 @@
+import { presentationOf } from '$lib/domain/exercise/levels';
 import { compilePassageRound } from '$lib/domain/exercise/passage/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { familyNamed, passageDerivation, type Member } from '$lib/domain/families';
@@ -9,7 +10,7 @@ import type { StagePlace } from '$lib/application/sets/types';
 import type { LaneEntry } from '$lib/application/session/contract';
 import { membersPicture, roundMemberFields } from './contentViews';
 import { CONTENT_PICTURES, type Picture } from './pictures';
-import { isAided, presentPrompt, type PresentedPrompt } from './presentPrompt';
+import { presentPrompt, type PresentedPrompt } from './presentPrompt';
 import { stageVerdict, type StageVerdict } from './promptStage';
 
 /** A round of the passage on its line. */
@@ -32,8 +33,11 @@ export interface PassageStageModel {
 	beatsPerBar: number;
 	anchorBeat: number | null;
 	history: readonly LaneEntry[];
-	/** The aid's picture, at an aided level; null otherwise. */
-	aid: Picture | null;
+	/**
+	 * The picture the round's resolved presentation names (the members admitted); null when it
+	 * names none.
+	 */
+	picture: Picture | null;
 	verdict: StageVerdict | null;
 	chordDiagram: ChordDiagramStyle;
 }
@@ -124,8 +128,8 @@ function lineOf(
 }
 
 /**
- * Each round's words on the line, said for its item with the content fields of the round on show:
- * its `target`, else its `primary`.
+ * Each round's words on the line, said for its item at the levels of the round on show, with its
+ * content fields: its `target`, else its `primary`.
  */
 function labelsOf(
 	line: Line,
@@ -135,14 +139,14 @@ function labelsOf(
 	random: () => number,
 	contentFields: Readonly<Record<string, string>>
 ): string[] {
-	const key = JSON.stringify([locale, contentFields]);
+	// The line is the exercise level's: its item level is part of the key.
+	const key = JSON.stringify([locale, contentFields, item.level ?? null]);
 	let labels = line.labels.get(key);
 	if (!labels) {
-		const plain: PlannedItem = { ...item, aid: 'none', stringAid: false, exerciseLevel: 0 };
 		labels = items.map((each) => {
 			const said = presentPrompt(
 				line.definition,
-				{ ...plain, item: each },
+				{ ...item, item: each },
 				locale,
 				random,
 				contentFields
@@ -203,10 +207,10 @@ function admittedPicture(
 /**
  * The screen model of a round of a passage, from its exercise's presentation and its round's plan:
  * the prompt of the round on show (the fields of its member contents among them), the line of the
- * passage (each round's place, its `target` said for its item, the way to it), and, at an aided
- * level (an aid level of the exercise, or the item served aided), the aid the presentation writes:
- * `presentPrompt` makes a line or an item's picture, the members admitted now and next are drawn
- * here. `random` spells a note: give every call for one item the same value.
+ * passage (each round's place, its `target` said for its item, the way to it), and the members
+ * admitted now and next when the presentation of the round's levels names their picture
+ * (`presentationOf`, `picture`): `presentPrompt` makes an item's picture, the members admitted are
+ * drawn here. `random` spells a note: give every call for one item the same value.
  */
 export function passageStage(input: {
 	definition: ExerciseDefinition;
@@ -231,8 +235,12 @@ export function passageStage(input: {
 		content?.kind === MEMBER_CONTENT ? [content.value] : []
 	);
 	const contentFields = roundMemberFields(members, locale);
-	const aided = isAided(item);
-	const picture = definition.presentation?.aided?.picture;
+	const presentation = presentationOf(definition, {
+		exerciseLevel: item.exerciseLevel,
+		itemLevel: item.level ?? null
+	});
+	const picture = presentation?.picture;
+	const drawsAdmitted = picture !== undefined && CONTENT_PICTURES.includes(picture);
 	const line = lineOf(definition, round, items);
 	const labels = labelsOf(line, item, items, locale, random, contentFields);
 	return {
@@ -247,10 +255,7 @@ export function passageStage(input: {
 		beatsPerBar: input.beatsPerBar,
 		anchorBeat: place.anchorBeat,
 		history: place.history,
-		aid:
-			aided && picture !== undefined && CONTENT_PICTURES.includes(picture)
-				? admittedPicture(definition, round, items, plan, settled)
-				: null,
+		picture: drawsAdmitted ? admittedPicture(definition, round, items, plan, settled) : null,
 		verdict: settled && stageVerdict(plan, settled, locale, random),
 		chordDiagram: input.chordDiagram
 	};

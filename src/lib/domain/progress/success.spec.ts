@@ -11,7 +11,6 @@ function attempt(overrides: AttemptOverrides = {}): Attempt {
 		cardKey: 'locate-note-string:6:G',
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: 2,
@@ -36,11 +35,11 @@ describe('successRate', () => {
 });
 
 describe('cardSuccessRate', () => {
-	it('looks at the card’s last five attempts of the session, probe left out', () => {
+	it('looks at the card’s last five attempts of the session', () => {
 		const other = attempt({ cardKey: 'locate-note-string:5:C' });
 		const own = [miss, attempt(), attempt(), attempt(), attempt(), miss];
 		expect(
-			cardSuccessRate([attempt({ phase: 'probe' }), ...own, other], 'locate-note-string:6:G', 5)
+			cardSuccessRate([attempt({ phase: 'learning' }), ...own, other], 'locate-note-string:6:G', 5)
 		).toBe(0.8);
 		expect(cardSuccessRate([other], 'locate-note-string:6:G', 5)).toBeNull();
 	});

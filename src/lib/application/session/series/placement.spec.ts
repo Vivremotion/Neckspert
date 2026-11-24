@@ -29,7 +29,6 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 			item: { string: 3, pitch: 'C' },
 			phase: 'learning',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats
 		},
 		meter,
@@ -46,7 +45,6 @@ const free = compileRound(
 		item: { string: 3, fret: 5 },
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	} satisfies PlannedItem,
 	METER_4_4,

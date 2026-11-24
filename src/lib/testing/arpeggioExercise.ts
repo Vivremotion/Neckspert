@@ -33,9 +33,9 @@ function evenNotes(count: number): Figure {
 }
 
 /**
- * The three shapes in turn, a run of three rounds before a breath; level 1 in quarter notes,
- * level 2 in eighth notes, both at ♩ = 60; below them an aid level that writes the shape's tab
- * under the figure (read from plan S, Task 12).
+ * The three shapes in turn, a run of three rounds before a breath, at ♩ = 60: level 1 writes the
+ * shape's tab under the figure (read from plan S, Task 12), level 2 plays quarter notes, level 3
+ * eighth notes.
  */
 export const ARPEGGIO_EXERCISE: ExerciseDefinition = {
 	id: 'test-arpeggio-sequence',
@@ -73,7 +73,7 @@ export const ARPEGGIO_EXERCISE: ExerciseDefinition = {
 	},
 	presentation: { primary: '{chord}', secondary: '{strings}' },
 	levels: [
-		{ aid: true, params: { 'notation.tab': true } },
+		{ params: { 'notation.tab': true } },
 		{ params: { figure: 'quarters' } },
 		{ params: { figure: 'eighths' } }
 	]

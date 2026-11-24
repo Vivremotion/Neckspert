@@ -64,7 +64,7 @@
 	// Read apart too: the room for the marks is engraved, the marks themselves are not.
 	const marksRoom = $derived(m.live ? LIVE_MARKS_PX : 0);
 
-	const levelText = $derived(m.level.aid ? t.aidLevel : t.level(m.level.shown, m.level.of));
+	const levelText = $derived(t.level(m.level.shown, m.level.of));
 	const header = $derived(t.header(m.exerciseLabel, levelText, t.tempo(m.tempo.unit, m.tempo.bpm)));
 	const phaseText = $derived(t.phase[m.phase]);
 	const told = $derived(breathing ? toldCycle(m.settled) : null);

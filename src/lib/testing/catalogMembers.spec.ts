@@ -24,7 +24,6 @@ function planned(definition: ExerciseDefinition, item: unknown): PlannedItem {
 		item,
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: 2,
 		level: 2
 	};

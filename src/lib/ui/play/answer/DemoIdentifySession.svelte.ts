@@ -60,8 +60,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		audioError: null,
 		stage: null,
 		briefing: null,
-		announcement: null,
-		leaving: null
+		announcement: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 
@@ -164,7 +163,6 @@ export class DemoIdentifySession implements PlaySessionController {
 						item: target,
 						phase: 'review',
 						temperature: 'cold',
-						aid: 'none',
 						leadBeats: null
 					},
 					i18n.locale,

@@ -11,7 +11,6 @@ const planned = (exerciseId: string, item: unknown): PlannedItem => ({
 	item,
 	phase: 'learning',
 	temperature: 'hot',
-	aid: 'none',
 	leadBeats: 4
 });
 

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { CycleReport } from '$lib/domain/time';
 import type { LevelState } from '$lib/domain/time';
 import { InMemoryLevelStateRepository } from '$lib/testing/fakes';
 import { ExerciseLevels } from './exerciseLevels';
@@ -19,9 +18,6 @@ const CLIMB: ExerciseDefinition = {
 	}))
 };
 
-/** The same exercise asking the anti-blocking; with no aid level, a block changes the air. */
-const BLOCKING: ExerciseDefinition = { ...CLIMB, id: 'blocking', flow: { antiBlocking: true } };
-
 /** An exercise that writes no levels: one implicit level, nothing to remember. */
 const PLAIN: ExerciseDefinition = { ...CLIMB, id: 'plain', levels: undefined };
 
@@ -33,15 +29,22 @@ const RUNS: ExerciseDefinition = {
 	levels: [{ params: {}, pass: { successes: 1 } }, { params: { 'pacing.roundsPerBreath': 3 } }]
 };
 
-/** Two aid levels below level 1, the anti-blocking asked. */
-const AIDS: ExerciseDefinition = {
-	...BLOCKING,
-	id: 'aids',
-	levels: [
-		{ aid: true, params: { tempo: 60 } },
-		{ aid: true, params: { tempo: 70 } },
-		...(CLIMB.levels ?? [])
-	]
+/**
+ * A figure that sounds: played along everywhere but at level 2, which writes `playAlong: false`;
+ * heard first at level 3 only.
+ */
+const SOUNDING: ExerciseDefinition = {
+	...RHYTHM_OFFBEATS,
+	id: 'sounding',
+	params: { ...RHYTHM_OFFBEATS.params, playAlong: true, pacing: { roundsPerBreath: 2 } },
+	levels: [{ params: {} }, { params: { playAlong: false } }, { params: { listenFirst: true } }]
+};
+
+/** No figure to sound, its levels writing both all the same. */
+const SILENT: ExerciseDefinition = {
+	...CLIMB,
+	id: 'silent',
+	levels: [{ params: { listenFirst: true, playAlong: true } }]
 };
 
 /** The next round goes on without a gap. */
@@ -50,21 +53,20 @@ const CHAINS = { chains: true, countIn: false };
 const FOLLOWS = { chains: false, countIn: false };
 
 function stored(exerciseId: string, scope: string, level: number): LevelState {
-	return { exerciseId, scope, item: '', level, successes: 0, failures: 0, resumeAfter: null };
+	return { exerciseId, scope, item: '', level, successes: 0, failures: 0 };
 }
 
 async function setup(states: LevelState[] = []) {
 	const repository = new InMemoryLevelStateRepository();
 	for (const state of states) await repository.put(state);
-	const definitions = [CLIMB, BLOCKING, PLAIN, RUNS, AIDS, RHYTHM_OFFBEATS];
+	const definitions = [CLIMB, PLAIN, RUNS, RHYTHM_OFFBEATS, SOUNDING, SILENT];
 	const levels = new ExerciseLevels({
 		levels: repository,
 		exercise: (id) => {
 			const definition = definitions.find((d) => d.id === id);
 			if (!definition) throw new Error(`unknown ${id}`);
 			return definition;
-		},
-		now: () => 1_000
+		}
 	});
 	await levels.load();
 	return { repository, levels };
@@ -74,8 +76,7 @@ const round = (success: boolean, scope = 'blues-f', exerciseId = 'climb', level 
 	exerciseId,
 	scope,
 	level,
-	success,
-	aided: false
+	success
 });
 
 describe('ExerciseLevels', () => {
@@ -89,6 +90,34 @@ describe('ExerciseLevels', () => {
 	it('clamps a stored level above the exercise’s highest', async () => {
 		const { levels } = await setup([stored('climb', 'blues-f', 7)]);
 		expect(levels.played('climb', 'blues-f')).toBe(2);
+	});
+
+	it('brings a stored level outside the levels back into them at the first round (Review Focus)', async () => {
+		// -1: a level the migration did not shift, of an exercise it did not know; 99: above the top.
+		const { levels } = await setup([
+			stored(RHYTHM_OFFBEATS.id, '', -1),
+			stored('climb', 'blues-f', 99),
+			stored('climb', 'iohefy-a', -1)
+		]);
+		const top = (RHYTHM_OFFBEATS.levels?.length ?? 0) - 1;
+		expect(levels.played(RHYTHM_OFFBEATS.id)).toBe(0);
+		expect(levels.played('climb', 'blues-f')).toBe(2);
+		expect(levels.played('climb', 'iohefy-a')).toBe(0);
+		expect(
+			levels.boundary({ exerciseId: RHYTHM_OFFBEATS.id }, 0, 1000, { chains: false, countIn: true })
+				.next.role
+		).not.toBe('end');
+		// Its first round settles at the level brought back, and moves from there.
+		for (let i = 0; i < 3; i++) {
+			await levels.settle({ exerciseId: RHYTHM_OFFBEATS.id, level: 0, success: true });
+		}
+		expect(levels.reached(RHYTHM_OFFBEATS.id)).toBe(Math.min(1, top));
+	});
+
+	it('starts a never-played exercise at the first of its levels, index 0', async () => {
+		const { levels } = await setup();
+		expect(levels.played(RHYTHM_OFFBEATS.id)).toBe(0);
+		expect(levels.reached('climb', 'blues-f')).toBe(0);
 	});
 
 	it('moves up after the passes but plays the old level until apply', async () => {
@@ -146,23 +175,22 @@ describe('ExerciseLevels', () => {
 		expect(levels.apply('climb', 'blues-f')).toBe('level-up');
 	});
 
-	it('never acts the anti-blocking without antiBlocking', async () => {
+	it('keeps playing level 1 however many rounds fail there: nothing ends, nothing rests', async () => {
 		const { levels, repository } = await setup();
-		for (let i = 0; i < 5; i++) expect(await levels.settle(round(false))).toBeNull();
+		const at = { exerciseId: 'climb', scope: 'blues-f' };
+		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
+		for (let i = 0; i < 6; i++) {
+			expect(await levels.settle(round(false))).toBeNull();
+			expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
+				role: 'round',
+				playAlong: false
+			});
+		}
 		expect(levels.apply('climb', 'blues-f')).toBeNull();
 		expect(await repository.get({ exerciseId: 'climb', scope: 'blues-f', item: '' })).toEqual({
 			...stored('climb', 'blues-f', 0),
-			failures: 5
+			failures: 6
 		});
-	});
-
-	it('acts the anti-blocking when its exercise asks it', async () => {
-		const { levels, repository } = await setup();
-		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
-		// No aid level to go down to: the air changes, the exercise rests.
-		expect(
-			await repository.get({ exerciseId: 'blocking', scope: 'blues-f', item: '' })
-		).toMatchObject({ level: 0, resumeAfter: expect.any(Number) });
 	});
 
 	it('stores nothing for an exercise that writes no levels', async () => {
@@ -189,7 +217,7 @@ describe('ExerciseLevels', () => {
 			});
 		expect(roles(5)).toEqual(['round', 'round', 'breath+round', 'round', 'breath+round']);
 		// The level reached applies at a breath: the runs after it are of three rounds.
-		await levels.settle({ exerciseId: 'runs', level: 0, success: true, aided: false });
+		await levels.settle({ exerciseId: 'runs', level: 0, success: true });
 		levels.apply('runs');
 		expect(roles(5)).toEqual(['round', 'breath+round', 'round', 'round', 'breath+round']);
 	});
@@ -203,7 +231,7 @@ describe('ExerciseLevels', () => {
 		};
 		// A run of two at level 1; the breath is decided before its last round settles.
 		expect([role(), role(), role()]).toEqual(['round', 'round', 'breath+round']);
-		await levels.settle({ exerciseId: 'runs', level: 0, success: true, aided: false });
+		await levels.settle({ exerciseId: 'runs', level: 0, success: true });
 		levels.restartRun('runs');
 		levels.apply('runs');
 		// Started again at level 2: its first round counted again, a run of three.
@@ -217,7 +245,7 @@ describe('ExerciseLevels', () => {
 		// The count that opens the series is not a breath.
 		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true })).toEqual({
 			breath: false,
-			next: { role: 'round', aid: null, remedy: false }
+			next: { role: 'round', playAlong: false }
 		});
 		expect(levels.boundary(at, 0, 1000, FOLLOWS).breath).toBe(false);
 		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true }).breath).toBe(true);
@@ -232,54 +260,13 @@ describe('ExerciseLevels', () => {
 		expect(levels.boundary(at, 0, 1000, null).next).toEqual({ role: 'end', reason: 'complete' });
 	});
 
-	it('ends with « On change d’air » once the anti-blocking says so', async () => {
-		const { levels } = await setup();
-		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
-		const at = { exerciseId: 'blocking', scope: 'blues-f' };
-		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
-			role: 'end',
-			reason: 'change-of-air'
-		});
-	});
-
-	it('lets the (exercise, scope) that changed air leave: the series goes on, its rest kept', async () => {
-		const { levels, repository } = await setup();
-		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
-		expect(levels.resting()).toEqual({ exerciseId: 'blocking', scope: 'blues-f' });
-		levels.leave('blocking', 'blues-f');
-		expect(levels.resting()).toBeNull();
-		expect(levels.breaking()).toBeNull();
-		// Another scope of it, and another exercise, go on.
-		const other = { exerciseId: 'blocking', scope: 'iohefy-a' };
-		expect(levels.boundary(other, 0, 1000, { chains: false, countIn: true }).next.role).toBe(
-			'round'
-		);
-		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next.role).toBe('round');
-		// Its rest is written as before.
-		const rested = await repository.get({ exerciseId: 'blocking', scope: 'blues-f', item: '' });
-		expect(rested?.resumeAfter).not.toBeNull();
-	});
-
-	it('names the next (exercise, scope) that changes air once one has left', async () => {
-		const { levels } = await setup();
-		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
-		levels.leave('blocking', 'blues-f');
-		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'iohefy-a', 'blocking'));
-		expect(levels.resting()).toEqual({ exerciseId: 'blocking', scope: 'iohefy-a' });
-		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next).toEqual({
-			role: 'end',
-			reason: 'change-of-air'
-		});
-	});
-
-	it('announces any aid level as one, a deeper one too', async () => {
-		const { levels } = await setup([stored('aids', '', -1)]);
-		for (let i = 0; i < 3; i++) {
-			await levels.settle({ exerciseId: 'aids', level: -1, success: false, aided: false });
-		}
-		expect(levels.reached('aids')).toBe(-2);
-		expect(levels.apply('aids')).toBe('aid-level');
-		expect(levels.played('aids')).toBe(-2);
+	it('announces a level by its move only: down to the first level is a level down', async () => {
+		const { levels } = await setup([stored('climb', 'blues-f', 1)]);
+		await levels.settle(round(false, 'blues-f', 'climb', 1));
+		await levels.settle(round(false, 'blues-f', 'climb', 1));
+		expect(levels.reached('climb', 'blues-f')).toBe(0);
+		expect(levels.apply('climb', 'blues-f')).toBe('level-down');
+		expect(levels.played('climb', 'blues-f')).toBe(0);
 	});
 
 	it('decides without counting when asked to look only', async () => {
@@ -293,11 +280,12 @@ describe('ExerciseLevels', () => {
 	});
 
 	it('hears the content asked for, where the level gives listening', async () => {
-		const { levels } = await setup();
+		// Level 2 of the offbeats: nothing heard first but what is asked.
+		const { levels } = await setup([stored(RHYTHM_OFFBEATS.id, '', 1)]);
 		const at = { exerciseId: RHYTHM_OFFBEATS.id };
 		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
 		levels.askListen(RHYTHM_OFFBEATS.id);
-		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'listen', remedy: false });
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'listen' });
 		expect(levels.boundary(at, 0, 1000, CHAINS).next.role).toBe('round');
 		// A template has nothing to hear.
 		levels.boundary({ exerciseId: 'climb' }, 0, 1000, { chains: false, countIn: true });
@@ -306,7 +294,7 @@ describe('ExerciseLevels', () => {
 	});
 
 	it('forgets the run and the listen asked when play stops', async () => {
-		const { levels } = await setup();
+		const { levels } = await setup([stored(RHYTHM_OFFBEATS.id, '', 1)]);
 		const at = { exerciseId: RHYTHM_OFFBEATS.id };
 		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
 		levels.askListen(RHYTHM_OFFBEATS.id);
@@ -314,59 +302,45 @@ describe('ExerciseLevels', () => {
 		// A new run, no breath before it, and the listen forgotten.
 		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true })).toEqual({
 			breath: false,
-			next: { role: 'round', aid: null, remedy: false }
+			next: { role: 'round', playAlong: false }
 		});
 	});
 
-	it('reads a reading block of cycles and gives their remedies', async () => {
+	it('plays the model along at every level that writes it, the exercise’s params included', async () => {
+		const along = async (level: number) => {
+			const { levels } = await setup([stored('sounding', '', level)]);
+			const at = { exerciseId: 'sounding' };
+			return [
+				levels.boundary(at, 0, 1000, { chains: false, countIn: true }),
+				levels.boundary(at, 0, 1000, CHAINS),
+				levels.boundary(at, 0, 1000, CHAINS)
+			].map(({ breath, next }) => (breath ? `breath+` : '') + JSON.stringify(next));
+		};
+		const round = (playAlong: boolean) => JSON.stringify({ role: 'round', playAlong });
+		expect(await along(0)).toEqual([round(true), round(true), `breath+${round(true)}`]);
+		expect(await along(1)).toEqual([round(false), round(false), `breath+${round(false)}`]);
+		// Level 3 hears the model before each run, then plays along with it.
+		expect(await along(2)).toEqual([JSON.stringify({ role: 'listen' }), round(true), round(true)]);
+	});
+
+	it('hears the model again when play goes on after a stop during the heard cycle', async () => {
+		const { levels } = await setup([stored('sounding', '', 2)]);
+		const at = { exerciseId: 'sounding' };
+		const opening = { chains: false, countIn: true };
+		expect(levels.boundary(at, 0, 1000, opening).next).toEqual({ role: 'listen' });
+		levels.interrupt();
+		expect(levels.boundary(at, 0, 1000, opening).next).toEqual({ role: 'listen' });
+		expect(levels.boundary(at, 0, 1000, CHAINS).next.role).toBe('round');
+	});
+
+	it('neither hears nor plays along an exercise with no figure to sound', async () => {
 		const { levels } = await setup();
-		const at = { exerciseId: RHYTHM_OFFBEATS.id };
-		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
-		// The same note missed three times.
-		const report = {
-			expectations: [{ index: 3, verdict: 'missed', offsetMs: null }],
-			dropped: [],
-			extra: 0,
-			shift: null,
-			measures: {},
-			latency: null
-		} as unknown as CycleReport;
-		for (let i = 0; i < 3; i++) {
-			await levels.settle({
-				exerciseId: RHYTHM_OFFBEATS.id,
-				item: 'offbeats-1@0',
-				level: 0,
-				success: false,
-				aided: false,
-				report,
-				verdict: { passed: false, reasons: ['missed'] },
-				spotMs: 187.5
-			});
-		}
-		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'listen', remedy: true });
-		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
+		const at = { exerciseId: 'silent' };
+		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true }).next).toEqual({
 			role: 'round',
-			aid: 'play-along',
-			remedy: true
+			playAlong: false
 		});
-	});
-
-	it('names the measure that breaks once the air changes, and the level reached', async () => {
-		const { levels } = await setup();
-		expect(levels.breaking()).toBeNull();
-		for (let i = 0; i < 3; i++) {
-			await levels.settle({
-				exerciseId: 'blocking',
-				scope: 'blues-f',
-				level: 0,
-				success: false,
-				aided: false,
-				verdict: { passed: false, reasons: ['regularity'] },
-				spotMs: 0
-			});
-		}
-		expect(levels.breaking()).toBe('regularity');
-		expect(levels.reached('blocking', 'blues-f')).toBe(0);
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'round', playAlong: false });
 	});
 });
 

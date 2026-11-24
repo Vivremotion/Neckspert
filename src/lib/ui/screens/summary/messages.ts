@@ -12,7 +12,6 @@ export const summaryMessages = defineMessages({
 		learned: 'Notes apprises',
 		pending: (n: number) =>
 			n === 1 ? '1 note reprendra la prochaine fois' : `${n} notes reprendront la prochaine fois`,
-		known: (n: number) => (n === 1 ? '1 note déjà sue' : `${n} notes déjà sues`),
 		noCold: 'Aucune révision à froid cette fois',
 		fatigue: 'Fatigue détectée',
 		next: 'Prochaines révisions',
@@ -28,7 +27,6 @@ export const summaryMessages = defineMessages({
 			n === 1
 				? '1 triade reprendra la prochaine fois'
 				: `${n} triades reprendront la prochaine fois`,
-		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`),
 		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages réussis`,
 		changes: (percent: number) => `${percent} % justes et à temps`,
 		tempos: (first: number, last: number) =>
@@ -40,21 +38,16 @@ export const summaryMessages = defineMessages({
 		playedRight: 'Joué juste',
 		contested: 'Contesté',
 		levelReached: (shown: number, of: number) => `Niveau atteint : ${shown} sur ${of}`,
-		aidLevelReached: 'Niveau atteint : niveau d’aide',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
-		successesAided: (n: number) => `dont ${n} avec aide`,
 		run: (n: number) => `Suite ${n}`,
 		runCycles: (successes: number, rounds: number) => `${successes} réussis sur ${rounds}`,
 		runCut: 'interrompue',
 		replayRun: 'Réécouter la suite',
 		stopReplay: 'Arrêter',
-		levelName: (index: number) => (index < 0 ? 'niveau d’aide' : `niveau ${index + 1}`),
+		levelName: (index: number) => `niveau ${index + 1}`,
 		listens: (n: number) => (n === 1 ? '1 écoute' : `${n} écoutes`),
 		playedShare: (percent: number) => `${percent} % du temps joué`,
-		changeOfAir: 'On change d’air',
-		breaking: 'Ce qui casse :',
-		tryInstead: 'Essaie plutôt :',
 		inPlace: 'C’était en place ·',
 		perBar: 'ms/mesure',
 		report: {
@@ -112,7 +105,6 @@ export const summaryMessages = defineMessages({
 		learned: 'Notes learned',
 		pending: (n: number) =>
 			n === 1 ? '1 note will resume next time' : `${n} notes will resume next time`,
-		known: (n: number) => (n === 1 ? '1 note already known' : `${n} notes already known`),
 		noCold: 'No cold review this time',
 		fatigue: 'Fatigue detected',
 		next: 'Next reviews',
@@ -126,7 +118,6 @@ export const summaryMessages = defineMessages({
 		learnedTriads: 'Triads learned',
 		pendingTriads: (n: number) =>
 			n === 1 ? '1 triad will resume next time' : `${n} triads will resume next time`,
-		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`),
 		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages succeeded`,
 		changes: (percent: number) => `${percent} % right and in time`,
 		tempos: (first: number, last: number) =>
@@ -138,21 +129,16 @@ export const summaryMessages = defineMessages({
 		playedRight: 'Played right',
 		contested: 'Contested',
 		levelReached: (shown: number, of: number) => `Level reached: ${shown} of ${of}`,
-		aidLevelReached: 'Level reached: aid level',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
-		successesAided: (n: number) => `of which ${n} with aid`,
 		run: (n: number) => `Run ${n}`,
 		runCycles: (successes: number, rounds: number) => `${successes} passed out of ${rounds}`,
 		runCut: 'cut short',
 		replayRun: 'Hear the run again',
 		stopReplay: 'Stop',
-		levelName: (index: number) => (index < 0 ? 'aid level' : `level ${index + 1}`),
+		levelName: (index: number) => `level ${index + 1}`,
 		listens: (n: number) => (n === 1 ? '1 listen' : `${n} listens`),
 		playedShare: (percent: number) => `${percent} % of the time played`,
-		changeOfAir: 'Time for a change of air',
-		breaking: 'What breaks:',
-		tryInstead: 'Try instead:',
 		inPlace: 'It was in place ·',
 		perBar: 'ms/bar',
 		report: {

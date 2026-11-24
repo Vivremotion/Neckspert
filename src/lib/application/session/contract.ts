@@ -35,12 +35,8 @@ export interface PromptView {
 	target?: string;
 	/** On the band of a second gesture, when there is one: the chord of a triad anchor ("Cm"). */
 	band?: string;
-	/** A shape to draw as the aid (a triad anchor's, aided). */
+	/** A shape to draw (a triad anchor's). */
 	shape?: ShapeView;
-	/** Mode 1 learning aid ("case 6"), or null. */
-	aid: string | null;
-	/** Mode 1, while a note is learned: the prompted string to draw, with its open note. Else null. */
-	diagram: { string: StringNumber; label: string } | null;
 }
 
 export interface VerdictView {
@@ -72,12 +68,8 @@ export interface AnswerChoice {
 	label: string;
 }
 
-/**
- * What a series announces: a level moved (up, down, to an aid level), a remedy of the
- * anti-blocking under way, or « On change d’air ».
- */
-export type Announcement =
-	'level-up' | 'level-down' | 'aid-level' | 'listen-remedy' | 'play-along' | 'change-of-air';
+/** What a series announces: a level moved, up or down. */
+export type Announcement = 'level-up' | 'level-down';
 
 /**
  * A stage as a controller sets it: the view and its model, a value built whole and never changed
@@ -124,8 +116,8 @@ export interface PlayView {
 	/**
 	 * What the series announces before the run it applies to, from its breath (or its listen-in,
 	 * or its counted bar) until the player plays (its first bar, entry bars included), kept
-	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` regular levels) and
-	 * the tempo it plays at; a remedy while it plays; null otherwise.
+	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` levels) and
+	 * the tempo it plays at; null otherwise.
 	 */
 	announcement: {
 		kind: Announcement;
@@ -133,13 +125,6 @@ export interface PlayView {
 		of: number;
 		tempoBpm: number;
 	} | null;
-	/**
-	 * The exercise that changed air and leaves the session (« On change d’air »), by its name, and
-	 * its scope: from the boundary after the round that blocked until the next round opens, beside
-	 * a level announcement; at the end, the one that ended the session, for a session that could
-	 * leave an exercise out. Null otherwise.
-	 */
-	leaving: { title: PlayWords; scope?: string } | null;
 }
 
 export interface PlayTimeline {

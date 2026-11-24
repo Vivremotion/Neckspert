@@ -23,8 +23,8 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 		item: F_ON_B,
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		leadBeats: 2,
+		level: 2,
 		...overrides
 	};
 }
@@ -45,7 +45,6 @@ describe('AttemptRecorder', () => {
 			cardKey: LOCATE_KEY,
 			phase: planned.phase,
 			temperature: 'hot',
-			aids: [],
 			promptedAt: 1_000,
 			tempoBpm: 80,
 			leadBeats: planned.leadBeats,
@@ -71,7 +70,15 @@ describe('AttemptRecorder', () => {
 		};
 	}
 
-	function setupResponse(selector?: Partial<ItemSource>, withRecall = true) {
+	/**
+	 * `countsCold`: whether an item's level asks a direct recall; by default every level does,
+	 * null gives the recorder none.
+	 */
+	function setupResponse(
+		selector?: Partial<ItemSource>,
+		withRecall = true,
+		countsCold: ((planned: PlannedItem) => boolean) | null = () => true
+	) {
 		const clock = new FakeClock();
 		const attempts = new InMemoryAttemptRepository();
 		const cards = new InMemoryCardStateRepository();
@@ -100,7 +107,8 @@ describe('AttemptRecorder', () => {
 			selector: source,
 			sessionId: 'sess-1',
 			recall: withRecall ? () => directRecallWithin(THRESHOLD_MS) : undefined,
-			levels
+			levels,
+			...(countsCold && { countsCold })
 		});
 		return { recorder, attempts, cards, levels, told };
 	}
@@ -119,32 +127,6 @@ describe('AttemptRecorder', () => {
 		expect(told[1]).toMatchObject({ temperature: 'hot' });
 		await recorder.settled();
 		expect(await attempts.all()).toHaveLength(2);
-	});
-
-	it('stores a missed probe hot and a recalled probe cold, by the given recall rule', async () => {
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		const passed = setupResponse();
-		const recalled = noteAttempt(probe);
-		await passed.recorder.recordResponse(recalled, span(probe), probe);
-		expect(recalled.temperature).toBe('cold');
-
-		const slow = setupResponse();
-		const late = noteAttempt(probe, { reactionMs: THRESHOLD_MS + 500 });
-		(late.verdict.value as { leadMs: number }).leadMs = THRESHOLD_MS + 500;
-		await slow.recorder.recordResponse(late, span(probe), probe);
-		expect(late.temperature).toBe('hot');
-
-		const missed = setupResponse();
-		const wrong = noteAttempt(probe, { success: false });
-		await missed.recorder.recordResponse(wrong, span(probe), probe);
-		expect(wrong.temperature).toBe('hot');
-		expect((await missed.attempts.all())[0].temperature).toBe('hot');
-	});
-
-	it('refuses a probe without a recall rule', () => {
-		const { recorder } = setupResponse(undefined, false);
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		expect(() => recorder.recordResponse(noteAttempt(probe), span(probe), probe)).toThrow(/recall/);
 	});
 
 	it('refuses an attempt of a memory skill without a recall rule', () => {
@@ -191,8 +173,7 @@ describe('AttemptRecorder', () => {
 			item: 'F@2',
 			level: 2,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
 		const moved = setupResponse({ record: () => ({ level }) });
 		const learning = item({ phase: 'learning', temperature: 'hot' });
@@ -233,6 +214,69 @@ describe('AttemptRecorder', () => {
 		expect((await cards.get(LOCATE_KEY))?.scheduling.reps).toBe(card.scheduling.reps + 1);
 	});
 
+	describe('only at a level that asks a direct recall', () => {
+		/** A learned card, its last attempt two hours before the prompt (`promptedAt` 1 000). */
+		async function learnedAndRested(setup: ReturnType<typeof setupResponse>) {
+			const card = { ...learnedLongAgo(), acquiredAt: -8_000_000, masteredAt: -7_000_000 };
+			await setup.cards.put(card);
+			const before = noteAttempt(item({ phase: 'review' }));
+			await setup.attempts.add({ ...before, sessionId: 'old', promptedAt: 1_000 - 7_200_000 });
+			return card;
+		}
+
+		for (const phase of ['review', 'free'] as const) {
+			it(`counts a ${phase} attempt cold at such a level, and keeps it hot elsewhere, its card untouched`, async () => {
+				const atTop = (planned: PlannedItem) => planned.level === 2;
+				const cold = setupResponse(undefined, true, atTop);
+				const coldCard = await learnedAndRested(cold);
+				const top = item({ phase, temperature: phase === 'review' ? 'cold' : 'hot', level: 2 });
+				const recalled = noteAttempt(top);
+				await cold.recorder.recordResponse(recalled, span(top), top);
+				await cold.recorder.settled();
+				expect(recalled.temperature).toBe('cold');
+				const graded = await cold.cards.get(LOCATE_KEY);
+				expect(graded?.scheduling.reps).toBe(coldCard.scheduling.reps + 1);
+
+				const hot = setupResponse(undefined, true, atTop);
+				const hotCard = await learnedAndRested(hot);
+				const below = item({ phase, temperature: phase === 'review' ? 'cold' : 'hot', level: 1 });
+				const shown = noteAttempt(below);
+				await hot.recorder.recordResponse(shown, span(below), below);
+				await hot.recorder.settled();
+				expect(shown.temperature).toBe('hot');
+				expect((await hot.attempts.listByCard(LOCATE_KEY)).at(-1)?.temperature).toBe('hot');
+				// Neither its schedule, nor `acquiredAt`, nor `masteredAt` rewritten.
+				expect(await hot.cards.get(LOCATE_KEY)).toEqual(hotCard);
+			});
+		}
+
+		it('never counts cold without the rule, or on an item without a level', async () => {
+			const without = setupResponse(undefined, true, null);
+			const card = await learnedAndRested(without);
+			const review = item({ phase: 'review', temperature: 'cold' });
+			const attempt = noteAttempt(review);
+			await without.recorder.recordResponse(attempt, span(review), review);
+			await without.recorder.settled();
+			expect(attempt.temperature).toBe('hot');
+			expect(await without.cards.get(LOCATE_KEY)).toEqual(card);
+
+			const unleveled = setupResponse();
+			await learnedAndRested(unleveled);
+			const { level: _level, ...noLevel } = item({ phase: 'free', temperature: 'hot' });
+			const free = noteAttempt(noLevel);
+			await unleveled.recorder.recordResponse(free, span(noLevel), noLevel);
+			await unleveled.recorder.settled();
+			expect(free.temperature).toBe('hot');
+		});
+
+		it('tells the source a hot provisional temperature for a review at another level', () => {
+			const { recorder, told } = setupResponse(undefined, true, () => false);
+			const review = item({ phase: 'review', temperature: 'cold', level: 1 });
+			void recorder.recordResponse(noteAttempt(review), span(review), review);
+			expect(told).toEqual([expect.objectContaining({ temperature: 'hot' })]);
+		});
+	});
+
 	it('keeps free play hot on a note without a learned card, its card untouched', async () => {
 		const { recorder, cards } = setupResponse();
 		const being = introduceCard(
@@ -268,17 +312,12 @@ describe('AttemptRecorder', () => {
 		expect(await cards.get(LOCATE_KEY)).toEqual(card);
 	});
 
-	it('stores the card the source reports for a probe and for a learning prompt', async () => {
-		const known = {
-			...introduceCard({ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B }, 0, 'sess-1'),
-			acquiredAt: 456
-		};
-		const probed = setupResponse({ record: () => ({ card: known }) });
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		await probed.recorder.recordResponse(noteAttempt(probe), span(probe), probe);
-		await probed.recorder.settled();
-		expect((await probed.cards.get(LOCATE_KEY))?.acquiredAt).toBe(456);
-
+	it('stores the card the source reports for a learning prompt', async () => {
+		const known = introduceCard(
+			{ key: LOCATE_KEY, skill: 'locate-note-string', item: F_ON_B },
+			0,
+			'sess-1'
+		);
 		const learned = markLearned(known, 123);
 		const taught = setupResponse({ record: () => ({ card: learned }) });
 		const learning = item({ phase: 'learning', temperature: 'hot' });
@@ -289,7 +328,7 @@ describe('AttemptRecorder', () => {
 
 	it('introduces the card of a first learning prompt even after a wrong note', async () => {
 		const { recorder, cards } = setupResponse();
-		const learning = item({ phase: 'learning', temperature: 'hot', aid: 'show-position' });
+		const learning = item({ phase: 'learning', temperature: 'hot' });
 		await recorder.recordResponse(
 			noteAttempt(learning, { success: false }),
 			span(learning),

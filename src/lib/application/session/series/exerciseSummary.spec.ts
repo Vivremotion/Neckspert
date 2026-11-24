@@ -2,19 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import type { FigureAttemptData } from '../series/recordResponse';
-import { aidedBeyondItsLevel, summarizeExercise } from './exerciseSummary';
+import { summarizeExercise } from './exerciseSummary';
 import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
-function cycle(
-	level: number,
-	success: boolean,
-	aids: Attempt['aids'] = ['cursor']
-): Attempt<FigureAttemptData> {
+function cycle(level: number, success: boolean): Attempt<FigureAttemptData> {
 	return {
 		sessionId: 's1',
 		exerciseId: RHYTHM_OFFBEATS.id,
 		skill: 'inner-pulse',
-		aids,
 		success,
 		data: { level }
 	} as unknown as Attempt<FigureAttemptData>;
@@ -27,40 +22,19 @@ function state(level: number): LevelState {
 		item: '',
 		level,
 		successes: 0,
-		failures: 0,
-		resumeAfter: null
+		failures: 0
 	};
 }
 
-// The offbeats exercise has four regular levels (the rhythm stage says « sur 4 » for it).
-const OF = 4;
+// The offbeats exercise has five levels (the rhythm stage says « sur 5 » for it).
+const OF = 5;
 
-describe('summarizeExercise and aidedBeyondItsLevel', () => {
+describe('summarizeExercise', () => {
 	it('tells the level held at the end', () => {
 		const attempts = [cycle(0, true), cycle(0, false), cycle(1, true)];
 		expect(summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts, state: state(2) })).toEqual({
-			level: { shown: 3, of: OF, aid: false }
+			level: { shown: 3, of: OF }
 		});
-	});
-
-	it('counts as aided a round that had an aid its level does not give', () => {
-		// The cursor of a level that gives one and the aid level are the level itself.
-		const aided = aidedBeyondItsLevel((id) =>
-			id === RHYTHM_OFFBEATS.id ? RHYTHM_OFFBEATS : undefined
-		);
-		expect(
-			[
-				cycle(0, true, ['listen']),
-				cycle(0, true, ['cursor', 'listen']),
-				cycle(0, true, ['cursor']),
-				cycle(0, true, ['aid-level']),
-				cycle(0, true, [])
-			].map(aided)
-		).toEqual([true, true, false, false, false]);
-		// An exercise no file defines: its levels are unknown, the cursor counts as an aid.
-		const gone = { ...cycle(0, true, ['cursor']), exerciseId: 'gone' } as Attempt;
-		expect(aided(gone)).toBe(true);
-		expect(aided({ ...gone, aids: ['aid-level'] })).toBe(false);
 	});
 
 	it('reads the level the session itself ended on before the stored one, which a later session moves', () => {
@@ -70,17 +44,19 @@ describe('summarizeExercise and aidedBeyondItsLevel', () => {
 			levelReached: 1,
 			state: state(3)
 		});
-		expect(summary.level).toEqual({ shown: 2, of: OF, aid: false });
+		expect(summary.level).toEqual({ shown: 2, of: OF });
 	});
 
-	it('says when the level held is an aid level', () => {
-		const summary = summarizeExercise({
-			exercise: RHYTHM_OFFBEATS,
-			attempts: [cycle(-1, true)],
-			levelReached: -1,
-			state: state(-1)
-		});
-		expect(summary.level).toEqual({ shown: 0, of: OF, aid: true });
+	it('brings a level outside the levels back into them: below the first, above the top', () => {
+		const at = (level: number) =>
+			summarizeExercise({
+				exercise: RHYTHM_OFFBEATS,
+				attempts: [cycle(level, true)],
+				levelReached: level,
+				state: state(level)
+			}).level;
+		expect(at(-1)).toEqual({ shown: 1, of: OF });
+		expect(at(99)).toEqual({ shown: OF, of: OF });
 	});
 
 	it('falls back on the level of the last cycle when no level is stored', () => {
@@ -89,7 +65,7 @@ describe('summarizeExercise and aidedBeyondItsLevel', () => {
 			attempts: [cycle(0, true), cycle(1, true)],
 			state: undefined
 		});
-		expect(summary.level).toEqual({ shown: 2, of: OF, aid: false });
+		expect(summary.level).toEqual({ shown: 2, of: OF });
 	});
 
 	it('shows the first level for a session with no cycle and nothing stored', () => {
@@ -98,7 +74,7 @@ describe('summarizeExercise and aidedBeyondItsLevel', () => {
 			attempts: [],
 			state: undefined
 		});
-		expect(summary).toEqual({ level: { shown: 1, of: OF, aid: false } });
+		expect(summary).toEqual({ level: { shown: 1, of: OF } });
 	});
 
 	it('reads the level of its own last cycle, never another exercise’s', () => {
@@ -108,7 +84,7 @@ describe('summarizeExercise and aidedBeyondItsLevel', () => {
 			attempts: [cycle(1, true), other],
 			state: undefined
 		});
-		expect(summary.level).toEqual({ shown: 2, of: OF, aid: false });
+		expect(summary.level).toEqual({ shown: 2, of: OF });
 	});
 
 	it('engraves the last cycle from the figure its item names, over the bars its plan kept', () => {
@@ -135,5 +111,22 @@ describe('summarizeExercise and aidedBeyondItsLevel', () => {
 			summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts: [unreadable], state: state(2) })
 				.lastCycle
 		).not.toHaveProperty('played');
+	});
+
+	it('tells the last cycle of a level stored outside the levels, read at the nearest level', () => {
+		const last = (level: number) =>
+			({
+				...cycle(level, false),
+				verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: [] } },
+				data: { level, report: { expectations: [], extra: 0 } }
+			}) as unknown as Attempt<FigureAttemptData>;
+		for (const level of [-1, 99]) {
+			const summary = summarizeExercise({
+				exercise: RHYTHM_OFFBEATS,
+				attempts: [last(level)],
+				state: undefined
+			});
+			expect(summary.lastCycle?.verdict).toEqual({ passed: false, reasons: [] });
+		}
 	});
 });

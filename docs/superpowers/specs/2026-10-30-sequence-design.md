@@ -1,5 +1,7 @@
 # La séquence (S) : des notes imposées, jugées note à note
 
+Les passages sur les niveaux d'aide et l'anti-blocage sont remplacés par le ticket #19 (novembre 2026).
+
 Date : 2026-10-30. Statut : décidé avec l'auteur en brainstorming (2026-10-29 et 30). Suite de `2026-10-14-temps-musical-et-sequences-design.md` (« Reprise », « Ce que H6 laisse à S ») : la séquence s'y écrivait `round.figure` à côté de `round.expectations` (D10 de H5) et devait absorber le cycle (D8 de H6). Cette spec garde l'absorption et change la place de la figure (D10 amendée, voir § 1).
 
 ## Ce que le joueur vit

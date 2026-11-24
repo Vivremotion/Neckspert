@@ -1,4 +1,5 @@
 import { exerciseSetId } from '$lib/domain/sets';
+import { presentationOf } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from './itemFields';
@@ -16,9 +17,7 @@ export interface PresentedPrompt {
 	band: string | null;
 	/** While the item waits for its prompt. */
 	preview: string | null;
-	/** The aided level's line. */
-	aid: string | null;
-	/** What to draw: the aided picture, then the fading one. */
+	/** What to draw: the picture its levels' presentation names, if any. */
 	pictures: Picture[];
 }
 
@@ -35,20 +34,14 @@ function say(
 }
 
 /**
- * Whether the prompt of `item` shows its exercise's `aided` presentation, on every view: when the
- * item is served aided, or played at an aid level of its exercise (an exercise level below 1).
- */
-export function isAided(item: PlannedItem): boolean {
-	return item.aid === 'show-position' || item.exerciseLevel < 0;
-}
-
-/**
- * What the screen says of `item`, from the words its exercise writes (`presentation`) over the
- * fields its set offers and those of its round's content (`contentFields`, given by the caller),
- * an item's field winning over the content's of the same name. `random` spells an altered note:
- * give every call for one item the same value. Aided as `isAided` says. The presentation is checked once, as its exercise
- * loads (`definitionChecks`). A picture of the round's content (`CONTENT_PICTURES`) is left to
- * the view of the round.
+ * What the screen says of `item`, from the words its exercise writes at the item's levels
+ * (`presentationOf`: its `presentation`, rewritten by the `presentation.*` paths of its exercise
+ * level and its item level) over the fields its set offers and those of its round's content
+ * (`contentFields`, given by the caller), an item's field winning over the content's of the same
+ * name. `random` spells an altered note: give every call for one item the same value. The
+ * presentation is checked once at every level, as its exercise loads
+ * (`definitionChecks`). A picture of the round's content (`CONTENT_PICTURES`) is left to the view
+ * of the round.
  */
 export function presentPrompt(
 	definition: ExerciseDefinition,
@@ -57,7 +50,10 @@ export function presentPrompt(
 	random: () => number,
 	contentFields: Readonly<Record<string, string>> = {}
 ): PresentedPrompt {
-	const presentation = definition.presentation;
+	const presentation = presentationOf(definition, {
+		exerciseLevel: item.exerciseLevel,
+		itemLevel: item.level ?? null
+	});
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
 	const set = exerciseSetId(definition);
 	const offered = Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set] : undefined;
@@ -65,11 +61,9 @@ export function presentPrompt(
 		...contentFields,
 		...(offered ? offered.fields(item.item, locale, random, definition) : {})
 	};
-	const aided = isAided(item);
-	const names = [
-		aided ? presentation.aided?.picture : undefined,
-		item.stringAid ? presentation.fading?.picture : undefined
-	];
+	const name = presentation.picture;
+	const drawn =
+		name === undefined || CONTENT_PICTURES.includes(name) ? null : PICTURES[name].draw(item.item);
 	return {
 		primary: say(presentation.primary, locale, fields) ?? '',
 		secondary: say(presentation.secondary, locale, fields),
@@ -77,13 +71,6 @@ export function presentPrompt(
 		target: say(presentation.target, locale, fields),
 		band: say(presentation.band, locale, fields),
 		preview: say(presentation.preview, locale, fields),
-		aid: aided ? say(presentation.aided?.line, locale, fields) : null,
-		pictures: names.flatMap((name) => {
-			const drawn =
-				name === undefined || CONTENT_PICTURES.includes(name)
-					? null
-					: PICTURES[name].draw(item.item);
-			return drawn === null ? [] : [drawn];
-		})
+		pictures: drawn === null ? [] : [drawn]
 	};
 }

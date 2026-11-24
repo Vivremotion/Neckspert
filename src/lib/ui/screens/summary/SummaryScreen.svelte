@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import { exerciseTitle } from '$lib/application/session/playOrigin';
 	import { GLOSSARY, termOfFailure, termOfMeasure } from '$lib/domain/glossary';
 	import type { MeasureId } from '$lib/domain/time';
@@ -93,9 +91,9 @@
 		return `${name} · ${grid?.title ?? scope}`;
 	}
 
-	/** The level a line ended on, an aid level named as the play header names it. */
+	/** The level a line ended on, named as the play header names it. */
 	function levelText(level: NonNullable<PlayedExercise['level']>): string {
-		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
+		return t.levelReached(level.shown, level.of);
 	}
 
 	/** The share of a line's rounds that passed, in whole percent. */
@@ -105,15 +103,6 @@
 
 	/** The series in memory, drawn only when it has a run to tell. */
 	const seriesShown = $derived((summary.series?.runs.length ?? 0) > 0);
-
-	/** The lines of the exercises that changed air and left the session. */
-	const changedAir = $derived(summary.exercises.filter((line) => line.changedAir));
-
-	/**
-	 * The series in memory ended by a change of air: its block tells it, once, with what breaks and
-	 * the exercises to try instead.
-	 */
-	const seriesChangedAir = $derived(seriesShown && summary.series?.ended === 'change-of-air');
 
 	/** Misses contested on this screen, on top of those stored contested. */
 	let contestedHere = $state<number[]>([]);
@@ -197,11 +186,6 @@
 					<span>{triads ? t.learnedTriads : t.learned}</span>
 					<strong>{summary.learnedCount}</strong>
 				</li>
-				{#if summary.knownCount > 0}
-					<li>
-						<span>{triads ? t.knownTriads(summary.knownCount) : t.known(summary.knownCount)}</span>
-					</li>
-				{/if}
 				{#if summary.pendingCount > 0}
 					<li>
 						<span
@@ -242,25 +226,12 @@
 						{:else}
 							<span>{t.cyclesSucceeded(line.passed, line.rounds)}</span>
 						{/if}
-						{#if line.aided > 0}
-							<span>{t.successesAided(line.aided)}</span>
-						{/if}
 						{#if line.tempo}
 							<span>{t.tempos(line.tempo.first, line.tempo.last)}</span>
 						{/if}
 					</li>
 				{/each}
 			</ul>
-			{#if changedAir.length > 0 && !seriesChangedAir}
-				<ul class="rows">
-					<li class="exercise change-of-air">
-						<strong>{t.changeOfAir}</strong>
-						{#each changedAir as rested (`${rested.exerciseId}:${rested.scope ?? ''}`)}
-							<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
-						{/each}
-					</li>
-				</ul>
-			{/if}
 			{#if summary.misses.length > 0}
 				<ul class="rows" aria-label={t.misses}>
 					<li><span>{t.misses}</span></li>
@@ -290,28 +261,6 @@
 						{#if series.listens > 0}<span>{t.listens(series.listens)}</span>{/if}
 						<span>{t.playedShare(Math.round(series.playedShare * 100))}</span>
 					</li>
-					{#if seriesChangedAir}
-						<li class="exercise change-of-air">
-							<strong>{t.changeOfAir}</strong>
-							{#each changedAir as rested (`${rested.exerciseId}:${rested.scope ?? ''}`)}
-								<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
-							{/each}
-							{#if series.breaking}
-								{@const term = termOfFailure(series.breaking)}
-								<span
-									>{t.breaking}
-									<Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term
-									></span
-								>
-							{/if}
-							<span>{t.tryInstead}</span>
-							{#each exerciseSessionExercises().filter((e) => e.id !== series.exerciseId) as other (other.id)}
-								<a href={`${resolve('/session')}?exercise=${encodeURIComponent(other.id)}`}
-									>{exerciseTitle(other.id)[i18n.locale]}</a
-								>
-							{/each}
-						</li>
-					{/if}
 					{#each series.runs as run, index (run.id)}
 						<li class="exercise run">
 							<strong>{t.run(index + 1)}</strong>
@@ -452,18 +401,6 @@
 	.rows li.exercise strong,
 	.rows li.miss strong {
 		font-weight: 700;
-	}
-
-	.rows a {
-		color: var(--np-text);
-		font-size: var(--np-size-meta);
-		text-decoration: underline;
-		text-underline-offset: 4px;
-	}
-
-	.rows a:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 4px;
 	}
 
 	.fatigue.alert {

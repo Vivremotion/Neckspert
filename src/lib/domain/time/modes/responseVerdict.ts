@@ -124,7 +124,6 @@ export const responseVerdict: VerdictMode = {
 			correct,
 			verdict: { relation: 'response', version: RESPONSE_VERDICT_VERSION, value },
 			measures: {},
-			aids: [...context.aids],
 			detail: result
 		};
 	}

@@ -19,11 +19,6 @@ export interface ExerciseFlow {
 	/** Whether a miss can be contested in play (development builds). */
 	contestable?: boolean;
 	/**
-	 * Whether failures in a row at its first level bring the anti-blocking (a remedy, an aid
-	 * level, « On change d’air »); absent: no.
-	 */
-	antiBlocking?: boolean;
-	/**
 	 * When its instruction (`howTo`) is told: before its first round in every series
 	 * (`'each-series'`, the default), or only while the player has no attempt of it
 	 * (`'first-encounter'`).
@@ -59,7 +54,8 @@ export type Slot = string | { fr: string; en: string };
 /**
  * What the screen says of a prompt, as data: each slot is text with `{field}` placeholders, the
  * fields being those its set's items offer (`ITEM_FIELDS`). Pictures are named
- * (`PICTURES`). Read by `presentPrompt`.
+ * (`PICTURES`). A level rewrites any of them by its `presentation.*` paths (`presentationOf`).
+ * Read by `presentPrompt`.
  */
 export interface PromptPresentation {
 	primary: Slot;
@@ -72,10 +68,8 @@ export interface PromptPresentation {
 	band?: Slot;
 	/** While the item waits for its prompt; absent: nothing. */
 	preview?: Slot;
-	/** At an aided level: a line, a picture, or both. */
-	aided?: { line?: Slot; picture?: string };
-	/** The fading aid the learning procedure gives (`PlannedItem.stringAid`). */
-	fading?: { picture: string };
+	/** The picture drawn with the prompt (`PICTURES`, or one of its round's content). */
+	picture?: string;
 }
 
 /**
@@ -121,7 +115,7 @@ export interface ExerciseDefinition {
 	/** Its name on screen, in each language, when it is shown by name (the rhythm exercises). */
 	title?: { fr: string; en: string };
 	/**
-	 * Its levels (aid levels first): each overrides dotted paths of its resolved params
+	 * Its levels, the first being level 1: each overrides dotted paths of its resolved params
 	 * (`resolvedParamsOf`), the tempo included; absent: one level that changes nothing.
 	 */
 	levels?: readonly Level<LevelOverrides>[];
@@ -172,16 +166,18 @@ export interface ExercisePacing {
 	countIn?: boolean;
 }
 
-/** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */
+/**
+ * What a level of an item writes for itself: how long before the beat it is asked. What it shows
+ * is written by its `presentation.*` paths, like any other parameter.
+ */
 export interface LadderParams {
 	/** Beats of lead; null when the item has no lead (the answer is not played on a beat). */
 	leadBeats: LeadBeats | null;
-	aided: boolean;
 }
 
 /**
  * An item's levels, level 0 first, as its exercise writes them (`params.ladder`): each level's
- * lead and aid, its pass and drop, and what counts as a success there. A level may override any
+ * lead, its pass and drop, and what counts as a success there. A level may override any
  * other dotted path of the resolved params too (`resolvedParamsOf`).
  */
 export type Ladder = readonly Level<LadderParams & LevelOverrides>[];

@@ -34,7 +34,7 @@ describe('DemoIdentifySession', () => {
 		expect(demo.keys?.prompt).toMatchObject({
 			primary: 'case 8',
 			secondary: 'corde de A',
-			aid: null,
+			detail: null,
 			pictures: []
 		});
 	});

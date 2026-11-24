@@ -219,7 +219,7 @@ describe('a version 3 export of the application before this model', () => {
 		expect(file.attempts.every((attempt) => typeof attempt.verdict === 'string')).toBe(true);
 
 		const v4 = validateBackup(file);
-		expect(v4.version).toBe(9);
+		expect(v4.version).toBe(10);
 		// Version 5 adds the level of each neck card, version 6 of each triad card, version 7 of each
 		// gesture progression read (the link, the climb of a grid); the exercises' own states start
 		// empty.
@@ -272,7 +272,7 @@ describe('a version 3 export of the application before this model', () => {
 			contested: true
 		});
 		expect(find([...GESTURE_EXERCISE_IDS], 'wrong')?.verdict.relation).toBe('grid-change');
-		expect(v4.attempts.some((attempt) => attempt.aids.includes('show-position'))).toBe(true);
+		expect(v4.attempts.some((attempt) => attempt.aids?.includes('show-position'))).toBe(true);
 		// Version 7 renamed the tempo scope of an attempt its scope.
 		expect(v4.attempts.some((attempt) => attempt.scope !== undefined)).toBe(true);
 	});
@@ -319,7 +319,7 @@ describe('a version 7 database opened at version 8', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(13);
+		expect(db.verno).toBe(14);
 		const attempts = await db.attempts.orderBy('id').toArray();
 		expect(attempts).toHaveLength(file.attempts.length + 1);
 		expect(attempts.slice(0, -1)).toEqual(

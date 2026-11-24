@@ -92,7 +92,7 @@ describe('/settings page', () => {
 		await waitFor(async () => {
 			// The version 1 tempo went to a locate progression, which version 7 no longer keeps.
 			const file = await services.backup.exportAll();
-			expect(file.version).toBe(9);
+			expect(file.version).toBe(10);
 			expect(file.settings.locale).toBe('en');
 			expect(i18n.locale).toBe('en');
 		});

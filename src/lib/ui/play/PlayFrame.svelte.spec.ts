@@ -323,7 +323,7 @@ describe('PlayFrame', () => {
 		expect(screen.queryByText(/niveau/i)).toBeNull();
 	});
 
-	it('tells a level in the field, prominently, and a remedy or the change of air in the status line, whatever the status', () => {
+	it('tells a level in the field, prominently, whatever the status', () => {
 		const shown = (
 			world: 'quiet' | 'pixel',
 			status: 'count-in' | 'awaiting',
@@ -351,11 +351,6 @@ describe('PlayFrame', () => {
 				// A level: only ever told before play (the breath, the listen-in, the count).
 				expect(shown(world, status, 'level-up')).toBe('field');
 				expect(shown(world, status, 'level-down')).toBe('field');
-				expect(shown(world, status, 'aid-level')).toBe('field');
-				// A remedy, the change of air: where they were.
-				expect(shown(world, status, 'play-along')).toBe('status');
-				expect(shown(world, status, 'listen-remedy')).toBe('status');
-				expect(shown(world, status, 'change-of-air')).toBe('status');
 			}
 		}
 		const controller = new StageController();
@@ -405,73 +400,24 @@ describe('PlayFrame', () => {
 		expect(rules.some(([, , body]) => /position:\s*absolute/.test(body))).toBe(true);
 	});
 
-	it('tells the remedies, the aid level and the change of air, never a level below 1', () => {
+	it('tells the first level by its number, as any other, and nothing of a remedy or a change of air', () => {
 		const told = (kind: Announcement, level = 0) => {
 			const controller = new StageController();
 			controller.view.status = 'awaiting';
 			controller.view.announcement = { kind, level, of: 4, tempoBpm: 70 };
 			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
-			const text = screen.getByRole('status').textContent;
+			const text = screen.getByRole('status').textContent?.trim();
+			const page = document.body.textContent ?? '';
 			cleanup();
+			expect(page).not.toMatch(/change d’air|réécoute|joue ensemble|aid/i);
 			return text;
 		};
-		expect(told('listen-remedy')).toBe('On réécoute la figure');
-		expect(told('play-along')).toBe('On la joue ensemble');
-		expect(told('change-of-air')).toBe('On change d’air');
-		// A deeper aid level too: never « Niveau -1 ».
-		expect(told('aid-level', -1)).toBe('Niveau d’aide · ♩ = 70');
-		expect(told('aid-level', -2)).toBe('Niveau d’aide · ♩ = 70');
+		expect(told('level-down', 0)).toBe('Niveau 1 sur 4 · ♩ = 70');
 		i18n.locale = 'en';
 		try {
-			expect(told('listen-remedy')).toBe('Let’s hear the figure again');
-			expect(told('aid-level', -2)).toBe('Aid level · ♩ = 70');
+			expect(told('level-down', 0)).toBe('Level 1 of 4 · ♩ = 70');
 		} finally {
 			i18n.locale = 'fr';
-		}
-	});
-
-	it('names the exercise that changes air and its grid in the status line', () => {
-		const told = (scope?: string) => {
-			const controller = new StageController();
-			controller.view.status = 'count-in';
-			controller.view.leaving = {
-				title: { fr: 'Relier les formes', en: 'Link the shapes' },
-				...(scope !== undefined && { scope })
-			};
-			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
-			const text = document.querySelector('.announcement')?.textContent;
-			cleanup();
-			return text;
-		};
-		expect(told()).toBe('On change d’air : Relier les formes');
-		expect(told('iohefy-a')).toBe('On change d’air : Relier les formes · I Only Have Eyes for You');
-		i18n.locale = 'en';
-		try {
-			expect(told()).toBe('Time for a change of air: Link the shapes');
-		} finally {
-			i18n.locale = 'fr';
-		}
-	});
-
-	it('tells the exercise leaving beside the level the next one reached, each in its place', () => {
-		for (const world of ['quiet', 'pixel'] as const) {
-			const controller = new StageController();
-			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
-			controller.view.stage = { view: name, model: null };
-			controller.view.status = 'count-in';
-			controller.view.announcement = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
-			controller.view.leaving = { title: { fr: 'Relier les formes', en: 'Link the shapes' } };
-			render(PlayFrame, {
-				props: {
-					controller: playingAs(controller, ALONE),
-					views: { ...PLAY_VIEWS, [name]: FakeView }
-				}
-			});
-			expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 2 sur 9 · ♩ = 85');
-			expect(document.querySelector('.announcement')?.textContent).toBe(
-				'On change d’air : Relier les formes'
-			);
-			cleanup();
 		}
 	});
 
@@ -697,7 +643,7 @@ describe('PlayFrame', () => {
 				const model: FigureStageModel = {
 					phase: 'play',
 					exerciseLabel: 'Contretemps',
-					level: { shown: 1, of: 4, aid: false },
+					level: { shown: 1, of: 4 },
 					tempo: { bpm: 80, unit: '♩' },
 					figure,
 					next: null,

@@ -21,8 +21,7 @@ export class StageController implements PlaySessionController {
 		audioError: null,
 		stage: null,
 		briefing: null,
-		announcement: null,
-		leaving: null
+		announcement: null
 	});
 	nowBeat = 0;
 	readonly timeline = { nowBeat: () => this.nowBeat };

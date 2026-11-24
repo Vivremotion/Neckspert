@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISE_IDS_V13 } from './v13';
 import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
-import type { LevelState } from '$lib/domain/time';
 import {
 	GESTURE_EXERCISES_V11,
 	GESTURE_GRID_EXERCISES_V11,
@@ -11,6 +10,7 @@ import {
 	gestureLevelOfTempo,
 	levelStatesV11,
 	type BackupV6,
+	type LevelStateV11,
 	type ProgressionV10
 } from './v11';
 import { GESTURE_EXERCISES } from '$lib/testing/catalog';
@@ -24,7 +24,7 @@ function progression(
 	return { exerciseId, mechanic, tempoBpm, updatedAt: 1, ...(scope !== undefined && { scope }) };
 }
 
-function level(exerciseId: string, scope: string, value: number): LevelState {
+function level(exerciseId: string, scope: string, value: number): LevelStateV11 {
 	return {
 		exerciseId,
 		scope,
@@ -119,9 +119,10 @@ describe('GESTURE_TEMPOS_V11', () => {
 			GESTURE_EXERCISES_V11.map((id) => EXERCISE_IDS_V13[id])
 		);
 		for (const definition of GESTURE_EXERCISES) {
-			// Its regular levels, from level 1: the aid level below it is no tempo of the old progression.
-			const regular = exerciseLevelsOf(definition).filter((level) => !level.aid);
-			expect(regular.map((_, i) => tempoOf(definition, i))).toEqual([...GESTURE_TEMPOS_V11]);
+			// Its levels after the first: the first, its aid level until issue #19 (D12), is no tempo
+			// of the old progression.
+			const after = exerciseLevelsOf(definition).slice(1);
+			expect(after.map((_, i) => tempoOf(definition, i + 1))).toEqual([...GESTURE_TEMPOS_V11]);
 		}
 		// The exercises whose level is scoped by grid: their passages say so.
 		expect(

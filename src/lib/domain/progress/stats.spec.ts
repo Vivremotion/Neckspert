@@ -47,7 +47,6 @@ function coldAttempt(overrides: AttemptOverrides): Attempt {
 		cardKey: neckCardKey(L1),
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
 		promptedAt: NOW,
 		tempoBpm: 80,
 		leadBeats: 2,
@@ -169,7 +168,6 @@ describe('summarizeSession', () => {
 			identifyMedianReactionMs: 640,
 			learnedCount: 1,
 			pendingCount: 1,
-			knownCount: 0,
 			fatigueDetected: true,
 			nextReviewAt: NOW + 1000,
 			grade: null,
@@ -202,7 +200,7 @@ describe('summarizeSession', () => {
 		expect(summarize([{ exerciseId: 'identify-note', tempoBpm: null }])).toBeNull();
 	});
 
-	it('keeps probes out of cold accuracy and counts the ones passed as already known', () => {
+	it('keeps the probes stored before out of cold accuracy, and no longer counts them as known', () => {
 		const probe = (overrides: AttemptOverrides) =>
 			coldAttempt({ sessionId: 'sess', phase: 'probe', promptedAt: NOW - 5_000, ...overrides });
 		const sessionAttempts = [
@@ -219,11 +217,11 @@ describe('summarizeSession', () => {
 		});
 		expect(summary.attemptCount).toBe(1);
 		expect(summary.correctCount).toBe(0);
-		expect(summary.knownCount).toBe(1);
 		expect(summary.medianOffsetMs).toBeNull();
+		expect(summary).not.toHaveProperty('knownCount');
 	});
 
-	it('has no cold figures when the session only probed', () => {
+	it('has no cold figures from a session stored before that only probed', () => {
 		const only = [
 			coldAttempt({ sessionId: 'sess', phase: 'probe', correct: true, timingOffsetMs: 3 })
 		];
@@ -236,7 +234,6 @@ describe('summarizeSession', () => {
 		});
 		expect(summary.attemptCount).toBe(0);
 		expect(summary.medianOffsetMs).toBeNull();
-		expect(summary.knownCount).toBe(1);
 	});
 
 	it('scores a free session across cold and hot attempts', () => {
@@ -412,7 +409,7 @@ describe('buildNeckMap', () => {
 			).toBeNull();
 		});
 
-		it('counts a passed probe', () => {
+		it('counts a passed probe stored before', () => {
 			expect(recallMs([cold({ sessionId: 'fast', phase: 'probe' })])).toBe(1043);
 		});
 
@@ -606,12 +603,10 @@ describe('summarizeSession of a gesture session', () => {
 				exerciseId: 'grid-reading',
 				rounds: 2,
 				passed: 2,
-				aided: 0,
 				level: null,
 				tempo: { first: 80, last: 80 },
 				inPassages: true,
-				passages: { played: 1, passed: 1 },
-				changedAir: false
+				passages: { played: 1, passed: 1 }
 			}
 		]);
 		expect(changes.misses).toEqual([]);

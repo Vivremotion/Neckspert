@@ -64,12 +64,6 @@ function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 
 }
 
 /**
- * Whether a round had an aid beyond its level's, when the caller does not tell: any aid but the
- * aid level, as for an exercise whose levels give no cursor (the default of `figureParamsOf`).
- */
-const anyAidButTheLevel = (attempt: Attempt) => attempt.aids.some((aid) => aid !== 'aid-level');
-
-/**
  * A session summed up from what it played (`sessionPlayed`): free play scores every attempt; a
  * session of chords counts triads; every session by exercise and scope (`summarizePlayed`), with
  * its missed changes.
@@ -83,16 +77,13 @@ export function summarizeSession(input: {
 	/** The cards the session's exercises list. */
 	cards: readonly CardState[];
 	now: number;
-	/** A round had an aid beyond its level's own. */
-	aided?: (attempt: Attempt) => boolean;
 	/** The level a line held at the end, when the caller knows it. */
 	level?: (played: { exerciseId: string; scope?: string }) => PlayedExercise['level'];
-	/** The exercises and scopes that changed air and left, while the session is in memory. */
-	left?: readonly { exerciseId: string; scope?: string }[];
 }): SessionSummary {
 	const played = sessionPlayed(input.record, input.attempts);
 	const pool = input.record.free === true ? 'all' : 'cold';
-	// Cold figures measure reviews: probes are shown apart, as notes already known.
+	// Cold figures measure reviews. Nothing serves a probe any more (issue #19), but attempts stored
+	// before kept their phase: a passed probe measured no forgetting, so it stays out.
 	const scored =
 		pool === 'all' ? input.attempts : input.attempts.filter((attempt) => attempt.phase !== 'probe');
 	const counted =
@@ -118,9 +109,6 @@ export function summarizeSession(input: {
 		).length,
 		pendingCount: input.cards.filter((card) => card.learnedAt === null && presented.has(card.key))
 			.length,
-		knownCount: input.attempts.filter(
-			(attempt) => attempt.phase === 'probe' && attempt.temperature === 'cold'
-		).length,
 		fatigueDetected: input.record.fatigueDetected,
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null,
@@ -133,10 +121,8 @@ export function summarizeSession(input: {
 		exercises: summarizePlayed({
 			executions: input.record.executions,
 			attempts: input.attempts,
-			aided: input.aided ?? anyAidButTheLevel,
 			alone: input.record.exercise,
-			level: input.level,
-			left: input.left
+			level: input.level
 		}),
 		misses: summaryMisses(input.attempts)
 	};

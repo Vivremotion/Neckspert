@@ -126,7 +126,6 @@ export function stageModel(input: {
 		item.item,
 		settled,
 		locale,
-		{ aid: item.aid, stringAid: item.stringAid ?? false },
 		place,
 		{ chordDiagram: input.chordDiagram },
 		random,

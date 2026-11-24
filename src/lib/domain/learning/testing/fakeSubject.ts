@@ -6,7 +6,7 @@ import type {
 	PlannedItem,
 	SchedulingState
 } from '../../types';
-import { graduateToReview, introScheduling } from '../../progress/scheduling';
+import { Rating, introScheduling, reviewScheduling } from '../../progress/scheduling';
 import { cardKey } from '../../types';
 import type { ExerciseId } from '../../exercise/types';
 import type { SkillId } from '../../types';
@@ -18,30 +18,34 @@ import {
 import { directRecallWithin } from '../recall';
 import type { Level } from '../../time/levels';
 import { DEFAULT_ITEM_LEARNING, type ItemLearning } from '../params';
-import type { CardRef, Ladder, LadderParams, LearningSubject } from '../subject';
+import type { CardRef, Ladder, LearningSubject } from '../subject';
 
 const FAKE_SKILL = 'fake' as SkillId;
 const FAKE_TEMPO_BPM = 80;
 
-/** A written level of a ladder: `pass` and `drop` 1 unless said otherwise, unaided, any success. */
+/**
+ * A written level of a ladder: `pass` and `drop` 1 unless said otherwise, any success; `params`
+ * adds what else the level writes (a `presentation.*` path…).
+ */
 export function rung(
 	leadBeats: LeadBeats | null,
-	options: { aided?: boolean; pass?: number; drop?: number; success?: Level['success'] } = {}
-): Level<LadderParams> {
+	options: {
+		params?: Record<string, unknown>;
+		pass?: number;
+		drop?: number;
+		success?: Level['success'];
+	} = {}
+): Ladder[number] {
 	return {
-		params: { leadBeats, aided: options.aided ?? false },
+		params: { ...options.params, leadBeats },
 		pass: { successes: options.pass ?? 1 },
 		drop: { failures: options.drop ?? 1 },
 		...(options.success && { success: options.success })
 	};
 }
 
-/** The fake's default ladder, today's at 80 bpm: 8 beats aided, 4, then 2 (direct recall, pass 2). */
-const FAKE_LADDER: Ladder = [
-	rung(8, { aided: true }),
-	rung(4),
-	rung(2, { pass: 2, success: 'direct-recall' })
-];
+/** The fake's default ladder, today's at 80 bpm: 8 beats, 4, then 2 (direct recall, pass 2). */
+const FAKE_LADDER: Ladder = [rung(8), rung(4), rung(2, { pass: 2, success: 'direct-recall' })];
 
 /**
  * A subject of numbered items `0..items-1`, introduced in order, for the specs of the procedure.
@@ -55,8 +59,6 @@ export function fakeSubject(
 		ladder?: Ladder;
 		/** Prerequisite: an item not ready is skipped by `nextNew`. */
 		ready?: (item: number, cards: readonly CardState[]) => boolean;
-		/** Default true: the aided presentation follows its missed probe at once. */
-		presentsAtOnce?: boolean;
 		/** What each skill's exercise writes of its items' settings; the defaults otherwise. */
 		learning?: Readonly<Record<string, Partial<ItemLearning>>>;
 	} = {}
@@ -81,12 +83,10 @@ export function fakeSubject(
 			}
 			return null;
 		},
-		presentsAtOnce: input.presentsAtOnce ?? true,
 		ladder: () => ladder,
 		itemLearning: (skill) => ({ ...DEFAULT_ITEM_LEARNING, ...input.learning?.[skill] }),
 		recall: () => recall,
-		confused: (attempt) => (attempt.data as { confused?: boolean } | null)?.confused === true,
-		fadingAid: (skill) => skill === FAKE_SKILL
+		confused: (attempt) => (attempt.data as { confused?: boolean } | null)?.confused === true
 	};
 }
 
@@ -130,7 +130,6 @@ export function attemptOf(
 		cardKey: cardKey(planned.skill, String(planned.item)) as CardKey,
 		phase: planned.phase,
 		temperature: planned.temperature,
-		aids: [],
 		promptedAt: at ?? 0,
 		tempoBpm,
 		leadBeats,
@@ -149,7 +148,7 @@ export function attemptOf(
 
 /**
  * A card of the fake subject. Default: being learned (`introScheduling`); `learnedAt` set gives it
- * a review scheduling (`graduateToReview`). `scheduling` overrides fields of that state.
+ * a review scheduling (one Easy grade from new). `scheduling` overrides fields of that state.
  */
 export function fakeCard(
 	item: number,
@@ -160,7 +159,10 @@ export function fakeCard(
 ): CardState {
 	const { scheduling, skill = FAKE_SKILL, ...fields } = overrides;
 	const learned = fields.learnedAt !== undefined && fields.learnedAt !== null;
-	const base = learned ? graduateToReview(fields.learnedAt as number) : introScheduling(0);
+	const learnedAt = fields.learnedAt as number;
+	const base = learned
+		? reviewScheduling(introScheduling(learnedAt), Rating.Easy, learnedAt)
+		: introScheduling(0);
 	return {
 		key: cardKey(skill, String(item)),
 		skill,

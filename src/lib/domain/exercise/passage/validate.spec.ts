@@ -278,7 +278,7 @@ describe('the passages an exercise writes', () => {
 		expect(refusal({ ...CLIMB_PASSAGES, levels })).toBe(
 			'passages.each.direction is also written at a level'
 		);
-		const ladder = [{ params: { leadBeats: 2, aided: false, direction: 'up' } }];
+		const ladder = [{ params: { leadBeats: 2, direction: 'up' } }];
 		expect(refusal({ ...CLIMB_PASSAGES, params: { ladder } })).toBe(
 			'passages.each.direction is also written at a level'
 		);

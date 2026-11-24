@@ -93,8 +93,7 @@ export class DemoPlaySession implements PlaySessionController {
 			audioError: null,
 			stage: null,
 			briefing: null,
-			announcement: null,
-			leaving: null
+			announcement: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()
@@ -182,7 +181,6 @@ export class DemoPlaySession implements PlaySessionController {
 			item,
 			phase: 'review',
 			temperature: 'cold',
-			aid: 'none',
 			leadBeats: LEAD
 		} as const;
 		this.view.stage = {

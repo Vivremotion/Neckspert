@@ -14,6 +14,7 @@ import { cardToV10, levelStatesV10 } from './migrations/v10';
 import { attemptToV11, levelStatesV11 } from './migrations/v11';
 import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
 import { attemptToV13, cardsToV13, levelStatesToV13, sessionToV13 } from './migrations/v13';
+import { aidLevelsV14, attemptToV14, levelStateToV14, sessionToV14 } from './migrations/v14';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -282,6 +283,37 @@ export class NeckspertDb extends Dexie {
 					.toCollection()
 					.modify((row, ref) => {
 						ref.value = sessionToV13(row);
+					});
+			});
+		// Version 14 (issue #19): levels are counted from 1, without aid levels. The stored levels
+		// of an exercise that had aid levels move up by their number: its exercise level states, the
+		// level reached of its sessions, the level of its cycle attempts; no level state keeps
+		// `resumeAfter`. The aid levels are the catalog's of version 13 and those of the imported
+		// definition files (`aidLevelsV14`). Same conversion as the import of a version 9 backup
+		// (`migrations/v14.ts`); no primary key changes.
+		this.version(14)
+			.stores({ ...stores, levelStates: '[exerciseId+scope+item]', definitionFiles: 'name' })
+			.upgrade(async (tx) => {
+				const aidLevels = aidLevelsV14(await tx.table('definitionFiles').toArray());
+				const shifts = (exerciseId: unknown) =>
+					typeof exerciseId === 'string' && Object.hasOwn(aidLevels, exerciseId);
+				await tx
+					.table('levelStates')
+					.toCollection()
+					.modify((row, ref) => {
+						ref.value = levelStateToV14(row, aidLevels);
+					});
+				await tx
+					.table('sessions')
+					.filter((row) => shifts(row.exercise))
+					.modify((row, ref) => {
+						ref.value = sessionToV14(row, aidLevels);
+					});
+				await tx
+					.table('attempts')
+					.filter((row) => shifts(row.exerciseId) && row.verdict?.relation === 'cycle')
+					.modify((row, ref) => {
+						ref.value = attemptToV14(row, aidLevels);
 					});
 			});
 	}

@@ -10,7 +10,7 @@ import { LOCATE_NECK } from '$lib/testing/catalog';
 
 describe('the learning procedure’s settings', () => {
 	it('keeps no constant of the procedure outside its defaults', () => {
-		expect(DEFAULT_ITEM_LEARNING).toEqual({ retestGaps: [2, 4], aidFadeSuccesses: 1 });
+		expect(DEFAULT_ITEM_LEARNING).toEqual({ retestGaps: [2, 4] });
 		expect(DEFAULT_SET_LEARNING).toEqual({
 			learningSlots: 3,
 			maxWorkingSet: 6,
@@ -44,23 +44,19 @@ describe('the learning procedure’s settings', () => {
 	});
 
 	it('reads an exercise’s learning over the defaults, entry and draw only when written', () => {
-		expect(exerciseLearningOf({ ...LOCATE_NECK, params: {} })).toEqual({
-			...DEFAULT_ITEM_LEARNING,
-			presentAtOnce: true
-		});
+		expect(exerciseLearningOf({ ...LOCATE_NECK, params: {} })).toEqual(DEFAULT_ITEM_LEARNING);
 		const enter = { acquired: { skill: 'locate-note-string', item: 'same-place' } };
 		const asks = { family: 'chord-shapes', where: [{ other: 'previous' }] };
 		expect(
 			exerciseLearningOf({
 				...LOCATE_NECK,
 				params: {
-					learning: { enter, asks, presentAtOnce: false, retestGaps: [1, 3] }
+					learning: { enter, asks, retestGaps: [1, 3] }
 				}
 			})
 		).toEqual({
 			...DEFAULT_ITEM_LEARNING,
 			retestGaps: [1, 3],
-			presentAtOnce: false,
 			enter,
 			asks
 		});

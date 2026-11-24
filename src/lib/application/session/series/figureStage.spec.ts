@@ -44,8 +44,8 @@ describe('the stage helpers', () => {
 			unit: '♩'
 		});
 		const levels = exerciseLevelsOf(RHYTHM_SILENT_BARS);
-		expect(levelView(levels, 0)).toEqual({ shown: 1, of: 6, aid: false });
-		expect(levelView(levels, -1)).toEqual({ shown: 0, of: 6, aid: true });
+		expect(levelView(levels, 0)).toEqual({ shown: 1, of: 7 });
+		expect(levelView(levels, 6)).toEqual({ shown: 7, of: 7 });
 	});
 
 	it('place the cursor in the figure from the bar where the cycle began', () => {
@@ -102,7 +102,6 @@ function planned<I>(definition: ExerciseDefinition, item: I): PlannedItem<I> {
 		item,
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	};
 }
@@ -121,7 +120,6 @@ function outcome(report: CycleReport, reasons: string[]): RoundOutcome {
 			value: reasons.length === 0 ? { passed: true } : { passed: false, reasons }
 		},
 		measures: report.measures,
-		aids: [],
 		detail: report
 	};
 }
@@ -332,14 +330,14 @@ describe('figureStage', () => {
 
 describe('figureStage, the notes it engraves', () => {
 	const c = { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 };
-	/** The arpeggio's item at exercise level `level` (-1 is its aid level, which shows the tab). */
+	/** The arpeggio's item at exercise level `level` (0, its level 1, shows the tab). */
 	const at = (level: number): PlannedItem => ({
 		...planned(ARPEGGIO_EXERCISE, c),
 		exerciseLevel: level
 	});
 
 	it('hides the notes of a derived figure by default', () => {
-		const model = stage(ARPEGGIO_EXERCISE, at(0), 'round');
+		const model = stage(ARPEGGIO_EXERCISE, at(1), 'round');
 		expect(model.notation).toEqual({ staff: false, tab: false });
 		// Written or not, its notes are the shape's, in the figure the view would engrave.
 		expect(
@@ -347,8 +345,8 @@ describe('figureStage, the notes it engraves', () => {
 		).toBe(true);
 	});
 
-	it('writes the derived notes into the figure for the tab aid', () => {
-		const model = stage(ARPEGGIO_EXERCISE, at(-1), 'round');
+	it('writes the derived notes into the figure for the tab its level 1 shows', () => {
+		const model = stage(ARPEGGIO_EXERCISE, at(0), 'round');
 		expect(model.notation).toEqual({ staff: false, tab: true });
 		const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(c, ARPEGGIO_EXERCISE) as {
 			midi: number;
@@ -368,7 +366,7 @@ describe('figureStage, the notes it engraves', () => {
 	});
 
 	it('keeps one figure for a plan, so the view engraves it once, and presents the prompt once per item', () => {
-		const item = at(-1);
+		const item = at(0);
 		const plan = planOf(ARPEGGIO_EXERCISE, item);
 		const calls = vi.mocked(presentPrompt).mock.calls.length;
 		const first = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, beat: 0 });
@@ -383,7 +381,7 @@ describe('figureStage, the notes it engraves', () => {
 });
 
 describe('figureStage, a round cut inside its figure', () => {
-	/** C major on G-B-E for `beats` beats, at exercise level `level` (-1 writes the tab). */
+	/** C major on G-B-E for `beats` beats, at exercise level `level` (0 writes the tab). */
 	const change = (beats: number, level: number): PlannedItem => ({
 		...planned(ARPEGGIO_EXERCISE, { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats }),
 		exerciseLevel: level
@@ -404,8 +402,8 @@ describe('figureStage, a round cut inside its figure', () => {
 			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
 		);
 
-	for (const level of [0, -1]) {
-		const tab = level === -1;
+	for (const level of [1, 0]) {
+		const tab = level === 0;
 		it(`engraves a 2-beat change as its two notes then rests, one whole bar${tab ? ', its tab derived' : ''}`, () => {
 			const model = stage(ARPEGGIO_EXERCISE, change(2, level), 'round', { beat: 1 });
 			expect(model.notation).toEqual({ staff: false, tab });
@@ -484,7 +482,7 @@ describe('figureStage, a round cut inside its figure', () => {
 			[1, 2, 3, 1, 2, 3, 1, 2].map((k) => shape[k - 1].midi)
 		);
 		// Every loop the same: one loop, as before.
-		const same = stage(ARPEGGIO_EXERCISE, change(8, 0), 'round');
+		const same = stage(ARPEGGIO_EXERCISE, change(8, 1), 'round');
 		expect(same.figure.bars).toBe(1);
 		expect(same.cycleBars).toBe(2);
 	});
@@ -538,9 +536,9 @@ describe('figureStage, a form moved to its chord', () => {
 		]);
 	});
 
-	it('writes its moved notes into the figure for the tab aid', () => {
-		const aided = { ...item, exerciseLevel: -1 };
-		const model = stage(FORM_EXERCISE, aided, 'round');
+	it('writes its moved notes into the figure for the tab its level 1 shows', () => {
+		const tabbed = { ...item, exerciseLevel: 0 };
+		const model = stage(FORM_EXERCISE, tabbed, 'round');
 		expect(model.notation).toEqual({ staff: false, tab: true });
 		const notes = model.figure.voices[0].elements.flatMap((e) =>
 			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []

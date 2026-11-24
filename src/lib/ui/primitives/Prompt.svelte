@@ -76,7 +76,7 @@
 		font-size: var(--np-size-prompt);
 	}
 
-	/* What comes under the prompt (drawn string, aid tile, shape) shares its centre axis. */
+	/* What comes under the prompt (its pictures: a drawn string, a neck, a shape) shares its centre axis. */
 	.below {
 		display: flex;
 		flex-direction: column;

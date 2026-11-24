@@ -1,7 +1,7 @@
 import type { Fraction } from '../fraction';
 import type { CycleReport, CycleThresholds } from '../judge/measures';
 import type { Judged, RoundPlan } from '../plan';
-import type { Aid, RoundOutcome } from '../round';
+import type { RoundOutcome } from '../round';
 import type { TempoMap } from '../tempoMap';
 import type { RoundTimes } from './times';
 
@@ -101,7 +101,6 @@ export interface VerdictContext {
 	latency: CycleReport['latency'];
 	/** null for a response plan. */
 	thresholds: CycleThresholds | null;
-	aids: Aid[];
 }
 
 /** Turns what a round paired into its outcome. */

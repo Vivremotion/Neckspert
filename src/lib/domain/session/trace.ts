@@ -1,5 +1,3 @@
-import type { Aid, CycleFailure } from '$lib/domain/time';
-
 /** What a stretch of a session was, with the word the screen uses for it (spec amendment 2026-10-17). */
 export const SEGMENT_ROLES = [
 	'session',
@@ -16,27 +14,16 @@ export const SEGMENT_ROLES = [
 ] as const;
 export type SegmentRole = (typeof SEGMENT_ROLES)[number];
 
-/**
- * Why a series ended on its own: its time was spent, « On change d’air », or its source had
- * nothing more to give.
- */
-export type SeriesEnd = 'time' | 'change-of-air' | 'complete';
+/** Why a series ended on its own: its time was spent, or its source had nothing more to give. */
+export type SeriesEnd = 'time' | 'complete';
 
 export interface SegmentFields {
 	exerciseId?: string;
 	item?: string;
 	level?: number;
 	attemptId?: number;
-	aids?: Aid[];
 	/** On a series: why it ended. */
 	reason?: SeriesEnd | 'quit';
-	/** On a series ended by « On change d’air »: the measure that breaks. */
-	breaking?: CycleFailure;
-	/**
-	 * On a series: every (exercise, scope) that changed air and left it, in order, the one that
-	 * ended it last (« On change d’air »).
-	 */
-	left?: { exerciseId: string; scope?: string }[];
 }
 
 /**

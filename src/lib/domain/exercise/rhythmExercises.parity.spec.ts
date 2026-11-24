@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FigureItem } from '$lib/domain/sets';
-import { levelRange, METER_4_4, type RoundPlan } from '$lib/domain/time';
+import { METER_4_4, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { compileRound, figureItemsAt } from './round';
 import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
@@ -8,8 +8,13 @@ import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 /*
  * The plans the three rhythm exercises compile, frozen when the cycle compiler they replaced was
  * deleted (plan S, task 5): they matched it for every level, figure and start bar. A change here
- * is a change of what the rhythm asks of the player.
+ * is a change of what the rhythm asks of the player. Since their aid levels became their level 1
+ * (issue #19, D12), each level is read by its place in the list: the plans are the same as
+ * before, each at its former index + 1.
  */
+
+/** The index of the level the first round of a run is frozen at: the former level 1. */
+const FIRST_ROUND_LEVEL = 1;
 
 function item(exerciseId: string, figureId: string, level: number): PlannedItem<FigureItem> {
 	return {
@@ -19,7 +24,6 @@ function item(exerciseId: string, figureId: string, level: number): PlannedItem<
 		item: { figureId, level },
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null
 	};
 }
@@ -53,8 +57,8 @@ function describePlan(plan: RoundPlan) {
 
 describe('the plans of the rhythm exercises', () => {
 	for (const exercise of RHYTHM_EXERCISES) {
-		const { lowest, highest } = levelRange(exercise.levels ?? []);
-		for (let level = lowest; level <= highest; level++) {
+		const count = exercise.levels?.length ?? 0;
+		for (let level = 0; level < count; level++) {
 			it(`${exercise.id} at level ${level} compiles as it always has`, () => {
 				const plans: Record<string, unknown> = {};
 				const figures = figureItemsAt(exercise, level, METER_4_4) ?? [];
@@ -73,10 +77,10 @@ describe('the plans of the rhythm exercises', () => {
 			});
 		}
 		it(`${exercise.id} compiles the first round of a run, its place not known yet`, () => {
-			const [{ id }] = figureItemsAt(exercise, 0, METER_4_4) ?? [];
+			const [{ id }] = figureItemsAt(exercise, FIRST_ROUND_LEVEL, METER_4_4) ?? [];
 			expect(
 				describePlan(
-					compileRound(exercise, item(exercise.id, id, 0), METER_4_4, {
+					compileRound(exercise, item(exercise.id, id, FIRST_ROUND_LEVEL), METER_4_4, {
 						previewBeats: 0,
 						fromRunStart: null
 					})

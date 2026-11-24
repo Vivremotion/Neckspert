@@ -105,7 +105,7 @@ describe('the cost of what a level writes', () => {
 
 	it('charges a value a level writes at its nested size, and a ladder path through it at each resolution over it', () => {
 		const ladder = Array.from({ length: 10 }, (_, i) => ({
-			params: { leadBeats: 2, aided: false, [`big.b${i}`]: 1 }
+			params: { leadBeats: 2, [`big.b${i}`]: 1 }
 		}));
 		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder } };
 		const plain = levelsCheckCost({ ...exercise, levels: [{ params: { big: 1 } }] });
@@ -119,7 +119,7 @@ describe('the cost of what a level writes', () => {
 
 	it('charges a ladder level a sweep lays only for the paths a selection reads', () => {
 		const ladder = Array.from({ length: 50 }, () => ({
-			params: { leadBeats: 2, aided: false, ...keys(100) }
+			params: { leadBeats: 2, ...keys(100) }
 		}));
 		const levels = Array.from({ length: 50 }, () => ({ params: keys(100) }));
 		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder }, levels };
@@ -140,7 +140,7 @@ describe('the cost of what a level writes', () => {
 		// The reviewer's shape: a zone of many keys, a ladder writing the zone's frets at every
 		// level, many exercise levels; the member asked reads the zone's frets or nothing.
 		const ladder = Array.from({ length: 100 }, () => ({
-			params: { leadBeats: 2, aided: false, 'zone.frets': [1, 24] }
+			params: { leadBeats: 2, 'zone.frets': [1, 24] }
 		}));
 		const levels = Array.from({ length: 100 }, (_, i) => ({ params: { [`free${i}`]: 1 } }));
 		const exercise = {
@@ -162,6 +162,38 @@ describe('the cost of what a level writes', () => {
 			asking({ family: 'chord-shapes', where: [{ in: { frets: { param: 'zone.frets' } } }] })
 		);
 		expect(reading).toBeGreaterThan(plain);
+	});
+});
+
+describe('the cost of a presentation rewritten at the levels', () => {
+	const ladderWriting = (path: string) =>
+		Array.from({ length: 100 }, () => ({
+			params: { leadBeats: 2, [path]: '{fret}' }
+		}));
+	const levels = Array.from({ length: 100 }, () => ({ params: {} }));
+
+	it('charges the presentation checked at each ladder level that rewrites it, over each exercise level', () => {
+		const rewriting = (path: string) =>
+			levelsCheckCost({
+				...LOCATE_NECK,
+				levels,
+				params: { ...LOCATE_NECK.params, ladder: ladderWriting(path) }
+			});
+		const size = Object.keys(LOCATE_NECK.presentation!).length;
+		// 100 × 100 presentations copied by the params' resolution, then resolved and checked again.
+		expect(rewriting('presentation.detail') - rewriting('other.detail')).toBeGreaterThanOrEqual(
+			Math.floor((100 * 100 * 2 * size) / PARAM_ENTRIES_PER_UNIT)
+		);
+	});
+
+	it('charges nothing more for an exercise that writes no presentation, refused before', () => {
+		const unpresented = { ...LOCATE_NECK, presentation: undefined, levels };
+		const cost = (path: string) =>
+			levelsCheckCost({
+				...unpresented,
+				params: { ...LOCATE_NECK.params, ladder: ladderWriting(path) }
+			});
+		expect(cost('presentation.detail')).toBe(cost('other.detail'));
 	});
 });
 

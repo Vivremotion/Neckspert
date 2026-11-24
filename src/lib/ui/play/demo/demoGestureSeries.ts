@@ -10,8 +10,6 @@ import { routines } from '$lib/domain/routine/registry';
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
 import { passageRound } from '$lib/domain/exercise/passage/round';
 import { passageDerivation } from '$lib/domain/families';
-import { exerciseLevelsOf } from '$lib/domain/exercise/levels';
-import { levelRange } from '$lib/domain/time';
 import type { ItemSource } from '$lib/domain/progress';
 import type { ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
@@ -123,17 +121,16 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 		settings: new InMemorySettingsRepository()
 	};
 	const cards = new InMemoryCardStateRepository();
-	// The demo starts at its exercise's aid level, the shapes drawn; the scripted player moves it up.
+	// The demo starts at its exercise's level 1, the shapes drawn; the scripted player moves it up.
 	const { exercise, scope } = demoPassage(mode);
 	const levels = new InMemoryLevelStateRepository([
 		{
 			exerciseId: exercise.id,
 			scope,
 			item: '',
-			level: levelRange(exerciseLevelsOf(exercise)).lowest,
+			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		}
 	]);
 	const sources = new Map<string, ItemSource>();

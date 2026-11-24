@@ -41,7 +41,6 @@ export function earlier(exerciseId: string, skill = 'inner-pulse'): Attempt {
 		cardKey: `${skill}:old@0`,
 		phase: 'free',
 		temperature: 'hot',
-		aids: [],
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -144,6 +143,8 @@ export async function rhythmSeries(
 	options: {
 		/** The exercise was played before. */
 		met?: boolean;
+		/** The exercise level stored before the series (0 = level 1); none stored when absent. */
+		level?: number;
 		/** The attack sensor's calibrated latency. */
 		latency?: SensorLatency;
 		/** Latencies of other sensors, beside the attack's. */
@@ -162,6 +163,16 @@ export async function rhythmSeries(
 	const takes = new FakeTakeBuffer();
 	const memory = new SessionMemory();
 	if (options.met) await attempts.add(earlier(exercise.id));
+	if (options.level !== undefined) {
+		await levels.put({
+			exerciseId: exercise.id,
+			scope: '',
+			item: '',
+			level: options.level,
+			successes: 0,
+			failures: 0
+		});
+	}
 	await settings.update({
 		latency: { ...options.latencies, ...(options.latency && { attack: options.latency }) },
 		clickBleed: options.clickBleed ?? false

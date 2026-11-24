@@ -23,8 +23,8 @@ export function levelConditionsProblem(level: Level<unknown>): string | null {
 
 /**
  * Null when the ladder can be run, else why not: empty, a lead neither null (no lead) nor a
- * positive exact fraction of a beat, an aid not a boolean, a success neither `'any'` nor
- * `'direct-recall'`, a pass or drop not a positive integer.
+ * positive exact fraction of a beat, a success neither `'any'` nor `'direct-recall'`, a pass or
+ * drop not a positive integer.
  */
 export function validateLadder(ladder: Ladder): string | null {
 	if (!Array.isArray(ladder)) return 'is not a list of levels';
@@ -33,10 +33,6 @@ export function validateLadder(ladder: Ladder): string | null {
 		const lead = level?.params?.leadBeats;
 		if (lead !== null && !(isBeatCount(lead) && lead > 0)) {
 			return `level ${index}: the lead must be null or a positive number of beats, an exact fraction of a beat, got ${lead}`;
-		}
-		const aided = level.params.aided as unknown;
-		if (aided !== undefined && typeof aided !== 'boolean') {
-			return `level ${index}: aided must be true or false, got ${aided}`;
 		}
 		const conditions = levelConditionsProblem(level);
 		if (conditions !== null) return `level ${index}: ${conditions}`;

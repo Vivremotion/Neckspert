@@ -131,6 +131,8 @@ export async function sequenceSeries(
 		pattern: readonly number[];
 		/** The exercise was played before: no demonstration of a first encounter. */
 		met?: boolean;
+		/** The exercise level stored before the series (0 = level 1); none stored when absent. */
+		level?: number;
 		clickBleed?: boolean;
 	}
 ) {
@@ -145,6 +147,16 @@ export async function sequenceSeries(
 	const takes = new FakeTakeBuffer();
 	const memory = new SessionMemory();
 	if (options.met) await attempts.add(earlier(exercise.id, exercise.practices));
+	if (options.level !== undefined) {
+		await levels.put({
+			exerciseId: exercise.id,
+			scope: '',
+			item: '',
+			level: options.level,
+			successes: 0,
+			failures: 0
+		});
+	}
 	await settings.update({ latency: {}, clickBleed: options.clickBleed ?? false });
 	const recorders: AttemptRecorder[] = [];
 	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();

@@ -12,7 +12,6 @@
 		identifyMedianReactionMs: 640,
 		learnedCount: 3,
 		pendingCount: 1,
-		knownCount: 3,
 		fatigueDetected: false,
 		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+',
@@ -45,12 +44,10 @@
 				exerciseId: figureExercise?.id ?? '',
 				rounds: 14,
 				passed: 11,
-				aided: 2,
-				level: { shown: 3, of: 6, aid: false },
+				level: { shown: 3, of: 6 },
 				tempo: { first: 80, last: 80 },
 				inPassages: false,
-				passages: null,
-				changedAir: false
+				passages: null
 			}
 		]
 	};

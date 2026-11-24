@@ -101,10 +101,10 @@ describe('roundProblem', () => {
 
 	it('refuses a lead param a level of the ladder does not give, naming the levels', () => {
 		const ladder: Ladder = [
-			{ params: { leadBeats: 4, aided: false } },
-			{ params: { leadBeats: null, aided: false } },
-			{ params: { leadBeats: 2, aided: false } },
-			{ params: { leadBeats: null, aided: false } }
+			{ params: { leadBeats: 4 } },
+			{ params: { leadBeats: null } },
+			{ params: { leadBeats: 2 } },
+			{ params: { leadBeats: null } }
 		];
 		const noLead: ExerciseDefinition = {
 			...LOCATE_NECK,

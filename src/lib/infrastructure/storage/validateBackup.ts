@@ -1,4 +1,3 @@
-import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
 	LATENCY_PROVENANCES,
@@ -10,7 +9,7 @@ import {
 	parseCardKey,
 	responseVerdictOf,
 	type BackupFile,
-	type ItemPhase,
+	type RecordedPhase,
 	type Locale,
 	type Temperature
 } from '$lib/domain/types';
@@ -19,7 +18,14 @@ import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
 import { backupV5ToV6 } from './migrations/v10';
-import { EXERCISE_IDS_V13, MECHANICS_V12, backupV8ToV9, type MechanicV12 } from './migrations/v13';
+import {
+	EXERCISE_IDS_V13,
+	MECHANICS_V12,
+	backupV8ToV9,
+	type BackupV9,
+	type MechanicV12
+} from './migrations/v13';
+import { AIDS_V13, backupV9ToV10 } from './migrations/v14';
 import { backupV6ToV7, type BackupV6, type BackupV7 } from './migrations/v11';
 import {
 	FIGURE_MECHANIC_V12,
@@ -38,7 +44,14 @@ type Check = (entry: Fields) => string | null;
 const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
-const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
+/** The phases an attempt may carry: `probe` stays readable on attempts stored before issue #19. */
+const ITEM_PHASES: readonly RecordedPhase[] = [
+	'probe',
+	'review',
+	'learning',
+	'consolidation',
+	'free'
+];
 /** The kinds of session files 1 to 8 recorded (frozen: version 9 records what a session played). */
 const SESSION_KINDS: readonly string[] = [
 	'learn',
@@ -289,8 +302,12 @@ function checkTargetOutcome(attempt: Fields): string | null {
 	) {
 		return `verdict.value ${VERDICT_PROBLEM}`;
 	}
-	if (!Array.isArray(attempt.aids) || !attempt.aids.every((aid) => isOneOf(aid, AIDS))) {
-		return `aids must be a list of ${AIDS.join(', ')}`;
+	// Absent on an attempt stored since issue #19; an older one's list is read as it was written.
+	if (
+		attempt.aids !== undefined &&
+		(!Array.isArray(attempt.aids) || !attempt.aids.every((aid) => isOneOf(aid, AIDS_V13)))
+	) {
+		return `aids must be a list of ${AIDS_V13.join(', ')}`;
 	}
 	if (!isFields(attempt.measures)) return 'measures must be an object';
 	if (!Object.hasOwn(attempt, 'plan') || attempt.plan === undefined) {
@@ -750,18 +767,26 @@ function isNaturalNumber(value: unknown): boolean {
 	return Number.isInteger(value) && (value as number) >= 0;
 }
 
-function checkLevelState(state: Fields): string | null {
+/** A level state of every version: its key, its level and its runs. */
+function checkLevelStateFields(state: Fields): string | null {
 	if (!isNonEmptyString(state.exerciseId)) return 'exerciseId must be a non-empty string';
 	if (typeof state.scope !== 'string') return 'scope must be a string (empty without one)';
 	if (typeof state.item !== 'string') return 'item must be a string (empty without one)';
 	if (!Number.isInteger(state.level)) return 'level must be an integer';
 	if (!isNaturalNumber(state.successes)) return 'successes must be a whole number';
 	if (!isNaturalNumber(state.failures)) return 'failures must be a whole number';
-	if (!isNullableNumber(state.resumeAfter)) return 'resumeAfter must be a number or null';
 	return null;
 }
 
-/** The tables of versions 4 to 9; cards lose their lead at 6, sessions their kind at 9. */
+/** Versions 4 to 9: a level state may rest until `resumeAfter`. */
+function checkLevelState(state: Fields): string | null {
+	return (
+		checkLevelStateFields(state) ??
+		(isNullableNumber(state.resumeAfter) ? null : 'resumeAfter must be a number or null')
+	);
+}
+
+/** The tables of versions 4 to 10; cards lose their lead at 6, sessions their kind at 9. */
 function checkBackupTables(
 	backup: Fields,
 	cardCheck: Check,
@@ -944,22 +969,42 @@ export function validateBackupV8(file: unknown): BackupV8 {
  * keys prefixed by it; sessions their routine or exercise; no old id of the eight exercises named
  * after their skill (`EXERCISE_IDS_V13`); the imported definition files, one per name.
  */
-export function validateBackupV9(file: unknown): BackupFile {
+export function validateBackupV9(file: unknown): BackupV9 {
 	const backup = checkHeader(file, 9);
 	checkNoProgressions(backup);
 	checkBackupTables(backup, checkCardV9, checkAttemptV9, checkSessionV9, checkLevelStateV9);
+	checkDefinitionFiles(backup.definitionFiles);
+	return backup as unknown as BackupV9;
+}
+
+/** Version 10: levels are counted from 1, and a level state no longer rests. */
+function checkLevelStateV10(state: Fields): string | null {
+	if (Object.hasOwn(state, 'resumeAfter')) return 'resumeAfter is gone: a level does not rest';
+	return checkLevelStateFields(state);
+}
+
+/**
+ * Checks a version 10 file and returns it unchanged: as version 9, its levels counted from 1
+ * (issue #19), no `resumeAfter` on a level state. An attempt stored before may keep the phase
+ * `probe` and its list of aids (`AIDS_V13`).
+ */
+export function validateBackupV10(file: unknown): BackupFile {
+	const backup = checkHeader(file, 10);
+	checkNoProgressions(backup);
+	checkBackupTables(backup, checkCardV9, checkAttemptV9, checkSessionV9, checkLevelStateV10);
 	checkDefinitionFiles(backup.definitionFiles);
 	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 9, and versions 1 to 8 brought to it by the migration chain, the one the
+ * Accepts version 10, and versions 1 to 9 brought to it by the migration chain, the one the
  * database upgrade runs. Throws a readable error on anything else.
  */
 export function validateBackup(file: unknown): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	const toV9 = (v8: Fields) => validateBackupV9(backupV8ToV9(validateBackupV8(v8)));
+	const toV10 = (v9: Fields) => validateBackupV10(backupV9ToV10(validateBackupV9(v9)));
+	const toV9 = (v8: Fields) => toV10(backupV8ToV9(validateBackupV8(v8)));
 	const toV8 = (v7: Fields) => toV9(backupV7ToV8(validateBackupV7(v7)));
 	const toV7 = (v6: Fields) => toV8(backupV6ToV7(validateBackupV6(v6)));
 	const toV6 = (v5: Fields) => toV7(backupV5ToV6(validateBackupV5(v5)));
@@ -975,6 +1020,7 @@ export function validateBackup(file: unknown): BackupFile {
 	if (file.version === 6) return toV7(file);
 	if (file.version === 7) return toV8(file);
 	if (file.version === 8) return toV9(file);
-	if (file.version === 9) return validateBackupV9(file);
+	if (file.version === 9) return toV10(file);
+	if (file.version === 10) return validateBackupV10(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

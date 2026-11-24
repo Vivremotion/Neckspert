@@ -367,8 +367,7 @@ export function rejudge(
 			clock: { map: createTempoMap(startS, [tempo]), start: Fraction.ZERO },
 			judges: contentJudges,
 			latency,
-			thresholds: plan.thresholds ?? {},
-			aids: []
+			thresholds: plan.thresholds ?? {}
 		});
 		const latencyS = (latency?.ms ?? 0) / 1000;
 		for (const time of truth) {

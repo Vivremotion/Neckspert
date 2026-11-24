@@ -4,9 +4,18 @@
 // `tempoScope` becomes `scope`. Pure functions on plain records, applied alike by the database
 // upgrade (`db.ts`) and by the import of a backup (`validateBackup.ts`).
 
-import type { LevelState } from '$lib/domain/time';
-
 type Row = Record<string, unknown>;
+
+/** A level state as versions 4 to 9 of the backup stored it (frozen: version 10 drops `resumeAfter`). */
+export interface LevelStateV11 {
+	exerciseId: string;
+	scope: string;
+	item: string;
+	level: number;
+	successes: number;
+	failures: number;
+	resumeAfter: number | null;
+}
 
 /** A tempo progression as versions 5 to 10 stored it; `scope` only in a scope of its exercise. */
 export interface ProgressionV10 {
@@ -22,14 +31,14 @@ export interface BackupV6 extends Row {
 	version: 6;
 	progressions: ProgressionV10[];
 	attempts: Row[];
-	levelStates: LevelState[];
+	levelStates: LevelStateV11[];
 }
 
 /** A backup at version 7: no progressions, attempts with their `scope`. */
 export interface BackupV7 extends Row {
 	version: 7;
 	attempts: Row[];
-	levelStates: LevelState[];
+	levelStates: LevelStateV11[];
 }
 
 /**
@@ -81,13 +90,13 @@ function stateKey(state: { exerciseId: string; scope: string; item: string }): s
  */
 export function levelStatesV11(
 	progressions: readonly ProgressionV10[],
-	existing: readonly LevelState[]
-): LevelState[] {
+	existing: readonly LevelStateV11[]
+): LevelStateV11[] {
 	const stored = new Set(existing.map(stateKey));
-	const seeded: LevelState[] = [];
+	const seeded: LevelStateV11[] = [];
 	for (const progression of progressions) {
 		if (!wasRead(progression)) continue;
-		const state: LevelState = {
+		const state: LevelStateV11 = {
 			exerciseId: progression.exerciseId,
 			scope: progression.scope ?? '',
 			item: '',

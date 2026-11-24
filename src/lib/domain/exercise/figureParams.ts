@@ -12,12 +12,13 @@ export interface Notation {
 
 /**
  * What a round that plays a figure reads of its exercise level, beyond its template: how its
- * marks are told, what listening to the figure is worth, the cursor over it, the thresholds
- * its verdict judges against, and how it is engraved. Absent from the params: the defaults below.
+ * marks are told, whether the player may ask to hear the figure, the cursor over it, the thresholds
+ * its verdict judges against, how it is engraved, and whether the model is heard before each run
+ * or sounds along. Absent from the params: the defaults below.
  */
 export interface FigureParams {
 	feedback: Feedback;
-	listen: 'free' | 'aid' | 'none';
+	listen: 'free' | 'none';
 	cursor: boolean;
 	thresholds: CycleThresholds;
 	/**
@@ -32,10 +33,14 @@ export interface FigureParams {
 	liveMarks: boolean;
 	/** Beats before its round ends that the level shows what comes next; 0: it does not. */
 	nextBeats: number;
+	/** Every run of cycles at the level opens with the model heard, not played nor judged. */
+	listenFirst: boolean;
+	/** The model sounds with the player at every cycle played at the level. */
+	playAlong: boolean;
 }
 
 const FEEDBACKS: readonly Feedback[] = ['every-cycle', 'summary', 'out-of-tolerance'];
-const LISTENS: readonly FigureParams['listen'][] = ['free', 'aid', 'none'];
+const LISTENS: readonly FigureParams['listen'][] = ['free', 'none'];
 
 /** The figure params of an exercise that writes none. */
 export const DEFAULT_FIGURE_PARAMS: FigureParams = {
@@ -46,7 +51,9 @@ export const DEFAULT_FIGURE_PARAMS: FigureParams = {
 	notation: null,
 	neck: false,
 	liveMarks: false,
-	nextBeats: 0
+	nextBeats: 0,
+	listenFirst: false,
+	playAlong: false
 };
 
 /** The round template writes a figure entry. */
@@ -59,7 +66,7 @@ function oneOf<T extends string>(values: readonly T[], value: unknown, otherwise
 }
 
 /**
- * The figure params of exercise level `exerciseLevel` (0 = level 1, aid levels negative), read in
+ * The figure params of exercise level `exerciseLevel` (0 = level 1), read in
  * its resolved params (`resolvedParamsOf`), each over its default. Throws on a level the exercise
  * does not have.
  */
@@ -67,8 +74,18 @@ export function figureParamsOf(
 	definition: ExerciseDefinition,
 	exerciseLevel: number
 ): FigureParams {
-	const { feedback, listen, cursor, thresholds, notation, neck, liveMarks, nextBeats } =
-		resolvedParamsOf(definition, { exerciseLevel, itemLevel: null });
+	const {
+		feedback,
+		listen,
+		cursor,
+		thresholds,
+		notation,
+		neck,
+		liveMarks,
+		nextBeats,
+		listenFirst,
+		playAlong
+	} = resolvedParamsOf(definition, { exerciseLevel, itemLevel: null });
 	return {
 		notation: notationParam(definition, notation),
 		feedback: oneOf(FEEDBACKS, feedback, DEFAULT_FIGURE_PARAMS.feedback),
@@ -76,6 +93,8 @@ export function figureParamsOf(
 		cursor: typeof cursor === 'boolean' ? cursor : DEFAULT_FIGURE_PARAMS.cursor,
 		neck: typeof neck === 'boolean' ? neck : DEFAULT_FIGURE_PARAMS.neck,
 		liveMarks: typeof liveMarks === 'boolean' ? liveMarks : DEFAULT_FIGURE_PARAMS.liveMarks,
+		listenFirst: typeof listenFirst === 'boolean' ? listenFirst : DEFAULT_FIGURE_PARAMS.listenFirst,
+		playAlong: typeof playAlong === 'boolean' ? playAlong : DEFAULT_FIGURE_PARAMS.playAlong,
 		nextBeats:
 			typeof nextBeats === 'number' && nextBeats > 0 ? nextBeats : DEFAULT_FIGURE_PARAMS.nextBeats,
 		thresholds:

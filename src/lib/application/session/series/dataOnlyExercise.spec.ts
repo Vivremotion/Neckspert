@@ -45,9 +45,9 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 		pacing: { respirationBars: 2 },
 		windows: { perfectMs: 120 },
 		ladder: [
-			{ params: { leadBeats: 6, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
+			{ params: { leadBeats: 6 }, pass: { successes: 1 }, drop: { failures: 1 } },
 			{
-				params: { leadBeats: 3, aided: false },
+				params: { leadBeats: 3 },
 				pass: { successes: 2 },
 				drop: { failures: 1 },
 				success: 'direct-recall'

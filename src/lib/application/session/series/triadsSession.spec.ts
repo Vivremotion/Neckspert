@@ -45,6 +45,9 @@ import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 const C = ORDER[0];
 const DAY_S = 24 * 60 * 60;
 
+/** The pictures a round's prompt draws, by kind. */
+const drawn = (round: TriadSeen) => round.prompt.pictures.map((picture) => picture.kind);
+
 /** Quits and lets every write end; the session's attempts, in order. */
 async function quitAndRead(app: TriadsApp, controller: PlaySessionController): Promise<Attempt[]> {
 	controller.quit();
@@ -91,11 +94,11 @@ async function runTo(app: TriadsApp, time: number): Promise<void> {
 	await runUntil(app, () => app.clock.now() >= time);
 }
 
-describe('the triads exercises, from the probe to the zone', () => {
+describe('the triads exercises, from the first prompt to the zone', () => {
 	it('learns C in anchor, acquires it cold, then asks it around a fret', async () => {
 		const app = await triadsApp();
 
-		// First session: C's probe is missed; its aided presentation follows, then its ladder.
+		// First session: C's first prompt, at level 1 (its shape drawn), is missed; then its ladder.
 		const firstSession = await startTriads(app, 'triads');
 		const first = await playUntil(
 			app,
@@ -104,9 +107,11 @@ describe('the triads exercises, from the probe to the zone', () => {
 			async () => (await cardOf(app, 'chord-anchor', C))?.learnedAt != null
 		);
 		await quitAndRead(app, firstSession);
-		expect(first[0]).toMatchObject({ skill: 'chord-anchor', voicing: C, aided: false });
+		expect(first[0]).toMatchObject({ skill: 'chord-anchor', voicing: C });
+		expect(drawn(first[0])).toEqual(['shape']);
 		const cPrompts = first.filter((p) => p.voicing === C);
-		expect(cPrompts[1]).toMatchObject({ aided: true });
+		// Missed at level 1: still there, its shape drawn.
+		expect(drawn(cPrompts[1])).toEqual(['shape']);
 		expect(cPrompts.length).toBeGreaterThanOrEqual(5);
 		const learned = await cardOf(app, 'chord-anchor', C);
 		expect(learned?.learnedAt).not.toBeNull();
@@ -147,7 +152,11 @@ describe('the triads exercises, from the probe to the zone', () => {
 		const shape = occurrenceOfId(zone!.expectation.expected[0]);
 		expect(shape && voicingKey(shape.voicing)).toBe(C);
 		expect(shape && cueFrets(shape)).toContain(zone?.fret);
-		expect(zone?.prompt).toMatchObject({ primary: 'C', detail: 'sol‑si‑mi' });
+		// New in the zone: at level 1, which writes the root's string beside the strings.
+		expect(zone?.prompt).toMatchObject({
+			primary: 'C',
+			detail: 'sol‑si‑mi · fondamentale sur si'
+		});
 		expect(zone?.prompt.secondary).toMatch(/^vers la case \d+$/);
 		const attempts = await app.deps.attempts.all();
 		const cold = attempts.find(
@@ -175,53 +184,48 @@ describe('the triads exercises, from the probe to the zone', () => {
 		expect((await cardOf(app, 'chord-zone', C))?.item).toEqual({ voicingKey: C });
 	});
 
-	it('probes a new chord unaided, then shows it aided on the next prompt after a miss, not at once', async () => {
+	it('shows a new chord at level 1 from its first prompt; missed, it comes back after other chords', async () => {
 		const app = await triadsApp();
 		const controller = await startTriads(app, 'triads');
 		const rounds = await playTriads(
 			app,
 			controller,
 			(round) => (round.n === 0 ? { root: 'right', chord: 'wrong' } : allRight()),
-			{ rounds: 3 }
+			{ rounds: 4 }
 		);
 		await runUntil(app, () => controller.view.status !== 'awaiting');
 		const attempts = await quitAndRead(app, controller);
-		const [probe, between, aided] = rounds;
-		// The first chord of the queue, unaided, on its root and chord: no shape drawn, at the
-		// ladder's top lead; the sensor takes every octave of its shape.
-		expect(probe).toMatchObject({ voicing: C, aided: false });
-		expect(probe.prompt).toMatchObject({
+		const [first, between] = rounds;
+		// The first chord of the queue, as level 1 shows it: its shape drawn, at that level's lead;
+		// the sensor takes every octave of its shape.
+		expect(first).toMatchObject({ voicing: C });
+		expect(drawn(first)).toEqual(['shape']);
+		expect(first.prompt).toMatchObject({
 			primary: 'C',
 			secondary: 'fondamentale sur si',
-			detail: 'sol‑si‑mi',
-			aid: null,
-			pictures: []
+			detail: 'sol‑si‑mi'
 		});
-		expect(probe.anchorBeat - probe.promptBeat).toBe(2);
-		expect(probe.expectation.expected).toEqual([
+		expect(first.anchorBeat - first.promptBeat).toBe(8);
+		expect(first.expectation.expected).toEqual([
 			'C|maj|3:5,2:1,1:3@0-1-0',
 			'C|maj|3:5,2:1,1:3@12-13-12'
 		]);
-		// Missed: its chord still rings, so another chord comes first; then C, its shape drawn.
+		// Missed: its chord still rings, so another chord comes first; then C again, still at level 1.
 		expect(between.voicing).not.toBe(C);
-		expect(aided).toMatchObject({ voicing: C, aided: true });
-		expect(aided.prompt.pictures).not.toEqual([]);
-		// A missed probe measures no forgetting: stored hot.
+		const back = rounds.slice(1).find((round) => round.voicing === C);
+		expect(back && drawn(back)).toEqual(['shape']);
+		// Learning, not a review: stored hot.
 		expect(attempts[0]).toMatchObject({
 			cardKey: `chord-anchor:${C}`,
-			phase: 'probe',
+			phase: 'learning',
 			temperature: 'hot',
-			success: false,
-			aids: []
+			success: false
 		});
-		expect(attempts[2]).toMatchObject({ cardKey: `chord-anchor:${C}`, phase: 'learning' });
-		expect(attempts[2].aids).toEqual(expect.arrayContaining(['show-position']));
 	});
 
 	it('never asks the same voicing twice in a row', async () => {
-		// Every chord new and every probe missed: the procedure would present each missed probe
-		// aided at once (`presentsAtOnce`), the same voicing right after itself; and every miss puts
-		// its retest due soon. The chord still rings: another one must come between.
+		// Every chord new and missed at its first prompt: every miss puts its retest due soon. The
+		// chord still rings: another one must come between.
 		const app = await triadsApp();
 		const controller = await startTriads(app, 'triads');
 		const met = new Set<string>();
@@ -229,9 +233,9 @@ describe('the triads exercises, from the probe to the zone', () => {
 			app,
 			controller,
 			(round) => {
-				const probe = !met.has(round.voicing);
+				const first = !met.has(round.voicing);
 				met.add(round.voicing);
-				return probe ? { root: 'right', chord: 'wrong' } : allRight();
+				return first ? { root: 'right', chord: 'wrong' } : allRight();
 			},
 			{ rounds: 16, maxSteps: 60_000 }
 		);
@@ -241,15 +245,18 @@ describe('the triads exercises, from the probe to the zone', () => {
 		const voicings = attempts.map((a) => (a.data as TriadAnchorData).item.voicingKey);
 		expect(voicings).toEqual(rounds.map((round) => round.voicing));
 		for (let i = 1; i < voicings.length; i++) expect(voicings[i]).not.toBe(voicings[i - 1]);
-		// Missed probes were followed, each by another chord, and came back aided later.
-		const missedProbes = attempts.filter((a) => a.phase === 'probe' && !a.success);
-		expect(missedProbes.length).toBeGreaterThanOrEqual(3);
-		for (const probe of missedProbes) {
-			const at = attempts.indexOf(probe);
-			const back = attempts.findIndex((a, i) => i > at && a.cardKey === probe.cardKey);
+		// Missed first prompts were followed, each by another chord, and came back later.
+		const missedFirsts = attempts.filter(
+			(a, i) => !a.success && attempts.findIndex((b) => b.cardKey === a.cardKey) === i
+		);
+		expect(missedFirsts.length).toBeGreaterThanOrEqual(3);
+		for (const missed of missedFirsts) {
+			const at = attempts.indexOf(missed);
+			const back = attempts.findIndex((a, i) => i > at && a.cardKey === missed.cardKey);
 			if (back < 0) continue;
 			expect(back).toBeGreaterThan(at + 1);
-			expect(attempts[back].aids).toEqual(expect.arrayContaining(['show-position']));
+			// Still at level 1, its shape drawn.
+			expect(drawn(rounds[back])).toEqual(['shape']);
 		}
 	}, 30_000);
 
@@ -349,23 +356,26 @@ describe('what feeds FSRS', () => {
 				await step(app);
 			}
 		};
-		// C probed and missed: stored hot, its card made.
+		// C missed at its first prompt: stored hot, its card made.
 		await playTriads(app, controller, () => ({ chord: 'wrong' }), { rounds: 1 });
 		await stored(1);
-		const afterProbe = await app.deps.cards.get(key);
-		expect(afterProbe).toBeDefined();
-		// Another chord, then C aided, played right: a hot learning attempt.
-		await playTriads(app, controller, allRight, { rounds: 2 });
-		await stored(3);
+		const afterFirst = await app.deps.cards.get(key);
+		expect(afterFirst).toBeDefined();
+		// Other chords, then C again, played right: a hot learning attempt.
+		for (let round = 0; round < 6; round++) {
+			const [played] = await playTriads(app, controller, allRight, { rounds: 1 });
+			if (played.voicing === C) break;
+		}
+		await runUntil(app, () => controller.view.status !== 'awaiting');
 		const attempts = await quitAndRead(app, controller);
-		expect(attempts.map((a) => [a.cardKey === key, a.phase, a.temperature])).toEqual([
-			[true, 'probe', 'hot'],
-			[false, 'probe', expect.any(String)],
-			[true, 'learning', 'hot']
+		expect(
+			attempts.filter((a) => a.cardKey === key).map((a) => [a.phase, a.temperature, a.success])
+		).toEqual([
+			['learning', 'hot', false],
+			['learning', 'hot', true]
 		]);
-		expect(attempts[2].success).toBe(true);
 		const after = await app.deps.cards.get(key);
-		expect(after?.scheduling).toEqual(afterProbe?.scheduling);
+		expect(after?.scheduling).toEqual(afterFirst?.scheduling);
 		expect(
 			await app.deps.levels.get({ exerciseId: TRIADS_ANCHOR.id, scope: '', item: C })
 		).toMatchObject({ level: 1 });

@@ -113,7 +113,7 @@ const EXERCISE: ExerciseDefinition = {
 			}
 		}
 	},
-	params: { ladder: [{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 } }] }
+	params: { ladder: [{ params: { leadBeats: 4 }, pass: { successes: 1 } }] }
 };
 
 const registries = {
@@ -149,7 +149,6 @@ function item(n: number, phase: ItemPhase = 'free'): PlannedItem {
 		item: { n },
 		phase,
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: 4
 	};
 }

@@ -19,7 +19,6 @@ function attempts(
 		cardKey: 'locate-note-string:2:F',
 		phase: 'free',
 		temperature: 'cold',
-		aid: 'none',
 		promptedAt: 0,
 		tempoBpm: 80,
 		leadBeats: null,

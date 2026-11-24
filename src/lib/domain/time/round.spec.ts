@@ -4,7 +4,7 @@ import type { Figure, FigureElement } from './figure';
 import { METER_4_4 } from './meter';
 import { type ContentJudges, type Judged, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
-import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
+import { PlanRound, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type { PairingMode, PairingResult, RoundModes } from './modes/types';
@@ -49,14 +49,13 @@ const noJudges: ContentJudges = (kind) => {
 	throw new Error(`no content judge in a cycle: ${kind}`);
 };
 
-function round(plan = cyclePlan(), aids: Aid[] = []) {
+function round(plan = cyclePlan()) {
 	return new PlanRound({
 		plan,
 		clock: { map, start },
 		judges: noJudges,
 		latency: SYSTEM,
-		thresholds: THRESHOLDS,
-		aids
+		thresholds: THRESHOLDS
 	});
 }
 
@@ -78,21 +77,6 @@ const attack = (time: number): PlanObservation => ({
 function exactTimes(plan: RoundPlan): number[] {
 	return plan.expectations.map((e) => map.toSeconds(start.add(e.at!)));
 }
-
-describe('AIDS', () => {
-	it('lists every aid once, the drawn fret first', () => {
-		const all: readonly Aid[] = AIDS;
-		expect(all).toEqual([
-			'show-position',
-			'string-aid',
-			'cursor',
-			'listen',
-			'play-along',
-			'aid-level'
-		]);
-		expect(new Set(all).size).toBe(all.length);
-	});
-});
 
 describe('PlanRound', () => {
 	it('spans the plan from its start to its start plus its length, in audio seconds', () => {
@@ -190,12 +174,6 @@ describe('PlanRound', () => {
 		});
 	});
 
-	it('hands the aids over as given', () => {
-		const aids: Aid[] = ['cursor', 'listen'];
-		const outcome = closed(round(cyclePlan(), aids));
-		expect(outcome.aids).toEqual(['cursor', 'listen']);
-	});
-
 	it('settles once: closing again gives nothing', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
@@ -256,8 +234,7 @@ describe('PlanRound capture window on chained cycles', () => {
 			clock: { map, start: of(bar) },
 			judges: noJudges,
 			latency: SYSTEM,
-			thresholds: THRESHOLDS,
-			aids: []
+			thresholds: THRESHOLDS
 		});
 	}
 
@@ -367,7 +344,6 @@ describe('PlanRound routing', () => {
 			judges,
 			latency: null,
 			thresholds: null,
-			aids: [],
 			...(modes ? { modes } : {})
 		});
 	}

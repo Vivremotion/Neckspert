@@ -10,8 +10,6 @@ export { classifyTemperature } from './temperature';
 export {
 	introduceCard,
 	applyColdAttempt,
-	probeCard,
-	probeTemperature,
 	markLearned,
 	isAcquired,
 	isMastered,

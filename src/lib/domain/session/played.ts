@@ -23,25 +23,19 @@ function passagePassed(passes: number, attempts: readonly Attempt[]): boolean {
  * A session by exercise and scope (spec 2026-11-18, § 8), whatever its exercises, a file defining
  * them or not: a line per exercise and scope with a round played (and the exercise played alone,
  * `alone`, without one when its level is told), in the order first met (its executions, then its
- * attempts). Each line: its rounds and those passed, the passed ones aided beyond their level
- * (`aided`), its level (`level`, when the caller knows it), the tempo of its first round (its
- * execution's, else its first round's) and of its last, whether its rounds were played in
- * passages (`inPassages`: a round outside a passage of such a line is not counted) and its
- * passages played and passed when a file still defines its exercise's threshold (a change stored
- * before the passages grouped by the passage it kept), and whether it left the session (`left`,
- * the trace's).
+ * attempts). Each line: its rounds and those passed, its level (`level`, when the caller knows
+ * it), the tempo of its first round (its execution's, else its first round's) and of its last,
+ * whether its rounds were played in passages (`inPassages`: a round outside a passage of such a
+ * line is not counted) and its passages played and passed when a file still defines its
+ * exercise's threshold (a change stored before the passages grouped by the passage it kept).
  */
 export function summarizePlayed(input: {
 	executions: readonly Execution[];
 	attempts: readonly Attempt[];
-	/** A round had an aid beyond its level's own. */
-	aided(attempt: Attempt): boolean;
 	/** The exercise the session played alone: its line is kept with no round when its level is told. */
 	alone?: ExerciseId;
 	/** The level a line held at the end; null (the default) when it is not told. */
 	level?(played: Played): PlayedExercise['level'];
-	/** The exercises and scopes that changed air and left, as the session's trace keeps them. */
-	left?: readonly Played[];
 }): PlayedExercise[] {
 	const order = new Map<string, Played>();
 	const meet = ({ exerciseId, scope }: Played) => {
@@ -51,9 +45,6 @@ export function summarizePlayed(input: {
 	input.executions.forEach(meet);
 	input.attempts.forEach(meet);
 	if (input.alone !== undefined) meet({ exerciseId: input.alone });
-	const left = new Set(
-		(input.left ?? []).map((played) => keyOf({ ...played, scope: played.scope || undefined }))
-	);
 
 	return [...order.values()].flatMap((played) => {
 		const key = keyOf(played);
@@ -89,12 +80,10 @@ export function summarizePlayed(input: {
 				...played,
 				rounds: rounds.length,
 				passed: passed.length,
-				aided: passed.filter((attempt) => input.aided(attempt)).length,
 				level,
 				tempo: first === null || last === null ? null : { first, last },
 				inPassages: changes.length > 0,
-				passages,
-				changedAir: left.has(key)
+				passages
 			}
 		];
 	});

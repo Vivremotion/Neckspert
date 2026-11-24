@@ -5,7 +5,6 @@ import type { Execution, ExerciseId } from './exercise/types';
 import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
-	Aid,
 	CycleReport,
 	CycleThresholds,
 	CycleVerdict,
@@ -15,7 +14,7 @@ import type {
 	VerdictEnvelope
 } from './time';
 
-export type { Aid, Execution, ExerciseId, LevelState, Measures, SkillId, VerdictEnvelope };
+export type { Execution, ExerciseId, LevelState, Measures, SkillId, VerdictEnvelope };
 
 export type Locale = 'fr' | 'en';
 
@@ -75,11 +74,14 @@ export type Temperature = 'cold' | 'hot';
 export type SessionOrigin =
 	{ routine: string; free?: true } | { exercise: ExerciseId; free?: true };
 
-/** Where an attempt happened inside a session. */
-export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
+/** Where an item is served inside a session. */
+export type ItemPhase = 'review' | 'learning' | 'consolidation' | 'free';
 
-/** Help shown with a mode 1 prompt: the fret, or nothing. */
-export type AidLevel = 'show-position' | 'none';
+/**
+ * Where an attempt happened, as it was recorded: a served phase, or `'probe'`, which attempts
+ * stored before issue #19 keep (a new item was first asked once at the top of its ladder).
+ */
+export type RecordedPhase = ItemPhase | 'probe';
 
 /** A lead in beats of the meter: any positive number. */
 export type LeadBeats = number;
@@ -94,10 +96,10 @@ export interface Attempt<D = unknown> {
 	/** The skill its exercise practises. */
 	skill: SkillId;
 	cardKey: CardKey;
-	phase: ItemPhase;
+	phase: RecordedPhase;
 	temperature: Temperature;
-	/** What the round showed or played for the player (`AidLevel` is the planned aid). */
-	aids: Aid[];
+	/** Kept by the attempts stored before database 14; nothing reads it. */
+	aids?: readonly string[];
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
@@ -167,7 +169,7 @@ export interface CardState<I = unknown> {
 	key: CardKey;
 	skill: SkillId;
 	item: I;
-	/** Epoch ms of the learning (or probe) that introduced the card. */
+	/** Epoch ms of the attempt that introduced the card (before issue #19, maybe a probe). */
 	introducedAt: number;
 	introducedInSession: string;
 	scheduling: SchedulingState;
@@ -184,7 +186,6 @@ export interface PlannedItem<I = unknown> {
 	item: I;
 	phase: ItemPhase;
 	temperature: Temperature;
-	aid: AidLevel;
 	/** Time relation "beat" only. */
 	leadBeats: LeadBeats | null;
 	/** Its level on its exercise's ladder, when a source served it from one (`ladderOf`). */
@@ -203,8 +204,6 @@ export interface PlannedItem<I = unknown> {
 	 * level of its exercise in that scope, and so its tempo. Absent: the exercise's own level.
 	 */
 	scope?: string;
-	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
-	stringAid?: boolean;
 	/** The passage it is a round of, for an exercise that writes passages (`createPassageSource`). */
 	passage?: PlannedPassage;
 }
@@ -255,7 +254,7 @@ export interface SessionRecord {
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
 	/**
-	 * The level the exercise was held at when the series ended (0 = level 1, aid levels negative),
+	 * The level the exercise was held at when the series ended (0 = level 1),
 	 * for a session of one exercise; absent from sessions stored before it was kept.
 	 */
 	levelReached?: number;
@@ -359,8 +358,6 @@ export interface SessionSummary {
 	learnedCount: number;
 	/** Cards presented in this session and still being learned. */
 	pendingCount: number;
-	/** Probes passed in this session. */
-	knownCount: number;
 	fatigueDetected: boolean;
 	/** Earliest time a learned card can be reviewed cold. Informational. */
 	nextReviewAt: number | null;
@@ -416,16 +413,11 @@ export interface PlayedExercise {
 	rounds: number;
 	passed: number;
 	/**
-	 * Of the rounds passed, those played with an aid that is not the level's own (they do not
-	 * count towards moving up).
-	 */
-	aided: number;
-	/**
-	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level);
+	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 »);
 	 * null when the exercise writes no level, and for any exercise but one played alone whose
 	 * round writes a figure (the changes' levels are their tempos, told by `tempo`).
 	 */
-	level: { shown: number; of: number; aid: boolean } | null;
+	level: { shown: number; of: number } | null;
 	/** The tempo of its first and of its last round; null in free time. */
 	tempo: { first: number; last: number } | null;
 	/** Its rounds were played in passages: they are changes, told as right and in time. */
@@ -435,11 +427,6 @@ export interface PlayedExercise {
 	 * defines (its threshold is known); null otherwise.
 	 */
 	passages: { played: number; passed: number } | null;
-	/**
-	 * It left the session by « On change d’air »: known only while the session's series is in
-	 * memory. Computed, never stored.
-	 */
-	changedAir: boolean;
 }
 
 /** A missed change; `heard` and `expected` are the frets of a shape ("7-7-5"). */
@@ -480,7 +467,7 @@ export interface DefinitionFileRecord {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 9;
+	version: 10;
 	exportedAt: number;
 	settings: Settings;
 	cards: CardState[];

@@ -24,13 +24,13 @@ describe('demoGestureSeries', () => {
 		const demo = demoGestureSeries('link', () => 'fr');
 		await demo.controller.start();
 		expect(demo.controller.view.stage?.view).toBe('link-lane');
-		// It starts at the aid level: the notes of E on G-B-E are drawn, string by string.
-		const aid = (
+		// It starts at level 1: the notes of E on G-B-E are drawn, string by string.
+		const picture = (
 			demo.controller.view.stage?.model as {
-				aid: { notes: { string: number; name: string; next?: true }[] } | null;
+				picture: { notes: { string: number; name: string; next?: true }[] } | null;
 			}
-		).aid;
-		const now = aid?.notes.filter((note) => !note.next) ?? [];
+		).picture;
+		const now = picture?.notes.filter((note) => !note.next) ?? [];
 		expect(now.map((note) => note.string)).toEqual([3, 2, 1]);
 		expect(now.map((note) => note.name).sort()).toEqual(['B', 'E', 'G#']);
 		// ♩ = 80: a counted bar, then four changes of a bar each.

@@ -30,7 +30,6 @@ export function passageRound(
 		item,
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null,
 		passage: { id: '', index: index.key, of: index.of, rank, length, each, previous: null }
 	};

@@ -26,7 +26,6 @@ function routine(id: string, over: Partial<RoutineEntry> = {}): RoutineEntry {
 		open: id === 'notes' || id === 'chords',
 		due: memory ? 0 : null,
 		nextReviewAt: null,
-		resting: false,
 		...over
 	};
 }
@@ -217,20 +216,14 @@ describe('HomeScreen', () => {
 		}
 	});
 
-	it('marks a routine resting, beside its reviews', () => {
+	it('tells a routine its reviews alone: nothing rests any more', () => {
 		render(HomeScreen, {
-			props: props({
-				routines: routines({
-					chords: { resting: true, due: 1 },
-					changes: { open: true, resting: true }
-				})
-			})
+			props: props({ routines: routines({ chords: { due: 1 }, changes: { open: true } }) })
 		});
 		const [, chords, changes] = within(blocks()).getAllByRole('listitem');
-		expect(chords.querySelector('.why')?.textContent).toBe(
-			'1 révision due · On y revient plus tard'
-		);
-		expect(changes.querySelector('.why')?.textContent).toBe('On y revient plus tard');
+		expect(chords.querySelector('.why')?.textContent).toBe('1 révision due');
+		expect(changes.querySelector('.why')).toBeNull();
+		expect(document.body.textContent).not.toContain('On y revient plus tard');
 	});
 
 	describe('no routine open', () => {

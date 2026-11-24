@@ -66,7 +66,6 @@
 			},
 			"tempo": 80,
 			"flow": {
-				"antiBlocking": true,
 				"briefing": "first-encounter"
 			},
 			"view": "figure",
@@ -117,7 +116,6 @@
 			"pick": "loop",
 			"levels": [
 				{
-					"aid": true,
 					"params": {
 						"accompaniment": {
 							"clicks": {
@@ -125,7 +123,9 @@
 								"accent": [1]
 							},
 							"bars": ["on", "on", "on", "on"]
-						}
+						},
+						"listenFirst": true,
+						"playAlong": true
 					}
 				},
 				{
@@ -236,7 +236,7 @@
 					"ms": 80
 				},
 				"feedback": "every-cycle",
-				"listen": "aid",
+				"listen": "free",
 				"cursor": true,
 				"pacing": {
 					"listenInBars": 2,
@@ -253,7 +253,6 @@
 			},
 			"tempo": 100,
 			"flow": {
-				"antiBlocking": true,
 				"briefing": "first-encounter"
 			},
 			"view": "figure",
@@ -324,14 +323,15 @@
 			"pick": "next",
 			"levels": [
 				{
-					"aid": true,
 					"params": {
 						"accompaniment": {
 							"clicks": {
 								"beats": [1, 2, 3, 4]
 							},
 							"bars": ["on"]
-						}
+						},
+						"listenFirst": true,
+						"playAlong": true
 					}
 				},
 				{
@@ -386,7 +386,6 @@
 			},
 			"tempo": 80,
 			"flow": {
-				"antiBlocking": true,
 				"briefing": "first-encounter"
 			},
 			"view": "figure",
@@ -441,9 +440,10 @@
 			"pick": "loop",
 			"levels": [
 				{
-					"aid": true,
 					"params": {
-						"tempo": 70
+						"tempo": 70,
+						"listenFirst": true,
+						"playAlong": true
 					}
 				},
 				{

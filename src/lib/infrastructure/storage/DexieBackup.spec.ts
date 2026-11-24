@@ -87,7 +87,7 @@ describe('DexieBackup', () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
 			expect(file.app).toBe('neckspert-play');
-			expect(file.version).toBe(9);
+			expect(file.version).toBe(10);
 			expect(file.exportedAt).toBe(123);
 			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en', latency: LATENCY });
 			expect(file.levelStates).toHaveLength(2);
@@ -103,7 +103,7 @@ describe('DexieBackup', () => {
 		it('exports an empty database with the default settings', async () => {
 			expect(await new DexieBackup(db, () => 5).exportAll()).toEqual({
 				app: 'neckspert-play',
-				version: 9,
+				version: 10,
 				exportedAt: 5,
 				settings: DEFAULT_SETTINGS,
 				cards: [],
@@ -126,10 +126,10 @@ describe('DexieBackup', () => {
 			expect(validateBackup(JSON.parse(JSON.stringify(file)))).toEqual(file);
 		});
 
-		it('exports version 9 without progressions, attempts with their scope', async () => {
+		it('exports version 10 without progressions, attempts with their scope', async () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
-			expect(file.version).toBe(9);
+			expect(file.version).toBe(10);
 			expect(file).not.toHaveProperty('progressions');
 			expect(file.attempts.map((attempt) => attempt.scope)).toEqual([
 				'iohefy-a',
@@ -483,7 +483,8 @@ describe('DexieBackup', () => {
 		await new DexieBackup(db).importAll(JSON.parse(JSON.stringify(file)));
 
 		expect(await new DexieLevelStateRepository(db).all()).toEqual([
-			makeLevelState({ exerciseId: 'grid-in-direction', scope: 'blues-f', level: 6, successes: 0 })
+			// Its tempo's level, 6, moved past the aid level the exercise had then (backup 10).
+			makeLevelState({ exerciseId: 'grid-in-direction', scope: 'blues-f', level: 7, successes: 0 })
 		]);
 		expect(await new DexieAttemptRepository(db).all()).toEqual([
 			makeAttempt({ id: 1, scope: 'blues-f' })
@@ -504,19 +505,34 @@ describe('DexieBackup', () => {
 		);
 	});
 
-	it('imports the version 3 export of the application before version 4 and exports it as 9', async () => {
+	it('imports the version 3 export of the application before version 4 and exports it as 10', async () => {
 		const v3 = structuredClone(v3Export);
 		await new DexieBackup(db, () => 0).importAll(v3);
 
 		const exported = await new DexieBackup(db, () => 1000).exportAll();
 		const expected = validateBackup(structuredClone(v3Export));
-		expect(exported.version).toBe(9);
+		expect(exported.version).toBe(10);
 		// The database lists its cards by key: a skill's prefix sorts them apart from the file.
 		const byKey = (cards: typeof exported.cards) =>
 			[...cards].sort((x, y) => x.key.localeCompare(y.key));
 		expect(exported.cards).toEqual(byKey(expected.cards));
 		expect(exported.attempts).toEqual(expected.attempts);
 		expect(exported.settings).toEqual({ ...expected.settings, inputDeviceId: null });
+		// Its gesture tempos became exercise levels at backup 7 (♩ = 85: 1, ♩ = 95: 3), moved once
+		// past the aid level by backup 10; its probes are kept as they were.
+		expect(
+			exported.levelStates
+				.filter((state) => state.item === '')
+				.map((state) => [state.exerciseId, state.scope, state.level])
+				.sort()
+		).toEqual([
+			['grid-in-direction', 'iohefy-a', 4],
+			['inversion-run', '', 2]
+		]);
+		expect(exported.levelStates.some((state) => 'resumeAfter' in state)).toBe(false);
+		expect(exported.attempts.filter((attempt) => attempt.phase === 'probe')).toHaveLength(
+			v3Export.attempts.filter((attempt) => attempt.phase === 'probe').length
+		);
 		expect(validateBackup(JSON.parse(JSON.stringify(exported)))).toEqual(exported);
 	});
 });

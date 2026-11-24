@@ -167,7 +167,6 @@ function planned<I>(set: string, item: I, leadBeats: number | null = 4): Planned
 		item,
 		phase: 'learning',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats
 	};
 }
@@ -397,10 +396,7 @@ describe('compileRound', () => {
 	it('reads a window an item level overrides', () => {
 		const item = { string: 3, pitch: 'F' };
 		const laddered = definition('note-on-string', LOCATE_ROUND, {
-			ladder: [
-				{ params: { leadBeats: 4, aided: false } },
-				{ params: { leadBeats: 2, aided: false, 'windows.perfectMs': 120 } }
-			]
+			ladder: [{ params: { leadBeats: 4 } }, { params: { leadBeats: 2, 'windows.perfectMs': 120 } }]
 		});
 		const at = (level: number | undefined) =>
 			compileRound(laddered, { ...planned('note-on-string', item, 2), level }, meter, {
@@ -1211,7 +1207,6 @@ describe('a round of a passage', () => {
 			item: CHANGE_1,
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null,
 			passage: {
 				id: 's:0',

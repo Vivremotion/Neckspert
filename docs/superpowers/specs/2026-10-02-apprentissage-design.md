@@ -1,5 +1,7 @@
 # Design — mode Apprentissage
 
+Les passages sur l'aide (présentation aidée, aide `show-position`) sont remplacés par le ticket #19 (novembre 2026).
+
 Date : 2026-10-02. Statut : approuvé, corrigé à la planification (section « Corrections »).
 
 La session du jour devient l’**Apprentissage** : une session d’environ 5 minutes, toujours ouverte, qui apprend les notes nouvelles par rappels espacés dans la session, révise à froid ce qui est dû, et consolide le reste. Les ensembles du curriculum ne sont plus des portes : une fenêtre glissante sur une file ordonnée fait entrer les notes nouvelles.

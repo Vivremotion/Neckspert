@@ -5,11 +5,17 @@ import { itemEntryKey, itemOfEntry } from './itemEntries';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
-import { levelRange } from '../time/levels';
 import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
-import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
+import { retiredProblem } from './retired';
+import {
+	exerciseLevelsOf,
+	exerciseParamsOf,
+	isPresentationPath,
+	overrideParams,
+	type LevelOverrides
+} from './levels';
 import {
 	compileRound,
 	figureItemsAt,
@@ -184,19 +190,47 @@ function valuesProblem(
 		) {
 			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
 		}
-		const fade = values.learning.aidFadeSuccesses;
-		if (fade !== undefined && !naturalNumber(fade)) {
-			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
-		}
 	}
 	return null;
 }
 
+/** Why the params hold what is read elsewhere: a `presentation`, read at the exercise's root. */
+function unreadParamsProblem(params: ExerciseDefinition['params']): string | null {
+	return Object.hasOwn(params, 'presentation')
+		? 'params.presentation is not read: write presentation at the exercise\'s root, or "presentation.<slot>" in a level'
+		: null;
+}
+
 function paramsProblem(definition: ExerciseDefinition): string | null {
 	return (
+		unreadParamsProblem(definition.params) ??
 		valuesProblem({ ...definition.params, tempo: definition.tempo }, 'params') ??
 		ladderProblem(definition.params)
 	);
+}
+
+/**
+ * Why a level rewrites a presentation there is not: a `presentation.*` path (`isPresentationPath`)
+ * at an exercise level or an item level of an exercise that writes no presentation, naming the
+ * level (`levels[i]`, `params.ladder[i]`) and the path. What the presentation a level resolves
+ * says is checked with the application's words (`presentationProblem`).
+ */
+function presentationPathsProblem(definition: ExerciseDefinition): string | null {
+	if (definition.presentation !== undefined) return null;
+	const written: [string, unknown][] = [
+		...(definition.levels ?? []).map((level, i): [string, unknown] => [`levels[${i}]`, level]),
+		...laddersOf(definition.params).flatMap(([field, ladder]) =>
+			ladder.map((level, i): [string, unknown] => [`${field}[${i}]`, level])
+		)
+	];
+	for (const [field, level] of written) {
+		const params = isObject(level) && isObject(level.params) ? level.params : {};
+		const path = Object.keys(params).find(isPresentationPath);
+		if (path !== undefined) {
+			return `${field} writes "${path}", and the exercise writes no presentation`;
+		}
+	}
+	return null;
 }
 
 /**
@@ -241,9 +275,9 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
  * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, an
  * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
  * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
- * its level in `levels` (aid levels counted) or on its ladder, a run a level could not start or
- * end (`runProblem`). A path no piece reads at a level passes, the learning settings among them:
- * it is without effect.
+ * its level in `levels` or on its ladder, a run a level could not start or end (`runProblem`), a
+ * presentation path on an exercise without one (`presentationPathsProblem`). A path no piece reads
+ * at a level passes, the learning settings among them: it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
 	const { levels } = definition;
@@ -253,16 +287,13 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 			if (!isObject(level)) return `levels[${index}] must be an object`;
 			if (!isObject(level.params)) return `levels[${index}].params must be an object`;
 		}
-		try {
-			levelRange(levels);
-		} catch (error) {
-			return `levels ${(error as Error).message}`;
-		}
 		for (const [index, level] of levels.entries()) {
 			const conditions = levelConditionsProblem(level);
 			if (conditions !== null) return `levels[${index}]: ${conditions}`;
 		}
 	}
+	const presentation = presentationPathsProblem(definition);
+	if (presentation !== null) return presentation;
 	const params = exerciseParamsOf(definition);
 	const resolved: Readonly<Record<string, unknown>>[] = [];
 	for (const [index, level] of exerciseLevelsOf(definition).entries()) {
@@ -353,7 +384,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 	if (items.length === 0) return 'items lists no item';
 	const set = exerciseItemSet(definition);
 	const meter = definition.meter ?? METER_4_4;
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const highest = exerciseLevelsOf(definition).length - 1;
 	// An exercise that writes a ladder plays each item from the ladder's first level, which gives
 	// the lead its round reads: its rounds are compiled there.
 	const ladder = isObject(definition.params) ? definition.params.ladder : undefined;
@@ -362,7 +393,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 		const written = (ladder as Ladder)[0];
 		const lead = isObject(written?.params) ? written.params.leadBeats : null;
 		itemLevels[0] = {
-			level: levelRange(ladder as Ladder).lowest,
+			level: 0,
 			leadBeats: typeof lead === 'number' ? lead : null
 		};
 	}
@@ -380,7 +411,7 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 		const unplayable = set.itemProblem?.(item);
 		if (unplayable) return `${field}: ${unplayable}`;
 		if (round === undefined) continue;
-		for (let level = lowest; level <= highest; level++) {
+		for (let level = 0; level <= highest; level++) {
 			for (const at of itemLevels) {
 				const planned: PlannedItem = {
 					exerciseId: definition.id,
@@ -390,7 +421,6 @@ function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): stri
 					item,
 					phase: 'free',
 					temperature: 'hot',
-					aid: 'none',
 					leadBeats: at.leadBeats
 				};
 				budget.charge(weight);
@@ -435,11 +465,11 @@ function servedFiguresProblem(definition: ExerciseDefinition, budget: CheckBudge
 	if (definition.items !== undefined || definition.passages !== undefined) return null;
 	if (definition.round === undefined || !servesFigures(definition)) return null;
 	const meter = definition.meter ?? METER_4_4;
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	const highest = exerciseLevelsOf(definition).length - 1;
 	const cache: ResolutionCache = new Map();
 	const weight = roundCheckCost(definition);
 	const named = (error: unknown) => (error as Error).message.replace(`${definition.id}: `, '');
-	for (let level = lowest; level <= highest; level++) {
+	for (let level = 0; level <= highest; level++) {
 		let served: ReturnType<typeof figureItemsAt>;
 		try {
 			served = figureItemsAt(definition, level, meter);
@@ -457,7 +487,6 @@ function servedFiguresProblem(definition: ExerciseDefinition, budget: CheckBudge
 				item,
 				phase: 'free',
 				temperature: 'hot',
-				aid: 'none',
 				leadBeats: null
 			};
 			budget.charge(weight);
@@ -565,6 +594,8 @@ export function validateExercise(
 ): string | null {
 	const budget = options.budget ?? new CheckBudget();
 	const checked = (): string | null => {
+		const retired = retiredProblem(definition);
+		if (retired !== null) return retired;
 		const limits = limitsProblem(definition);
 		if (limits !== null) return limits;
 		if (definition.meter !== undefined) {

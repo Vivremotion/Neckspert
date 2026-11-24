@@ -455,7 +455,7 @@ describe('SessionController', () => {
 			const seen: number[] = [];
 			const presenter: SetPresenter = {
 				...changePresenter,
-				stageOf: (_item, _settled, _locale, _aids, _place, _drawing, random) => {
+				stageOf: (_item, _settled, _locale, _place, _drawing, random) => {
 					seen.push(random());
 					return { model: {} };
 				}
@@ -968,7 +968,6 @@ describe('SessionController', () => {
 			index: number;
 			settled: string | null;
 			place: StagePlace;
-			aids: { aid: string; stringAid: boolean };
 		}
 		const NOTE_C = { string: 3 as const, pitch: 'C' as const };
 		const C = acceptableMidis(NOTE_C)[0];
@@ -981,12 +980,11 @@ describe('SessionController', () => {
 			attemptData: undefined,
 			contestable: false,
 			previewBeats: 1,
-			stageOf: (item, settled, _locale, aids, place) => ({
+			stageOf: (item, settled, _locale, place) => ({
 				model: {
 					index: (item as ChangeItem).index,
 					settled: settled ? settled.value.verdict : null,
-					place,
-					aids
+					place
 				} satisfies Shown
 			}),
 			...overrides
@@ -1235,19 +1233,18 @@ describe('SessionController', () => {
 		});
 
 		it('shows the next item its preview beats before its prompt, the settled round until then', async () => {
-			const ctx = series([beat(0, 8), beat(1, 8, { stringAid: true })]);
+			const ctx = series([beat(0, 8), beat(1, 8)]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) + 0.03);
 			ctx.hear(ctx.bar(3) + 0.02, C);
 			ctx.runTo(ctx.bar(3.75) - 0.01);
 			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
 			ctx.runTo(ctx.bar(3.75));
-			// Waiting: not placed on its target, the view shows its string only.
+			// Waiting: not placed on its target.
 			expect(shown(ctx)).toMatchObject({
 				index: 1,
 				settled: null,
-				place: { anchorBeat: null, promptBeat: 16 },
-				aids: { aid: 'none', stringAid: true }
+				place: { anchorBeat: null, promptBeat: 16 }
 			});
 			expect(ctx.controller.view.status).toBe('verdict');
 		});

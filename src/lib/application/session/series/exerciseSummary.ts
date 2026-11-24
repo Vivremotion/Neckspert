@@ -4,13 +4,11 @@ import {
 	Fraction,
 	METER_4_4,
 	barLength,
-	levelRange,
 	type CycleVerdict,
 	type Figure,
 	type LevelState
 } from '$lib/domain/time';
 import type { Attempt, PlayedExercise, SessionSummary } from '$lib/domain/types';
-import { levelAided } from '../aids';
 import type { FigureAttemptData, RoundPlanRecord } from './recordResponse';
 import { levelView } from './figureStage';
 
@@ -34,9 +32,9 @@ function playedOf(
 				skill: attempt.skill,
 				exerciseLevel: attempt.data.level,
 				item: attempt.data.item,
-				phase: attempt.phase,
+				// The figure reads no phase; an exercise session serves its rounds free.
+				phase: 'free',
 				temperature: attempt.temperature,
-				aid: 'none',
 				leadBeats: null
 			},
 			meter
@@ -47,30 +45,6 @@ function playedOf(
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Whether a round had an aid beyond its level's own (`levelAided`): the cursor counts as the
- * level's when the level it was played at (`data.level`, else the first) gives one in its
- * exercise (`find`); for an exercise no file defines, that is unknown, and the cursor counts as
- * an aid, as for a level that gives none.
- */
-export function aidedBeyondItsLevel(
-	find: (id: string) => ExerciseDefinition | undefined
-): (attempt: Attempt) => boolean {
-	return (attempt) => {
-		const exercise = find(attempt.exerciseId);
-		const level = (attempt.data as { level?: unknown } | null)?.level;
-		let cursor = false;
-		try {
-			cursor = exercise
-				? figureParamsOf(exercise, typeof level === 'number' ? level : 0).cursor
-				: false;
-		} catch {
-			cursor = false;
-		}
-		return levelAided(attempt.aids, cursor);
-	};
 }
 
 /**
@@ -93,7 +67,6 @@ export function summarizeExercise(input: {
 	const cycles = input.attempts.filter(
 		(attempt): attempt is Attempt<FigureAttemptData> => attempt.exerciseId === exercise.id
 	);
-	const { lowest, highest } = levelRange(levels);
 	const last = cycles.at(-1);
 	const held = input.levelReached ?? input.state?.level ?? last?.data.level ?? 0;
 	const value = last?.verdict?.value as CycleVerdict | undefined;
@@ -102,15 +75,17 @@ export function summarizeExercise(input: {
 		typeof value === 'object' && value !== null && 'passed' in value ? value : undefined;
 	const played = last ? playedOf(exercise, last) : null;
 	const readable = Array.isArray(last?.data.report?.expectations);
+	// A stored level may lie outside the levels (an old session, or an exercise that lost some).
+	const within = (level: number) => Math.min(levels.length - 1, Math.max(0, level));
 	return {
-		level: levelView(levels, Math.min(highest, Math.max(lowest, held))),
+		level: levelView(levels, within(held)),
 		...(last?.data.report &&
 			verdict &&
 			readable && {
 				lastCycle: {
 					report: last.data.report,
 					verdict,
-					thresholds: figureParamsOf(exercise, last.data.level).thresholds,
+					thresholds: figureParamsOf(exercise, within(last.data.level)).thresholds,
 					...(played && { played })
 				}
 			})

@@ -91,9 +91,9 @@
 		<DrawnMiss {miss} chordDiagram={lane.chordDiagram} />
 	{/each}
 
-	{#if lane.aid}
-		{@const Aid = PICTURE_VIEWS[lane.aid.kind]}
-		<Aid picture={lane.aid} chordDiagram={lane.chordDiagram} />
+	{#if lane.picture}
+		{@const Drawn = PICTURE_VIEWS[lane.picture.kind]}
+		<Drawn picture={lane.picture} chordDiagram={lane.chordDiagram} />
 	{/if}
 </div>
 

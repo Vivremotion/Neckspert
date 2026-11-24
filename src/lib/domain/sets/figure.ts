@@ -3,7 +3,10 @@ import type { ItemSet } from './types';
 /** What a figure attempt is about: a figure of the exercise, played at a level. */
 export interface FigureItem {
 	figureId: string;
-	/** Level index; the aid levels, below the first, are negative. */
+	/**
+	 * Level index, 0 for level 1; a key stored before issue #19 may name a negative one, the aid
+	 * level of then, which the key still reads.
+	 */
 	level: number;
 }
 

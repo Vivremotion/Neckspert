@@ -8,7 +8,6 @@ import { openPitch, pitchOnString, type IdentifyItem, type LocateItem } from '$l
 import type { PitchName } from '$lib/domain/music/types';
 import { introduceCard } from '$lib/domain/progress';
 import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
-import { DEFAULT_ITEM_LEARNING } from '$lib/domain/learning/params';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
 import type { Attempt } from '$lib/domain/types';
@@ -27,7 +26,8 @@ import {
 	seeded,
 	startNotes,
 	step,
-	type NotesApp
+	type NotesApp,
+	type RoundSeen
 } from '$lib/testing/notesSeries';
 
 /**
@@ -47,6 +47,9 @@ async function quitAndRead(app: NotesApp, controller: PlaySessionController): Pr
 }
 
 const keyOf = (card: NeckCard) => neckCardKey(card);
+
+/** The lead a note lane round was prompted at, in beats. */
+const leadOf = (round: RoundSeen) => (round.anchorBeat as number) - (round.promptBeat as number);
 
 /** The note lane on stage, if any. */
 function lane(controller: PlaySessionController): PromptStageModel | null {
@@ -68,79 +71,123 @@ describe('a learn session of the notes', () => {
 		expect(app.sounds.emitted()).toEqual([]);
 	});
 
-	it('probes a new note unaided, then presents it aided at once after a miss, with the string drawn', async () => {
+	it('presents a new note at level 1, its fret written and its string drawn; right, it comes back at 4 beats without them', async () => {
 		const app = await notesApp();
 		const controller = await startNotes(app, 'learn');
-		const rounds = await playRounds(
-			app,
-			controller,
-			(round) => (round.n === 0 ? { play: 'none' } : allRight()),
-			{ rounds: 8 }
-		);
-		const [probe, aided] = rounds;
-		// The first note of the queue, unaided: no position, no string drawn.
-		expect(probe.prompt).toMatchObject({
+		const rounds = await playRounds(app, controller, allRight, { rounds: 8 });
+		const [first] = rounds;
+		// The first note of the queue, as level 1 writes it: its fret under it, its string drawn.
+		expect(first.prompt).toMatchObject({
 			primary: 'G',
 			secondary: 'corde de E grave',
-			aid: null,
-			pictures: []
+			detail: 'case 3'
 		});
-		// Missed: the very next prompt is the same note, its position shown and its string drawn.
-		expect(aided.card).toEqual(probe.card);
-		expect(aided.prompt.aid).not.toBeNull();
-		expect(aided.prompt.pictures).not.toEqual([]);
-		// Played right DEFAULT_ITEM_LEARNING.aidFadeSuccesses times (the aided one first): when it comes back,
-		// the string drawn has faded (and the position too).
-		const met = rounds.filter((round) => keyOf(round.card) === keyOf(probe.card));
-		const back = met[1 + DEFAULT_ITEM_LEARNING.aidFadeSuccesses];
+		expect(first.prompt.pictures.map((picture) => picture.kind)).toEqual(['string']);
+		expect(leadOf(first)).toBe(8);
+		// Played right: back at level 2, which writes neither.
+		const met = rounds.filter((round) => keyOf(round.card) === keyOf(first.card));
+		const back = met[1];
 		expect(back).toBeDefined();
-		expect(back?.prompt.pictures).toEqual([]);
-		expect(back?.prompt.aid).toBeNull();
+		expect(leadOf(back)).toBe(4);
+		expect(back.prompt.detail).toBeNull();
+		expect(back.prompt.pictures).toEqual([]);
 
 		const attempts = await quitAndRead(app, controller);
-		// A missed probe measures no forgetting: stored hot.
+		// Learning, not a review: stored hot.
 		expect(attempts[0]).toMatchObject({
-			cardKey: keyOf(probe.card),
-			phase: 'probe',
-			temperature: 'hot',
-			success: false,
-			aids: []
-		});
-		expect(attempts[1]).toMatchObject({
-			cardKey: keyOf(probe.card),
+			cardKey: keyOf(first.card),
 			phase: 'learning',
 			temperature: 'hot',
 			success: true
 		});
-		expect(attempts[1].aids).toEqual(expect.arrayContaining(['show-position']));
 	});
 
-	it('brings a missed note back as a spaced retest, never at once', async () => {
-		const app = await notesApp({
-			// Solid notes to play between: a miss calls for one of them next.
-			cards: [learnedCard(locate(5, 'C')), learnedCard(locate(4, 'F')), learnedCard(locate(3, 'D'))]
-		});
+	it('shows, after a miss, the screen of the level the note fell to and nothing more', async () => {
+		/** A note being learned, held at `level`, missed at its first prompt; its next prompt. */
+		async function afterMiss(level: number): Promise<RoundSeen> {
+			const card = locate(5, 'C');
+			const being = introduceCard(
+				{ key: keyOf(card), skill: card.skill, item: card.item },
+				0,
+				's-old'
+			);
+			const app = await notesApp({ cards: [being], levels: [levelOf(card, level)] });
+			const controller = await startNotes(app, 'learn');
+			let missed = false;
+			const rounds = await playRounds(
+				app,
+				controller,
+				(round) => {
+					if (missed || keyOf(round.card) !== keyOf(card)) return allRight();
+					missed = true;
+					return { play: 'wrong' };
+				},
+				{ rounds: 12 }
+			);
+			await quitAndRead(app, controller);
+			const met = rounds.filter((round) => keyOf(round.card) === keyOf(card));
+			expect(leadOf(met[0])).toBe([8, 4, 2][level]);
+			expect(met[1]).toBeDefined();
+			return met[1];
+		}
+		// Missed at level 2: back at level 1, its fret written and its string drawn.
+		const fell = await afterMiss(1);
+		expect(leadOf(fell)).toBe(8);
+		expect(fell.prompt.detail).toBe('case 3');
+		expect(fell.prompt.pictures.map((picture) => picture.kind)).toEqual(['string']);
+		// Missed at level 3: back at level 2, no string coming back after the miss.
+		const below = await afterMiss(2);
+		expect(leadOf(below)).toBe(4);
+		expect(below.prompt.detail).toBeNull();
+		expect(below.prompt.pictures).toEqual([]);
+	});
+
+	it('shows a due note fallen back to level 1 with its fret and its string, caught up hot', async () => {
+		const card = locate(5, 'C');
+		const app = await notesApp({ cards: [learnedCard(card)], levels: [levelOf(card, 0)] });
 		const controller = await startNotes(app, 'learn');
-		const g = keyOf(locate(6, 'G'));
-		let misses = 0;
+		const [round] = await playRounds(app, controller, allRight, { rounds: 1 });
+		await runUntil(app, () => controller.view.status === 'verdict');
+		const [attempt] = await quitAndRead(app, controller);
+		expect(keyOf(round.card)).toBe(keyOf(card));
+		expect(attempt).toMatchObject({ phase: 'consolidation', temperature: 'hot' });
+		expect(leadOf(round)).toBe(8);
+		expect(round.prompt.detail).toBe('case 3');
+		expect(round.prompt.pictures.map((picture) => picture.kind)).toEqual(['string']);
+	});
+
+	it('brings a missed new note back as a spaced retest, never at once', async () => {
+		// Solid notes to play between: a miss calls for one of them next.
+		const solid = [
+			learnedCard(locate(5, 'C')),
+			learnedCard(locate(4, 'F')),
+			learnedCard(locate(3, 'D'))
+		];
+		const app = await notesApp({ cards: solid });
+		const controller = await startNotes(app, 'learn');
+		const known = new Set(solid.map((card) => card.key));
+		/** The first new note served, missed at its first prompt. */
+		let missed: string | null = null;
 		const rounds = await playRounds(
 			app,
 			controller,
-			// G on the low E string, the first new note to play, missed probed then missed aided.
-			(round) => (keyOf(round.card) === g && misses++ < 2 ? { play: 'none' } : allRight()),
+			(round) => {
+				if (missed !== null || known.has(keyOf(round.card))) return allRight();
+				missed = keyOf(round.card);
+				return { play: 'wrong' };
+			},
 			{ rounds: 14 }
 		);
-		const at = rounds.flatMap((round) => (keyOf(round.card) === g ? [round.n] : []));
+		const at = rounds.flatMap((round) => (keyOf(round.card) === missed ? [round.n] : []));
 		const attempts = await quitAndRead(app, controller);
-		// Probed, presented aided at once, then back only after other notes.
-		expect(at.length).toBeGreaterThanOrEqual(3);
-		expect(at[1]).toBe(at[0] + 1);
-		expect(at[2]).toBeGreaterThan(at[1] + 1);
-		expect(attempts.filter((a) => a.cardKey === g).map((a) => a.phase)).toEqual(
-			expect.arrayContaining(['probe', 'learning', 'learning'])
+		// Presented, then back only after other notes.
+		expect(at.length).toBeGreaterThanOrEqual(2);
+		expect(at[1]).toBeGreaterThan(at[0] + 1);
+		expect(new Set(attempts.filter((a) => a.cardKey === missed).map((a) => a.phase))).toEqual(
+			new Set(['learning'])
 		);
-		// Between the two misses and the retest: never the missed note.
-		for (const round of rounds.slice(at[1] + 1, at[2])) expect(keyOf(round.card)).not.toBe(g);
+		// Between the miss and the retest: never the missed note.
+		for (const round of rounds.slice(at[0] + 1, at[1])) expect(keyOf(round.card)).not.toBe(missed);
 	});
 
 	it('grades a cold review through fsrs and moves its level; a hot one moves only its level', async () => {
@@ -152,33 +199,47 @@ describe('a learn session of the notes', () => {
 		const rounds = await playRounds(
 			app,
 			controller,
-			// The review right, the new note's probe missed, its aided presentation right.
+			// The review right, the new note missed at its first prompt.
 			(round) => (round.n === 1 ? { play: 'wrong' } : allRight()),
 			{ rounds: 2 }
 		);
 		await drain();
-		const probed = rounds[1].card;
-		const afterProbe = await app.deps.cards.get(keyOf(probed));
-		expect(afterProbe).toBeDefined();
-		const levelAfterProbe = await app.deps.levels.get(levelOf(probed, 0));
-		await playRounds(app, controller, allRight, { rounds: 1 });
+		const reviewLevel = await app.deps.levels.get(levelOf(review, 2));
+		const introduced = rounds[1].card;
+		// Its card is made by the record of its first attempt.
+		const afterFirst = await app.deps.cards.get(keyOf(introduced));
+		expect(afterFirst).toMatchObject({
+			introducedInSession: controller.sessionId,
+			learnedAt: null
+		});
+		expect(await app.deps.levels.get(levelOf(introduced, 0))).toMatchObject({ level: 0 });
+		// Played right when it comes back.
+		for (let round = 0; round < 8; round++) {
+			const [played] = await playRounds(app, controller, allRight, { rounds: 1 });
+			if (keyOf(played.card) === keyOf(introduced)) break;
+		}
 		const attempts = await quitAndRead(app, controller);
 
 		expect(keyOf(rounds[0].card)).toBe(keyOf(review));
-		expect(attempts.map((a) => [a.phase, a.temperature, a.success])).toEqual([
-			['review', 'cold', true],
-			['probe', 'hot', false],
+		expect(attempts[0]).toMatchObject({ phase: 'review', temperature: 'cold', success: true });
+		expect(
+			attempts
+				.filter((a) => a.cardKey === keyOf(introduced))
+				.map((a) => [a.phase, a.temperature, a.success])
+		).toEqual([
+			['learning', 'hot', false],
 			['learning', 'hot', true]
 		]);
 		// The cold review went through FSRS and moved its level at the top.
 		const reviewed = await app.deps.cards.get(keyOf(review));
 		expect(reviewed?.scheduling).not.toEqual(before?.scheduling);
 		expect(reviewed?.scheduling.reps).toBe((before?.scheduling.reps ?? 0) + 1);
-		expect(await app.deps.levels.get(levelOf(review, 2))).toMatchObject({ level: 2, successes: 1 });
-		// The hot one moved its level only: its card's scheduling is as the probe left it.
-		expect(levelAfterProbe?.level).toBe(0);
-		expect(await app.deps.levels.get(levelOf(probed, 0))).toMatchObject({ level: 1 });
-		expect((await app.deps.cards.get(keyOf(probed)))?.scheduling).toEqual(afterProbe?.scheduling);
+		expect(reviewLevel).toMatchObject({ level: 2, successes: 1 });
+		// The hot one moved its level only: its card's scheduling is as its first attempt left it.
+		expect(await app.deps.levels.get(levelOf(introduced, 0))).toMatchObject({ level: 1 });
+		expect((await app.deps.cards.get(keyOf(introduced)))?.scheduling).toEqual(
+			afterFirst?.scheduling
+		);
 	});
 
 	it('never serves a note right after itself', async () => {
@@ -206,18 +267,9 @@ describe('a learn session of the notes', () => {
 		expect(attempts.map((a) => a.cardKey)).toEqual(
 			expect.arrayContaining([keyOf(locate(6, 'A')), keyOf(locate(5, 'E'))])
 		);
-		let checked = 0;
 		for (let i = 1; i < attempts.length; i++) {
-			const [before, after] = [attempts[i - 1], attempts[i]];
-			// The one exception: a missed probe is presented aided at once.
-			if (before.phase === 'probe' && !before.success) {
-				expect(after).toMatchObject({ cardKey: before.cardKey, phase: 'learning' });
-				continue;
-			}
-			checked++;
-			expect(after.cardKey).not.toBe(before.cardKey);
+			expect(attempts[i].cardKey).not.toBe(attempts[i - 1].cardKey);
 		}
-		expect(checked).toBeGreaterThan(20);
 	});
 
 	it('lands every locate target on a downbeat, a breathing bar after the one before', async () => {
@@ -291,9 +343,11 @@ describe('a learn session of the notes', () => {
 	});
 
 	it('answers identify by a tap, silently, and counts a sounding bar back to the guitar', async () => {
-		// Two names to tap due, then a new note to play: identify, identify, locate.
+		// Two names to tap due, at the top of their ladder, then a new note to play: identify,
+		// identify, locate.
 		const app = await notesApp({
-			cards: [learnedCard(identify(5, 3)), learnedCard(identify(4, 5))]
+			cards: [learnedCard(identify(5, 3)), learnedCard(identify(4, 5))],
+			levels: [levelOf(identify(5, 3), 1), levelOf(identify(4, 5), 1)]
 		});
 		const controller = await startNotes(app, 'learn');
 		// A tap during the (silent) count before the first name is no answer.
@@ -447,7 +501,11 @@ describe('a learn session of the notes', () => {
 	it('writes attempts the summary and the neck map read as before', async () => {
 		const note = locate(5, 'C');
 		const name = identify(4, 5);
-		const app = await notesApp({ cards: [learnedCard(note), learnedCard(name)] });
+		// Both at the top of their ladder, so both are reviewed cold.
+		const app = await notesApp({
+			cards: [learnedCard(note), learnedCard(name)],
+			levels: [levelOf(note, 2), levelOf(name, 1)]
+		});
 		const controller = await startNotes(app, 'learn');
 		const rounds = await playRounds(
 			app,
@@ -515,9 +573,8 @@ describe('the notes on the subject the catalog writes', () => {
 			0,
 			's-old'
 		);
-		const app = await notesApp({
-			cards: [learnedCard(locate(6, 'G')), notDue(locate(5, 'C')), resumed]
-		});
+		const cards = [learnedCard(locate(6, 'G')), notDue(locate(5, 'C')), resumed];
+		const app = await notesApp({ cards, levels: [levelOf(locate(6, 'G'), 2)] });
 		const controller = await startNotes(app, 'learn');
 		await playRounds(app, controller, allRight, { rounds: 6 });
 		const attempts = await quitAndRead(app, controller);
@@ -526,8 +583,9 @@ describe('the notes on the subject the catalog writes', () => {
 			{ cardKey: keyOf(locate(4, 'F')), phase: 'learning' }
 		]);
 		// The first card introduced names a note already located (6:G, the first of the list).
-		const probes = attempts.filter((attempt) => attempt.phase === 'probe');
-		expect(probes[0]?.cardKey).toBe(keyOf(identify(6, 3)));
+		const known = new Set(cards.map((card) => card.key));
+		const introduced = attempts.find((attempt) => !known.has(attempt.cardKey));
+		expect(introduced).toMatchObject({ cardKey: keyOf(identify(6, 3)), phase: 'learning' });
 	});
 
 	it('introduces a note in its turn, its mirror still fragile', async () => {
@@ -546,7 +604,11 @@ describe('the notes on the subject the catalog writes', () => {
 		const controller = await startNotes(app, 'learn');
 		await playRounds(app, controller, allRight, { rounds: 1 });
 		const [first] = await quitAndRead(app, controller);
-		expect(first).toMatchObject({ cardKey: keyOf(locate(5, 'E')), phase: 'probe' });
+		expect(first).toMatchObject({
+			cardKey: keyOf(locate(5, 'E')),
+			phase: 'learning',
+			temperature: 'hot'
+		});
 	});
 
 	it('keeps the order of the notes whatever triads are being learned', async () => {
@@ -560,7 +622,11 @@ describe('the notes on the subject the catalog writes', () => {
 		const controller = await startNotes(app, 'learn');
 		await playRounds(app, controller, allRight, { rounds: 1 });
 		const [first] = await quitAndRead(app, controller);
-		expect(first).toMatchObject({ cardKey: keyOf(LOCATE_ORDER[0]), phase: 'probe' });
+		expect(first).toMatchObject({
+			cardKey: keyOf(LOCATE_ORDER[0]),
+			phase: 'learning',
+			temperature: 'hot'
+		});
 	});
 });
 
@@ -585,6 +651,36 @@ describe('notes across sessions', () => {
 		expect(second.sessionId).not.toBe(first.sessionId);
 		expect(keyOf(after.card)).toBe(keyOf(card));
 		expect((after.anchorBeat as number) - (after.promptBeat as number)).toBe(2);
+	});
+});
+
+describe('a note forgotten', () => {
+	it('keeps a named note hot once a missed review has brought it down to the name shown, even fast', async () => {
+		const card = identify(5, 3);
+		// The ladder of identify: the name shown, then the top, which asks a direct recall.
+		const app = await notesApp({ cards: [learnedCard(card)], levels: [levelOf(card, 1)] });
+		const first = await startNotes(app, 'learn');
+		await playRounds(app, first, () => ({ play: 'wrong' }), { rounds: 1 });
+		await runUntil(app, () => first.view.status === 'verdict');
+		const [missed] = await quitAndRead(app, first);
+		expect(missed).toMatchObject({ phase: 'review', temperature: 'cold', success: false });
+		expect(await app.deps.levels.get(levelOf(card, 0))).toMatchObject({ level: 0 });
+		const forgotten = await app.deps.cards.get(keyOf(card));
+
+		// Due again a month later: asked at the name shown, answered right well within 3 s.
+		app.clock.advance(30 * 24 * 3600);
+		const second = await startNotes(app, 'learn');
+		const [round] = await playRounds(app, second, allRight, { rounds: 1 });
+		await runUntil(app, () => second.view.status === 'verdict');
+		const [again] = await quitAndRead(app, second);
+		expect(keyOf(round.card)).toBe(keyOf(card));
+		// Level 1 writes the name under the fret (decision 7 of issue #19).
+		expect(round.prompt.detail).toBe('C');
+		expect(again).toMatchObject({ phase: 'consolidation', temperature: 'hot', success: true });
+		expect(again.reactionMs).toBeLessThan(3_000);
+		// It climbs back a level; its card is as the miss left it.
+		expect(await app.deps.levels.get(levelOf(card, 0))).toMatchObject({ level: 1 });
+		expect(await app.deps.cards.get(keyOf(card))).toEqual(forgotten);
 	});
 });
 

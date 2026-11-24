@@ -1,16 +1,26 @@
 import { exerciseSetId } from '$lib/domain/sets';
 import { notationOf, writesFigure } from '$lib/domain/exercise/figureParams';
-import { exerciseLevelsOf, resolvedParamsOf } from '$lib/domain/exercise/levels';
+import {
+	exerciseLevelsOf,
+	isPresentationPath,
+	presentationOf,
+	resolvedParamsOf
+} from '$lib/domain/exercise/levels';
 import {
 	FIGURE_CONTENT,
 	isFigureEntry,
 	paramValue,
 	type FigureRef
 } from '$lib/domain/exercise/round';
-import { levelRange, type Figure } from '$lib/domain/time';
+import type { Figure } from '$lib/domain/time';
 import { fretOf } from '$lib/domain/music/fretboard';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
-import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
+import type {
+	ExerciseDefinition,
+	Ladder,
+	PromptPresentation,
+	Slot
+} from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
 import type { CheckBudget } from '$lib/domain/exercise/checkCost';
 import { lookUpPresenter, type PresenterRegistries } from '$lib/application/sets/lookUp';
@@ -41,8 +51,7 @@ const TEXT_SLOTS = ['primary', 'secondary', 'detail', 'target', 'band', 'preview
 /**
  * Why the presentation is not written as the screen reads it, naming the field: no object, a
  * slot that is neither a text nor `{ fr, en }` (one language alone, a number, an object without
- * texts), an `aided` or a `fading` that is no object (a text there would say neither whether it
- * is a line or a picture), a picture that is no name. Its texts and names are checked after.
+ * texts), a picture that is no name. Its texts and names are checked after.
  */
 function presentationShapeProblem(presentation: unknown): string | null {
 	if (!isRecord(presentation)) return 'presentation must be an object';
@@ -52,20 +61,9 @@ function presentationShapeProblem(presentation: unknown): string | null {
 			return `presentation.${slot} must be a text or { fr, en }`;
 		}
 	}
-	const { aided, fading } = presentation;
-	if (aided !== undefined) {
-		if (!isRecord(aided)) return 'presentation.aided must be { line?, picture? }';
-		if (aided.line !== undefined && !isSlot(aided.line)) {
-			return 'presentation.aided.line must be a text or { fr, en }';
-		}
-		if (aided.picture !== undefined && typeof aided.picture !== 'string') {
-			return 'presentation.aided.picture must name a picture';
-		}
-	}
-	if (fading !== undefined) {
-		if (!isRecord(fading) || typeof fading.picture !== 'string') {
-			return 'presentation.fading must be { picture }, naming a picture';
-		}
+	const { picture } = presentation;
+	if (picture !== undefined && typeof picture !== 'string') {
+		return 'presentation.picture must name a picture';
 	}
 	return null;
 }
@@ -79,21 +77,17 @@ function memberFamilies(definition: ExerciseDefinition): string[] {
 }
 
 /**
- * Null when the exercise's presentation can be written, else what it cannot: a slot that names a
- * field neither its set nor any family its round selects members of (`memberFieldNames`)
- * has, a picture that does not exist or does not read its set, the picture of the members
- * admitted (`CONTENT_PICTURES`) for a round that selects none, as a fading picture (no view
- * draws one), or as the aided picture of an exercise drawn on a view that draws no passage
- * (`PASSAGE_VIEWS`); before them, a presentation not written as the screen reads it
- * (`presentationShapeProblem`). Names the exercise and the field.
- * It is not part of `validateExercise` because its words are code of the application layer.
+ * What checks a presentation of the exercise: null when it can be written, else what it cannot,
+ * naming the field, not the exercise: a slot that names a field neither its set nor any family its
+ * round selects members of (`memberFieldNames`) has, a picture that does not exist or does not
+ * read its set, the picture of the members admitted (`CONTENT_PICTURES`) for a round that selects
+ * none, or of an exercise drawn on a view that draws no passage (`PASSAGE_VIEWS`); before them, a
+ * presentation not written as the screen reads it (`presentationShapeProblem`). What the exercise
+ * gives is read once, and the fields of a slot once however many of its levels resolve it.
  */
-export function presentationProblem(definition: ExerciseDefinition): string | null {
-	const presentation = definition.presentation;
-	if (presentation === undefined) return null;
-	const { id } = definition;
-	const shape = presentationShapeProblem(presentation);
-	if (shape !== null) return `${id}: ${shape}`;
+function presentationChecker(
+	definition: ExerciseDefinition
+): (presentation: unknown) => string | null {
 	const set = exerciseSetId(definition);
 	const families = memberFamilies(definition);
 	const offered = families.flatMap((family) => memberFieldNames(family));
@@ -103,47 +97,106 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 		offered.length === 0
 			? `which ${set} does not have`
 			: `which neither ${[set, ...families].join(' nor ')} has`;
-	const slots: [string, Slot | undefined][] = [
-		['primary', presentation.primary],
-		['secondary', presentation.secondary],
-		['detail', presentation.detail],
-		['target', presentation.target],
-		['band', presentation.band],
-		['preview', presentation.preview],
-		['aided.line', presentation.aided?.line]
-	];
-	for (const [path, slot] of slots) {
-		if (slot === undefined) continue;
-		const unknown = placeholders(slot).find((name) => !known.includes(name));
-		if (unknown !== undefined) {
-			return `${id}: presentation.${path} names field "${unknown}", ${owners}`;
+	// A level's resolution keeps the slots it does not write: each is read once.
+	const unknownFields = new Map<Slot, string | undefined>();
+	const unknownIn = (slot: Slot): string | undefined => {
+		if (!unknownFields.has(slot)) {
+			unknownFields.set(
+				slot,
+				placeholders(slot).find((name) => !known.includes(name))
+			);
 		}
-	}
-	const pictures: [string, string | undefined][] = [
-		['aided.picture', presentation.aided?.picture],
-		['fading.picture', presentation.fading?.picture]
-	];
-	for (const [path, name] of pictures) {
-		if (name === undefined) continue;
+		return unknownFields.get(slot);
+	};
+	return (presentation) => {
+		const shape = presentationShapeProblem(presentation);
+		if (shape !== null) return shape;
+		const written = presentation as PromptPresentation;
+		const slots: [string, Slot | undefined][] = [
+			['primary', written.primary],
+			['secondary', written.secondary],
+			['detail', written.detail],
+			['target', written.target],
+			['band', written.band],
+			['preview', written.preview]
+		];
+		for (const [path, slot] of slots) {
+			if (slot === undefined) continue;
+			const unknown = unknownIn(slot);
+			if (unknown !== undefined) {
+				return `presentation.${path} names field "${unknown}", ${owners}`;
+			}
+		}
+		const name = written.picture;
+		if (name === undefined) return null;
 		if (CONTENT_PICTURES.includes(name)) {
 			if (families.length === 0) {
-				return `${id}: presentation.${path} names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
-			}
-			if (path === 'fading.picture') {
-				return `${id}: presentation.${path} names picture "${name}", which no view draws as a fading picture`;
+				return `presentation.picture names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
 			}
 			const view = playViewOf(definition);
 			if (!PASSAGE_VIEWS.includes(view)) {
-				return `${id}: presentation.${path} names picture "${name}", which only a view that draws a passage draws (${PASSAGE_VIEWS.join(', ')}), and the exercise is drawn on "${view}"`;
+				return `presentation.picture names picture "${name}", which only a view that draws a passage draws (${PASSAGE_VIEWS.join(', ')}), and the exercise is drawn on "${view}"`;
 			}
-			continue;
+			return null;
 		}
 		const picture = Object.hasOwn(PICTURES, name) ? PICTURES[name] : undefined;
-		if (!picture) {
-			return `${id}: presentation.${path} names picture "${name}", which does not exist`;
-		}
+		if (!picture) return `presentation.picture names picture "${name}", which does not exist`;
 		if (!picture.reads.includes(set)) {
-			return `${id}: presentation.${path} names picture "${name}", which does not read ${set}`;
+			return `presentation.picture names picture "${name}", which does not read ${set}`;
+		}
+		return null;
+	};
+}
+
+/** Whether a level writes a path of the presentation (`isPresentationPath`). */
+const rewritesPresentation = (level: { params?: unknown }): boolean =>
+	isRecord(level.params) && Object.keys(level.params).some(isPresentationPath);
+
+/**
+ * Null when the exercise's presentation can be written at every level, else what it cannot
+ * (`presentationChecker`): the one it writes, then the one each exercise level that rewrites it
+ * resolves (`presentationOf`), then, when it writes a ladder, the one each item level that
+ * rewrites it resolves over each exercise level. Names the exercise, the level (`levels[i]`,
+ * `params.ladder[i]`, with the exercise level it resolves over when the exercise writes levels)
+ * and the field. A level that rewrites no slot resolves the presentation it lies over, checked
+ * there. Resolving the levels is charged with the other level checks (`levelsCheckCost`).
+ * It is not part of `validateExercise` because its words are code of the application layer.
+ */
+export function presentationProblem(definition: ExerciseDefinition): string | null {
+	if (definition.presentation === undefined) return null;
+	const { id } = definition;
+	const check = presentationChecker(definition);
+	const base = check(definition.presentation);
+	if (base !== null) return `${id}: ${base}`;
+	const at = (
+		field: string,
+		levels: { exerciseLevel: number; itemLevel: number | null }
+	): string | null => {
+		let resolved: PromptPresentation | undefined;
+		try {
+			resolved = presentationOf(definition, levels);
+		} catch (error) {
+			return `${id}: ${field} ${(error as Error).message}`;
+		}
+		const problem = check(resolved);
+		return problem === null ? null : `${id}: ${field}: ${problem}`;
+	};
+	const exerciseLevels = exerciseLevelsOf(definition);
+	for (const [i, level] of exerciseLevels.entries()) {
+		if (!rewritesPresentation(level)) continue;
+		const problem = at(`levels[${i}]`, { exerciseLevel: i, itemLevel: null });
+		if (problem !== null) return problem;
+	}
+	const ladder = definition.params.ladder as Ladder | undefined;
+	if (!Array.isArray(ladder)) return null;
+	const writesLevels = (definition.levels?.length ?? 0) > 0;
+	for (const [j, step] of ladder.entries()) {
+		if (!rewritesPresentation(step)) continue;
+		for (const i of exerciseLevels.keys()) {
+			const over = writesLevels ? ` at levels[${i}]` : '';
+			const levels = { exerciseLevel: i, itemLevel: j };
+			const problem = at(`params.ladder[${j}]${over}`, levels);
+			if (problem !== null) return problem;
 		}
 	}
 	return null;
@@ -233,8 +286,8 @@ function unfrettedNote(figure: Figure): string | null {
 function tabProblem(definition: ExerciseDefinition): string | null {
 	const entry = definition.round?.expectations.find(isFigureEntry);
 	if (!entry || (entry.content !== null && entry.content.from !== FIGURE_CONTENT)) return null;
-	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
-	for (let level = lowest; level <= highest; level++) {
+	const count = exerciseLevelsOf(definition).length;
+	for (let level = 0; level < count; level++) {
 		if (!notationOf(definition, level).tab) continue;
 		for (const { id, figure } of figuresAt(definition, entry.figure, level)) {
 			const problem = unfrettedNote(figure);

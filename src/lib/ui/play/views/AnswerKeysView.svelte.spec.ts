@@ -77,11 +77,14 @@ describe('AnswerKeysView', () => {
 		expect(container.querySelector('.centre .countdown .main')?.textContent).toBe('4');
 	});
 
-	it('shows the note name of an aided prompt', () => {
+	it('writes the detail its level gives under the prompt, as the lane does, and no aid tile', () => {
 		const { container } = show({
-			prompt: presented({ primary: 'case 8', secondary: 'corde de A', aid: 'F' })
+			prompt: presented({ primary: 'case 8', secondary: 'corde de A', detail: 'F' })
 		});
-		expect(container.querySelector('.aid')?.textContent).toBe('F');
+		expect(container.querySelector('.centre .detail')?.textContent).toBe('F');
+		expect(container.querySelector('.aid')).toBeNull();
+		cleanup();
+		expect(show().container.querySelector('.detail')).toBeNull();
 	});
 
 	it('shows a late verdict for a right but slow answer, without a timing offset', () => {

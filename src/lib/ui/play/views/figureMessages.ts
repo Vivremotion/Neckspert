@@ -31,7 +31,6 @@ function barList(bars: readonly number[], more: boolean, and: string): string {
 const FR = {
 	header: (label: string, level: string, tempo: string) => `${label} · ${level} · ${tempo}`,
 	level: (shown: number, of: number) => `niveau ${shown} sur ${of}`,
-	aidLevel: 'niveau d’aide',
 	tempo: (unit: string, bpm: number) => `${unit} = ${bpm} bpm`,
 	bar: (bar: number, of: number) => `mesure ${bar} / ${of}`,
 	click: 'clic',
@@ -109,7 +108,6 @@ const FR = {
 const EN: typeof FR = {
 	header: (label, level, tempo) => `${label} · ${level} · ${tempo}`,
 	level: (shown, of) => `level ${shown} of ${of}`,
-	aidLevel: 'aid level',
 	tempo: (unit, bpm) => `${unit} = ${bpm} bpm`,
 	bar: (bar, of) => `bar ${bar} / ${of}`,
 	click: 'click',

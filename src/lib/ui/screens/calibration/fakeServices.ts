@@ -79,7 +79,7 @@ export class FakeCalibration implements CalibrationPort {
 export class FakeBackup implements BackupPort {
 	private file: BackupFile = {
 		app: 'neckspert-play',
-		version: 9,
+		version: 10,
 		exportedAt: 1,
 		settings: { ...DEFAULT_SETTINGS },
 		cards: [],
@@ -116,7 +116,6 @@ const EMPTY_SUMMARY: SessionSummary = {
 	identifyMedianReactionMs: null,
 	learnedCount: 0,
 	pendingCount: 0,
-	knownCount: 0,
 	fatigueDetected: false,
 	nextReviewAt: null,
 	grade: null,

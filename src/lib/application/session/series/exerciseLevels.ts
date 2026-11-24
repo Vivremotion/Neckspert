@@ -9,13 +9,12 @@ import {
 	type Coming,
 	type Next,
 	type SeriesRules,
-	type SeriesState,
-	type SettledRound
+	type SeriesState
 } from '$lib/domain/session';
-import { levelRange, type CycleFailure, type LevelState } from '$lib/domain/time';
+import type { LevelState } from '$lib/domain/time';
 import type { LevelStateRepositoryPort } from '$lib/application/ports';
 import type { Announcement } from '../contract';
-import { canSound, listenOf } from './compilePlan';
+import { listenOf, modelSoundsOf } from './compilePlan';
 
 /** The key of an exercise level: its exercise and its scope (empty for none). */
 function keyOf(exerciseId: ExerciseId, scope: string | undefined): string {
@@ -28,14 +27,12 @@ interface Held {
 	series: SeriesState;
 	/** The level its rounds play at: the state's, once applied. */
 	played: number;
-	/** It changed air and left the series (`leave`): its end no longer ends the series. */
-	left?: true;
 }
 
 /**
  * The level of each (exercise, scope) during a series (plan H6, D3): read from the store once the
- * series is prepared, moved by every round settled at the level played (`settle` of the policy,
- * with the anti-blocking when the exercise asks it) and stored at once, so a change reached as
+ * series is prepared, moved by every round settled at the level played (`settle` of the policy)
+ * and stored at once, so a change reached as
  * time runs out is kept; a change waits for `apply`, which the series calls at a round that does
  * not chain (a breath), never in the middle of a run. An exercise that writes no levels has one,
  * implicit, that never moves: nothing is stored for it. At each boundary between rounds, the
@@ -56,8 +53,6 @@ export class ExerciseLevels {
 		private readonly deps: {
 			levels: LevelStateRepositoryPort;
 			exercise: (id: ExerciseId) => ExerciseDefinition;
-			/** Epoch ms, for the rest the anti-blocking may give an exercise. */
-			now: () => number;
 		}
 	) {}
 
@@ -86,34 +81,19 @@ export class ExerciseLevels {
 		return this.heldOf(exerciseId, scope).series.levelState.level;
 	}
 
-	/**
-	 * A settled round moves the state (`settle` of the policy, with what the anti-blocking reads of
-	 * it: its item, and a cycle's report, verdict and spot) and stores it; a change waits for `apply`.
-	 */
-	async settle(
-		round: {
-			exerciseId: ExerciseId;
-			scope?: string;
-		} & Pick<SettledRound, 'level' | 'success' | 'aided'> &
-			Partial<Pick<SettledRound, 'item' | 'report' | 'verdict' | 'spotMs'>>
-	): Promise<'up' | 'down' | null> {
+	/** A settled round moves the state (`settle` of the policy) and stores it; a change waits for `apply`. */
+	async settle(round: {
+		exerciseId: ExerciseId;
+		scope?: string;
+		level: number;
+		success: boolean;
+	}): Promise<'up' | 'down' | null> {
 		const definition = this.deps.exercise(round.exerciseId);
 		const held = this.heldOf(round.exerciseId, round.scope);
-		const { state, changed } = settle(
-			held.series,
-			rulesOf(definition, Number.POSITIVE_INFINITY),
-			{
-				level: round.level,
-				item: round.item ?? '',
-				success: round.success,
-				aided: round.aided,
-				...(round.report && { report: round.report }),
-				...(round.verdict && { verdict: round.verdict }),
-				// Without a spot, rounds are never compared spot by spot.
-				spotMs: round.spotMs ?? 0
-			},
-			this.deps.now()
-		);
+		const { state, changed } = settle(held.series, rulesOf(definition, Number.POSITIVE_INFINITY), {
+			level: round.level,
+			success: round.success
+		});
 		held.series = state;
 		if (writesLevels(definition)) {
 			const written = state.levelState;
@@ -131,9 +111,7 @@ export class ExerciseLevels {
 	 * the source has nothing more — what the policy decides (`next`), over the run under way, or
 	 * one started there. After a breath, a new run starts with the coming round, which comes after
 	 * a counted bar: `next` is that round's place in it. `look`: what it would decide, the state
-	 * left as it is (decided ahead of a breath, or of an instruction that stops play first). An end
-	 * decided on any (exercise, scope) — « On change d’air » — ends the series at this boundary,
-	 * whatever exercise the coming round belongs to, unless that (exercise, scope) has left (`leave`).
+	 * left as it is (decided ahead of a breath, or of an instruction that stops play first).
 	 */
 	boundary(
 		at: { exerciseId: ExerciseId; scope?: string },
@@ -142,8 +120,6 @@ export class ExerciseLevels {
 		coming: Coming | null,
 		options: { look?: boolean } = {}
 	): { breath: boolean; next: Next } {
-		const ended = this.ending();
-		if (ended) return { breath: false, next: { role: 'end', reason: ended.series.ending! } };
 		const held = this.heldOf(at.exerciseId, at.scope);
 		const rules = rulesOf(this.deps.exercise(at.exerciseId), budgetMs);
 		const running = (state: SeriesState) => (state.run ? state : startRun(state));
@@ -163,40 +139,13 @@ export class ExerciseLevels {
 	}
 
 	/**
-	 * Play stops (a pause): every run under way ends, and a listen asked is forgotten; the remedies
-	 * queued stay. Play goes on with a new run, after a counted bar.
+	 * Play stops (a pause): every run under way ends, and a listen asked is forgotten. Play goes on
+	 * with a new run, after a counted bar.
 	 */
 	interrupt(): void {
 		for (const held of this.held.values()) {
 			held.series = { ...held.series, run: null, listenAsked: false };
 		}
-	}
-
-	/**
-	 * The (exercise, scope) whose series decided its end (« On change d’air ») and has not left;
-	 * null otherwise.
-	 */
-	resting(): { exerciseId: ExerciseId; scope?: string } | null {
-		const ended = this.ending();
-		if (!ended) return null;
-		const { exerciseId, scope } = ended.series.levelState;
-		return { exerciseId, ...(scope !== '' && { scope }) };
-	}
-
-	/**
-	 * (exercise, scope) changed air and leaves the series, which goes on without it: its end is
-	 * consumed, its state (its rest) kept as the anti-blocking wrote it.
-	 */
-	leave(exerciseId: ExerciseId, scope?: string): void {
-		this.heldOf(exerciseId, scope).left = true;
-	}
-
-	/**
-	 * The measure that breaks, once the anti-blocking changed the air of an exercise that has not
-	 * left; null otherwise.
-	 */
-	breaking(): CycleFailure | null {
-		return this.ending()?.series.breaking ?? null;
 	}
 
 	/**
@@ -215,8 +164,6 @@ export class ExerciseLevels {
 		const reached = held.series.levelState.level;
 		if (reached === played) return null;
 		held.played = reached;
-		// An aid level is announced as one, never by a number below 1.
-		if (reached < 0) return 'aid-level';
 		return reached > played ? 'level-up' : 'level-down';
 	}
 
@@ -247,11 +194,6 @@ export class ExerciseLevels {
 		return this.writes;
 	}
 
-	private ending(): Held | null {
-		for (const held of this.held.values()) if (held.series.ending && !held.left) return held;
-		return null;
-	}
-
 	private heldOf(exerciseId: ExerciseId, scope: string | undefined): Held {
 		const key = keyOf(exerciseId, scope);
 		let held = this.held.get(key);
@@ -263,23 +205,26 @@ export class ExerciseLevels {
 		return held;
 	}
 
-	/** The stored state clamped into the exercise's levels; level 0 without one. */
+	/**
+	 * The stored state brought into the exercise's levels, `0..N-1` (a level below 0 the migration
+	 * did not shift, one above a top that came down), its runs started again; level 0 without one.
+	 */
 	private startOf(
 		exerciseId: ExerciseId,
 		scope: string | undefined,
 		stored: LevelState | undefined
 	): LevelState {
-		const { lowest, highest } = levelRange(exerciseLevelsOf(this.deps.exercise(exerciseId)));
+		const highest = exerciseLevelsOf(this.deps.exercise(exerciseId)).length - 1;
 		const state: LevelState = stored ?? {
 			exerciseId,
 			scope: scope ?? '',
 			item: '',
 			level: 0,
 			successes: 0,
-			failures: 0,
-			resumeAfter: null
+			failures: 0
 		};
-		return { ...state, level: Math.min(highest, Math.max(lowest, state.level)) };
+		const level = Math.min(highest, Math.max(0, state.level));
+		return level === state.level ? state : { ...state, level, successes: 0, failures: 0 };
 	}
 }
 
@@ -290,17 +235,17 @@ function writesLevels(definition: ExerciseDefinition): boolean {
 
 /**
  * What the policy reads of an exercise: its levels, the runs of each (`pacing.roundsPerBreath`,
- * none when absent), what listening its levels give, whether it can make its content sound (then
- * listening and playing along are remedies) and whether it asks the anti-blocking, with the
+ * none when absent), whether its levels let the player ask to hear the content, and what of it
+ * they make sound (`modelSoundsOf`: nothing for an exercise whose content cannot sound), with the
  * series' length.
  */
 function rulesOf(definition: ExerciseDefinition, budgetMs: number): SeriesRules {
 	return {
 		levels: exerciseLevelsOf(definition),
 		roundsPerBreath: (level) => pacingAt(definition, level).roundsPerBreath ?? null,
-		listen: (level) => listenOf(definition, level),
-		canSound: canSound(definition),
-		budgetMs,
-		antiBlocking: definition.flow?.antiBlocking ?? false
+		listen: (level) => listenOf(definition, level) === 'free',
+		listenFirst: (level) => modelSoundsOf(definition, level).listenFirst,
+		playAlong: (level) => modelSoundsOf(definition, level).playAlong,
+		budgetMs
 	};
 }

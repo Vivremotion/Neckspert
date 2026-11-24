@@ -1,14 +1,8 @@
 import type { DirectRecall } from '$lib/domain/learning/recall';
-import {
-	type Attempt,
-	type CardKey,
-	type CardState,
-	type CardStatus,
-	type Temperature
-} from '$lib/domain/types';
+import { type Attempt, type CardKey, type CardState, type CardStatus } from '$lib/domain/types';
 import type { SkillId } from '$lib/domain/skill/types';
 import { MASTERY_ACCURACY, MASTERY_MIN_GAP_MS, MASTERY_SESSIONS } from './constants';
-import { Rating, graduateToReview, introScheduling, reviewScheduling } from './scheduling';
+import { Rating, introScheduling, reviewScheduling } from './scheduling';
 import type { Grade } from 'ts-fsrs';
 
 /** What a card is before it has a state: its key, skill and item. */
@@ -17,9 +11,6 @@ interface NewCard<I> {
 	skill: SkillId;
 	item: I;
 }
-
-/** Fields of an attempt the direct-recall rule reads, at the attempt's tempo. */
-type RecallFields = Parameters<DirectRecall>[0];
 
 function gradeFor(attempt: Attempt, recall: DirectRecall): Grade {
 	if (attempt.correct !== true) return Rating.Again;
@@ -56,40 +47,6 @@ export function markLearned<I>(card: CardState<I>, now: number): CardState<I> {
 		learnedAt: now,
 		scheduling: introScheduling(now)
 	};
-}
-
-/**
- * Probe success (first unaided prompt of a new note) → Review + learned + acquired.
- * Failure or non-direct → null. Direct recall is judged at the attempt's own tempo.
- */
-export function probeCard<I>(
-	card: NewCard<I>,
-	attempt: Attempt,
-	now: number,
-	sessionId: string,
-	recall: DirectRecall
-): CardState<I> | null {
-	if (!recall(attempt)) return null;
-	return {
-		key: card.key,
-		skill: card.skill,
-		item: card.item,
-		introducedAt: now,
-		introducedInSession: sessionId,
-		scheduling: graduateToReview(now),
-		learnedAt: now,
-		acquiredAt: now,
-		masteredAt: null
-	};
-}
-
-/**
- * A passed probe is cold, a missed one hot: a miss measures no forgetting, since the note
- * was never learned, so it must stay out of retention stats.
- * Spec 2026-10-03-sondage-avant-apprentissage-design.md, section 1.
- */
-export function probeTemperature(attempt: RecallFields, recall: DirectRecall): Temperature {
-	return recall(attempt) ? 'cold' : 'hot';
 }
 
 /**

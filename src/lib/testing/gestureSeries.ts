@@ -89,7 +89,6 @@ export function change(index: number, options: ChangeOptions = {}): PlannedItem<
 		item: { grid: scope, index },
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null,
 		passage,
 		...(index === 0 && { countIn: true }),
@@ -126,7 +125,6 @@ export function linkChange(index: number, passageId = 's:0'): PlannedItem<Voicin
 		item: items[index],
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: null,
 		passage: {
 			id: passageId,
@@ -196,18 +194,17 @@ export const BENCH_LEVELS: Level<LevelOverrides>[] = [120, 60].map((tempo) => ({
 export const BENCH_LEVEL_STATES: LevelState[] = [
 	{ exerciseId: 'grid-reading', scope: 'blues-f', level: 1 },
 	{ exerciseId: 'grid-in-zone', scope: 'iohefy-a', level: 1 }
-].map((key) => ({ ...key, item: '', successes: 0, failures: 0, resumeAfter: null }));
+].map((key) => ({ ...key, item: '', successes: 0, failures: 0 }));
 
 /**
  * An exercise of the changes (it writes passages), or one a spec draws from it, on the bench's
- * levels, which no anti-blocking moves either; any other as it is.
+ * levels; any other as it is.
  */
 function onBenchLevels(definition: ExerciseDefinition): ExerciseDefinition {
 	if (definition.passages === undefined) return definition;
 	return {
 		...definition,
-		levels: BENCH_LEVELS,
-		flow: { ...definition.flow, antiBlocking: false }
+		levels: BENCH_LEVELS
 	};
 }
 

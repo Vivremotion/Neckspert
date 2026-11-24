@@ -5,7 +5,6 @@ import {
 	figureFromJson,
 	figureToJson,
 	Fraction,
-	levelRange,
 	validateFigure,
 	METER_4_4,
 	type Accompaniment,
@@ -39,7 +38,7 @@ interface RhythmLevelParams {
 	tempo: number;
 	window: ExpectationWindow;
 	feedback: Feedback;
-	listen: 'free' | 'aid' | 'none';
+	listen: 'free' | 'none';
 	cursor: boolean;
 	thresholds: CycleThresholds;
 }
@@ -112,6 +111,9 @@ const TWO_AND_FOUR = {
  * params before H6 (JSON, the tempo as its quarter-note bpm): frozen, the proof that writing the
  * levels as paths changed nothing. Since plan S (D7), the listen-in and the count are in the
  * pacing: the two bars the cycle always listened in, `countIn` written by « 2 et 4 » alone.
+ * Since issue #19 (D11), « 2 et 4 » writes `listen: 'free'`: asking to listen is no longer an aid.
+ * Keyed by the indexes of then, when the aid level stood at -1: since D12 each is read at its
+ * index + 1, and the first level adds the model heard and along (`listenFirst`, `playAlong`).
  */
 const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>> = {
 	'rhythm-silent-bars': {
@@ -200,7 +202,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 100,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: true,
 			pacing: {
 				respirationBars: 1,
@@ -217,7 +219,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 100,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: true,
 			pacing: {
 				respirationBars: 1,
@@ -234,7 +236,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 120,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: true,
 			pacing: {
 				respirationBars: 1,
@@ -251,7 +253,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			tempo: 140,
 			window: { ms: 80 },
 			feedback: 'every-cycle',
-			listen: 'aid',
+			listen: 'free',
 			cursor: false,
 			pacing: {
 				respirationBars: 1,
@@ -322,10 +324,9 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 	}
 };
 
-/** Every level index of an exercise, aid levels (negative) first. */
+/** Every level index of an exercise, from the first (0, level 1). */
 function indexes(levels: readonly Level<unknown>[]): number[] {
-	const { lowest, highest } = levelRange(levels);
-	return Array.from({ length: highest - lowest + 1 }, (_, i) => lowest + i);
+	return levels.map((_, i) => i);
 }
 
 describe('the rhythm exercises', () => {
@@ -372,20 +373,21 @@ describe('the rhythm exercises', () => {
 		}
 	});
 
-	it('put the aid levels first', () => {
+	it('start at a level 1 that hears the model first and plays it along, with neither pass nor drop (D12)', () => {
 		for (const exercise of RHYTHM_EXERCISES) {
-			const levels = levelsOf(exercise);
-			expect(levels[0].aid, exercise.id).toBe(true);
-			const firstRegular = levels.findIndex((l) => !l.aid);
-			expect(levels.slice(firstRegular).some((l) => l.aid)).toBe(false);
+			const [first, ...others] = levelsOf(exercise);
+			expect(first.params, exercise.id).toMatchObject({ listenFirst: true, playAlong: true });
+			expect(first, exercise.id).not.toHaveProperty('pass');
+			expect(first, exercise.id).not.toHaveProperty('drop');
+			for (const level of [first, ...others]) expect(level).not.toHaveProperty('aid');
+			for (const level of others) {
+				expect(level.params).not.toHaveProperty('listenFirst');
+				expect(level.params).not.toHaveProperty('playAlong');
+			}
 		}
-		expect(levelRange(RHYTHM_SILENT_BARS.levels ?? [])).toEqual({
-			lowest: -1,
-			first: 0,
-			highest: 5
-		});
-		expect(levelRange(RHYTHM_TWO_FOUR.levels ?? [])).toEqual({ lowest: -1, first: 0, highest: 2 });
-		expect(levelRange(RHYTHM_OFFBEATS.levels ?? [])).toEqual({ lowest: -1, first: 0, highest: 3 });
+		expect(levelsOf(RHYTHM_SILENT_BARS)).toHaveLength(7);
+		expect(levelsOf(RHYTHM_TWO_FOUR)).toHaveLength(4);
+		expect(levelsOf(RHYTHM_OFFBEATS)).toHaveLength(5);
 	});
 
 	it('share the common params and carry a how-to in both languages', () => {
@@ -424,7 +426,7 @@ describe('the rhythm exercises', () => {
 	});
 
 	it('mute more bars as the silent bars climb, then again slower', () => {
-		const all = [-1, 0, 1, 2, 3, 4, 5].map((i) => paramsAt(RHYTHM_SILENT_BARS, i));
+		const all = [0, 1, 2, 3, 4, 5, 6].map((i) => paramsAt(RHYTHM_SILENT_BARS, i));
 		expect(all.map((p) => p.accompaniment.bars.filter((b) => b === 'off').length)).toEqual([
 			0, 1, 2, 3, 1, 2, 3
 		]);
@@ -448,37 +450,39 @@ describe('the rhythm exercises', () => {
 		expect(RHYTHM_TWO_FOUR.params).toMatchObject({
 			cycleBars: 4,
 			pacing: { roundsPerBreath: 1 },
-			listen: 'aid'
+			listen: 'free'
 		});
 		const clicks = (index: number) =>
 			attackPositions(paramsAt(RHYTHM_TWO_FOUR, index).accompaniment.figure).map((p) =>
 				p.toString()
 			);
-		expect(clicks(0)).toEqual(['1/4', '3/4']);
-		expect(clicks(-1)).toHaveLength(4);
-		expect([0, 1, 2].map((i) => paramsAt(RHYTHM_TWO_FOUR, i).tempo)).toEqual([100, 120, 140]);
-		expect(paramsAt(RHYTHM_TWO_FOUR, 2).cursor).toBe(false);
-		expect(paramsAt(RHYTHM_TWO_FOUR, 0).cursor).toBe(true);
+		expect(clicks(1)).toEqual(['1/4', '3/4']);
+		expect(clicks(0)).toHaveLength(4);
+		expect([0, 1, 2, 3].map((i) => paramsAt(RHYTHM_TWO_FOUR, i).tempo)).toEqual([
+			100, 100, 120, 140
+		]);
+		expect(paramsAt(RHYTHM_TWO_FOUR, 3).cursor).toBe(false);
+		expect(paramsAt(RHYTHM_TWO_FOUR, 1).cursor).toBe(true);
 	});
 
 	it('play offbeats on one bar, then on two bars whose second has no attack on the 1', () => {
 		expect(RHYTHM_OFFBEATS.pick).toBe('loop');
-		const level1 = paramsAt(RHYTHM_OFFBEATS, 0);
-		expect(playableAt(RHYTHM_OFFBEATS, 0).map((f) => f.figure.bars)).toEqual([1]);
-		expect(level1.thresholds).toMatchObject({ regularity: 80, holdOffset: 200, holdDrift: 100 });
-
 		const level2 = paramsAt(RHYTHM_OFFBEATS, 1);
-		expect(level2.cycleBars).toBe(2);
-		const [two] = playableAt(RHYTHM_OFFBEATS, 1);
+		expect(playableAt(RHYTHM_OFFBEATS, 1).map((f) => f.figure.bars)).toEqual([1]);
+		expect(level2.thresholds).toMatchObject({ regularity: 80, holdOffset: 200, holdDrift: 100 });
+
+		const level3 = paramsAt(RHYTHM_OFFBEATS, 2);
+		expect(level3.cycleBars).toBe(2);
+		const [two] = playableAt(RHYTHM_OFFBEATS, 2);
 		expect(two.figure.bars).toBe(2);
 		const attacks = attackPositions(two.figure);
 		expect(attacks.some((a) => a.equals(Fraction.ZERO))).toBe(true);
 		expect(attacks.some((a) => a.equals(Fraction.of(1)))).toBe(false);
 
-		expect([-1, 0, 1, 2, 3].map((i) => paramsAt(RHYTHM_OFFBEATS, i).tempo)).toEqual([
+		expect([0, 1, 2, 3, 4].map((i) => paramsAt(RHYTHM_OFFBEATS, i).tempo)).toEqual([
 			70, 80, 80, 90, 100
 		]);
-		expect(paramsAt(RHYTHM_OFFBEATS, 3).cursor).toBe(false);
+		expect(paramsAt(RHYTHM_OFFBEATS, 4).cursor).toBe(false);
 	});
 	it('resolves every level of every rhythm exercise to the params it resolved to before', () => {
 		expect(RHYTHM_EXERCISES.map((e) => e.id)).toEqual(Object.keys(RESOLVED_BEFORE_H6));
@@ -486,18 +490,19 @@ describe('the rhythm exercises', () => {
 			const before = RESOLVED_BEFORE_H6[exercise.id];
 			expect(indexes(levelsOf(exercise))).toEqual(
 				Object.keys(before)
-					.map(Number)
+					.map((index) => Number(index) + 1)
 					.sort((a, b) => a - b)
 			);
 			for (const index of indexes(levelsOf(exercise))) {
 				const resolved = JSON.parse(
 					JSON.stringify(resolvedParamsOf(exercise, { exerciseLevel: index, itemLevel: null }))
 				) as Record<string, unknown>;
-				const row = before[index];
+				const row = before[index - 1];
 				const levelParams = Object.fromEntries(Object.keys(row).map((key) => [key, resolved[key]]));
 				expect(levelParams, `${exercise.id} level ${index}`).toEqual(row);
 				const others = Object.keys(resolved).filter((key) => !(key in row));
-				expect(others.every((key) => RESOLVED_ELSEWHERE.includes(key))).toBe(true);
+				const added = index === 0 ? ['listenFirst', 'playAlong'] : [];
+				expect(others.filter((key) => !RESOLVED_ELSEWHERE.includes(key))).toEqual(added);
 			}
 		}
 	});
@@ -526,8 +531,8 @@ describe('the rhythm exercises', () => {
 				expect(Object.keys(level.params)).not.toContain('thresholds');
 			}
 		}
-		const [, level1] = exerciseLevelsOf(RHYTHM_OFFBEATS);
-		expect(level1.params).toMatchObject({
+		const [, level2] = exerciseLevelsOf(RHYTHM_OFFBEATS);
+		expect(level2.params).toMatchObject({
 			'thresholds.regularity': 80,
 			'thresholds.holdOffset': 200,
 			'thresholds.holdDrift': 100

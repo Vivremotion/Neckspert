@@ -12,7 +12,6 @@ function item(pitch: 'F' | 'G'): PlannedItem {
 		item: { string: 6, pitch },
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		leadBeats: 2
 	};
 }

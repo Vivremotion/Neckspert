@@ -29,7 +29,6 @@ function attemptOn(card: NeckCard, promptedAt: number, phase: Attempt['phase']):
 		cardKey: neckCardKey(card),
 		phase,
 		temperature: 'hot',
-		aid: 'none',
 		promptedAt,
 		tempoBpm: 80,
 		leadBeats: 2,

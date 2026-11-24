@@ -83,7 +83,7 @@ export function neckExerciseId(skill: SkillId): ExerciseId {
 	throw new Error(`Not a neck skill: ${skill}`);
 }
 
-/** A neck card with its key, as `introduceCard` and `probeCard` take it. */
+/** A neck card with its key, as `introduceCard` takes it. */
 export function keyed(card: NeckCard): {
 	key: CardKey;
 	skill: NeckCard['skill'];

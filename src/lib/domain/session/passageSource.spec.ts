@@ -77,7 +77,6 @@ function attemptOf(
 		cardKey: cardKey(planned.skill, `round-${passage.rank}`),
 		phase: 'free',
 		temperature: 'hot',
-		aid: planned.aid,
 		promptedAt,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -158,7 +157,6 @@ describe('createPassageSource', () => {
 			exerciseLevel: 0,
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			leadBeats: null,
 			scope: 'iohefy-a'
 		});
@@ -274,7 +272,6 @@ describe('createPassageSource', () => {
 			cardKey: cardKey(CLIMB_PASSAGES.practices, 'iohefy-a#0'),
 			phase: 'free',
 			temperature: 'hot',
-			aid: 'none',
 			promptedAt: NOW - 1000,
 			tempoBpm: 80,
 			leadBeats: null,
@@ -581,56 +578,6 @@ describe('createPassageSource', () => {
 		const second = s.next(at(clock.now))!;
 		s.record(attemptOf(second, ++clock.now, true, highest.id), clock.now);
 		expect(s.next(at(clock.now))!.passage!.each).toEqual({ direction: 'down' });
-	});
-
-	describe('leave: an exercise that changed air leaves the session', () => {
-		/** The triads of blues-f (F7, Bb7, C7) acquired on G-B-E. */
-		const BLUES = (['F', 'Bb', 'C'] as const).flatMap((root) =>
-			triadCards('chord-anchor', root, 'maj', G_B_E)
-		);
-
-		it('leaves out every index of an exercise without a scope, its passage under way dropped; the others go on in turn', () => {
-			const s = source(PASSAGE_EXERCISES);
-			const clock = { now: NOW };
-			const first = s.next(at(clock.now))!;
-			expect(first.exerciseId).toBe(LINK_PASSAGES.id);
-			expect(s.leave!(LINK_PASSAGES.id)).toBe(true);
-			// The link's passage under way is not served on: the next exercise in turn, counted in.
-			const next = s.next(at(clock.now))!;
-			expect(next).toMatchObject({ exerciseId: CLIMB_PASSAGES.id, countIn: true });
-			expect(next.passage!.rank).toBe(0);
-			for (let rank = 1; rank < next.passage!.length; rank++) s.next(at(clock.now));
-			const exercises = Array.from({ length: 6 }, () => playPassage(s, clock)[0].exerciseId);
-			expect(exercises).not.toContain(LINK_PASSAGES.id);
-			expect(new Set(exercises)).toEqual(
-				new Set([CLIMB_PASSAGES.id, ZONE_PASSAGES.id, JAM_PASSAGES.id])
-			);
-		});
-
-		it('leaves out only the scope named: the other grid of the exercise goes on', () => {
-			const s = source([CLIMB_PASSAGES], [...iohefy('chord-anchor', G_B_E), ...BLUES]);
-			const clock = { now: NOW };
-			const first = playPassage(s, clock)[0];
-			expect(first.scope).toBe('iohefy-a');
-			expect(s.leave!(CLIMB_PASSAGES.id, 'iohefy-a')).toBe(true);
-			const scopes = Array.from({ length: 4 }, () => playPassage(s, clock)[0].scope);
-			expect(scopes).toEqual(Array(4).fill('blues-f'));
-		});
-
-		it('answers false once nothing is left to serve, and serves nothing more', () => {
-			const s = source([CLIMB_PASSAGES], [...iohefy('chord-anchor', G_B_E), ...BLUES]);
-			s.next(at(NOW));
-			expect(s.leave!(CLIMB_PASSAGES.id, 'iohefy-a')).toBe(true);
-			expect(s.leave!(CLIMB_PASSAGES.id, 'blues-f')).toBe(false);
-			expect(s.next(at(NOW))).toBeNull();
-		});
-
-		it('answers false when the exercise left was the only one open', () => {
-			const s = source(PASSAGE_EXERCISES, triadCards('chord-anchor', 'D', 'maj', G_B_E));
-			expect(s.next(at(NOW))!.exerciseId).toBe(LINK_PASSAGES.id);
-			expect(s.leave!(LINK_PASSAGES.id)).toBe(false);
-			expect(s.next(at(NOW))).toBeNull();
-		});
 	});
 
 	describe('the work of finding a passage', () => {

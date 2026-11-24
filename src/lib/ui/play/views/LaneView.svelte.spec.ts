@@ -11,7 +11,6 @@ import { StageController } from './testing/StageController.svelte';
 afterEach(() => cleanup());
 
 const F_ON_B = presented({ primary: 'F', secondary: 'corde de B', preview: 'corde de B' });
-/** The string drawn while it carries the aid. */
 /** F# diminished: its root string and the strings it takes, the chord on its band. */
 const CHORD = presented({
 	primary: 'F#dim',
@@ -37,6 +36,7 @@ const SHAPE_B: Picture = {
 		{ string: 1, fret: 2 }
 	]
 };
+/** The string the prompt's picture draws, at a level that writes it. */
 const B_DRAWN = [{ kind: 'string' as const, string: 2 as const, label: 'B' }];
 
 /** F on B, prompted on beat 0 for beat 8; `nowBeat` 1 unless said. */
@@ -172,14 +172,15 @@ describe('LaneView', () => {
 		expect(container.textContent).not.toMatch(/1[,.]21/);
 	});
 
-	it('shows the position of an aided prompt, and no aid otherwise', () => {
-		const aided = show({ prompt: { ...F_ON_B, aid: 'case 6' } });
-		expect(aided.container.querySelector('.aid')?.textContent).toBe('case 6');
+	it('writes the detail its level gives under the prompt, on no tile of its own', () => {
+		const detailed = show({ prompt: { ...F_ON_B, detail: 'case 6' } });
+		expect(detailed.container.querySelector('.centre .detail')?.textContent).toBe('case 6');
+		expect(detailed.container.querySelector('.aid')).toBeNull();
 		cleanup();
-		expect(show().container.querySelector('.aid')).toBeNull();
+		expect(show().container.querySelector('.detail')).toBeNull();
 	});
 
-	it('draws the string under the prompt only when it carries the aid', () => {
+	it('draws the string under the prompt only when its presentation names the picture', () => {
 		const drawn = show({ prompt: { ...F_ON_B, pictures: B_DRAWN } });
 		expect(drawn.container.querySelector('.diagram')?.getAttribute('data-string')).toBe('2');
 		cleanup();

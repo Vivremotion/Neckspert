@@ -5,7 +5,6 @@ import {
 	attackNotes,
 	barLength,
 	beatPositions,
-	levelRange,
 	loopFigure,
 	type CycleReport,
 	type CycleVerdict,
@@ -80,11 +79,8 @@ export interface SettledRound {
 export interface FigureStageModel {
 	phase: FigurePhase;
 	exerciseLabel: string;
-	/**
-	 * The level played: `shown` is its number on screen (1 for the first level; an aid level,
-	 * below it, shows 0 or less and has `aid`), `of` the number of regular levels.
-	 */
-	level: { shown: number; of: number; aid: boolean };
+	/** The level played: `shown` is its number on screen (1 for the first level), `of` how many. */
+	level: { shown: number; of: number };
 	/** « ♩ = 100 bpm »: the beats per minute and the glyph of the beat unit. */
 	tempo: { bpm: number; unit: string };
 	/**
@@ -157,13 +153,12 @@ export function tempoView(tempo: TempoSegment): FigureStageModel['tempo'] {
 	return { bpm: tempo.bpm, unit: UNIT_GLYPHS[tempo.unit.toString()] ?? tempo.unit.toString() };
 }
 
-/** Level `index` (0 = level 1, aid levels negative) as the screen numbers it. */
+/** Level `index` (0 = level 1) as the screen numbers it. */
 export function levelView(
 	levels: readonly Level<unknown>[],
 	index: number
 ): FigureStageModel['level'] {
-	const { highest } = levelRange(levels);
-	return { shown: index + 1, of: highest + 1, aid: index < 0 };
+	return { shown: index + 1, of: levels.length };
 }
 
 /** Where beat `beat` (from 0, in the meter's grouping) of cycle bar `barInCycle` stands in a figure whose cycle began at figure bar `startBar`. */

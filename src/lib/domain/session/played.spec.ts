@@ -37,7 +37,6 @@ function change(
 		cardKey: `grid-reading:iohefy-a#${index}`,
 		phase: 'free',
 		temperature: 'hot',
-		aid: 'none',
 		promptedAt: index,
 		tempoBpm: 80,
 		leadBeats: null,
@@ -82,16 +81,11 @@ function before(passageId: string, index: number, decided: string | null, id: nu
 }
 
 /** A cycle of a figure exercise, as the series stores it. */
-function cycle(
-	success: boolean,
-	aids: Attempt['aids'] = [],
-	extra: Partial<Attempt> = {}
-): Attempt {
+function cycle(success: boolean, extra: Partial<Attempt> = {}): Attempt {
 	return {
 		sessionId: 's1',
 		exerciseId: RHYTHM_OFFBEATS.id,
 		skill: 'inner-pulse',
-		aids,
 		success,
 		tempoBpm: 80,
 		promptedAt: 0,
@@ -99,9 +93,6 @@ function cycle(
 		...extra
 	} as unknown as Attempt;
 }
-
-/** Any aid but the aid level is beyond the level, as for an exercise whose levels give no cursor. */
-const aided = (attempt: Attempt) => attempt.aids.some((aid) => aid !== 'aid-level');
 
 describe('summarizePlayed of a session of changes', () => {
 	it('counts the passages played and passed, and the changes right and in time, by exercise', () => {
@@ -115,8 +106,7 @@ describe('summarizePlayed of a session of changes', () => {
 				{ exerciseId: 'inversion-run', tempoBpm: 90 },
 				{ exerciseId: 'grid-reading', tempoBpm: 80 }
 			],
-			attempts: [...ok, ...failed],
-			aided
+			attempts: [...ok, ...failed]
 		});
 		// The link, met with no change played, has no line.
 		expect(exercises).toEqual([
@@ -124,12 +114,10 @@ describe('summarizePlayed of a session of changes', () => {
 				exerciseId: 'grid-reading',
 				rounds: 12,
 				passed: 11,
-				aided: 0,
 				level: null,
 				tempo: { first: 80, last: 80 },
 				inPassages: true,
-				passages: { played: 2, passed: 1 },
-				changedAir: false
+				passages: { played: 2, passed: 1 }
 			}
 		]);
 	});
@@ -139,8 +127,7 @@ describe('summarizePlayed of a session of changes', () => {
 		const noPassage = change('grid-reading', 'p1', 1, 'wrong');
 		const [line] = summarizePlayed({
 			executions: [{ exerciseId: 'grid-reading', tempoBpm: 80 }],
-			attempts: [ofAnySkill, { ...noPassage, data: { item: { grid: 'iohefy-a', index: 1 } } }],
-			aided
+			attempts: [ofAnySkill, { ...noPassage, data: { item: { grid: 'iohefy-a', index: 1 } } }]
 		});
 		expect(line).toMatchObject({
 			exerciseId: 'grid-reading',
@@ -158,8 +145,7 @@ describe('summarizePlayed of a session of changes', () => {
 		);
 		const [line] = summarizePlayed({
 			executions: [{ exerciseId: 'grid-reading', tempoBpm: 80 }],
-			attempts: [...at80, ...at85],
-			aided
+			attempts: [...at80, ...at85]
 		});
 		expect(line.tempo).toEqual({ first: 80, last: 85 });
 	});
@@ -176,8 +162,7 @@ describe('summarizePlayed of a session of changes', () => {
 				{ exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 80 },
 				{ exerciseId: 'grid-reading', scope: 'blues-f', tempoBpm: 100 }
 			],
-			attempts: [...ballad, ...blues],
-			aided
+			attempts: [...ballad, ...blues]
 		});
 		expect(exercises).toEqual([
 			{
@@ -185,24 +170,20 @@ describe('summarizePlayed of a session of changes', () => {
 				scope: 'iohefy-a',
 				rounds: 10,
 				passed: 10,
-				aided: 0,
 				level: null,
 				tempo: { first: 80, last: 80 },
 				inPassages: true,
-				passages: { played: 1, passed: 1 },
-				changedAir: false
+				passages: { played: 1, passed: 1 }
 			},
 			{
 				exerciseId: 'grid-reading',
 				scope: 'blues-f',
 				rounds: 1,
 				passed: 0,
-				aided: 0,
 				level: null,
 				tempo: { first: 100, last: 100 },
 				inPassages: true,
-				passages: { played: 1, passed: 0 },
-				changedAir: false
+				passages: { played: 1, passed: 0 }
 			}
 		]);
 	});
@@ -215,8 +196,7 @@ describe('summarizePlayed of a session of changes', () => {
 				before('old-1', 0, heard, 1),
 				before('old-1', 1, null, 2),
 				before('old-2', 0, null, 3)
-			],
-			aided
+			]
 		});
 		expect(line).toMatchObject({
 			rounds: 3,
@@ -226,61 +206,35 @@ describe('summarizePlayed of a session of changes', () => {
 			passages: { played: 2, passed: 0 }
 		});
 	});
-
-	it('marks the exercises that changed air, by exercise and scope', () => {
-		const exercises = summarizePlayed({
-			executions: [
-				{ exerciseId: 'inversion-run', tempoBpm: 80 },
-				{ exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 80 },
-				{ exerciseId: 'grid-reading', scope: 'blues-f', tempoBpm: 80 }
-			],
-			attempts: [
-				change('inversion-run', 'p1', 0, 'wrong'),
-				change('grid-reading', 'p2', 0, 'wrong', null, { scope: 'iohefy-a' }),
-				change('grid-reading', 'p3', 0, 'perfect', null, { scope: 'blues-f' })
-			],
-			aided,
-			left: [{ exerciseId: 'inversion-run' }, { exerciseId: 'grid-reading', scope: 'iohefy-a' }]
-		});
-		expect(exercises.map((line) => [line.exerciseId, line.scope, line.changedAir])).toEqual([
-			['inversion-run', undefined, true],
-			['grid-reading', 'iohefy-a', true],
-			['grid-reading', 'blues-f', false]
-		]);
-	});
 });
 
 describe('summarizePlayed of a figure exercise', () => {
-	it('counts its cycles, those that passed, and the passed ones aided beyond their level', () => {
+	it('counts its cycles and those that passed, whatever an old attempt kept of its aids', () => {
 		const [line] = summarizePlayed({
 			executions: [{ exerciseId: RHYTHM_OFFBEATS.id, tempoBpm: 80 }],
 			attempts: [
-				cycle(true, ['listen']),
-				cycle(true, ['aid-level']),
+				cycle(true, { aids: ['listen'] }),
+				cycle(true, { aids: ['aid-level'] }),
 				cycle(true),
-				cycle(false, ['listen'])
+				cycle(false)
 			],
-			aided,
-			level: () => ({ shown: 3, of: 4, aid: false })
+			level: () => ({ shown: 3, of: 4 })
 		});
 		expect(line).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
 			rounds: 4,
 			passed: 3,
-			aided: 1,
-			level: { shown: 3, of: 4, aid: false },
+			level: { shown: 3, of: 4 },
 			tempo: { first: 80, last: 80 },
 			inPassages: false,
-			passages: null,
-			changedAir: false
+			passages: null
 		});
 	});
 
 	it('leaves out the attempts of another exercise, and reads a tempo from its rounds without an execution', () => {
 		const exercises = summarizePlayed({
 			executions: [],
-			attempts: [cycle(true, [], { tempoBpm: 90 }), cycle(true, [], { tempoBpm: 95 })],
-			aided
+			attempts: [cycle(true, { tempoBpm: 90 }), cycle(true, { tempoBpm: 95 })]
 		});
 		expect(exercises).toHaveLength(1);
 		expect(exercises[0]).toMatchObject({ rounds: 2, tempo: { first: 90, last: 95 } });
@@ -291,7 +245,6 @@ describe('summarizePlayed of a figure exercise', () => {
 			summarizePlayed({
 				executions: [{ exerciseId: 'grid-in-direction', tempoBpm: 80 }],
 				attempts: [],
-				aided,
 				alone: 'grid-in-direction',
 				level: () => null
 			})
@@ -302,16 +255,15 @@ describe('summarizePlayed of a figure exercise', () => {
 		const exercises = summarizePlayed({
 			executions: [],
 			attempts: [],
-			aided,
 			alone: RHYTHM_OFFBEATS.id,
-			level: () => ({ shown: 1, of: 4, aid: false })
+			level: () => ({ shown: 1, of: 4 })
 		});
 		expect(exercises).toEqual([
 			expect.objectContaining({
 				exerciseId: RHYTHM_OFFBEATS.id,
 				rounds: 0,
 				passed: 0,
-				level: { shown: 1, of: 4, aid: false },
+				level: { shown: 1, of: 4 },
 				tempo: null
 			})
 		]);
@@ -326,11 +278,10 @@ describe('summarizePlayed of a session of several exercises and scopes', () => {
 				{ exerciseId: 'locate-note-string', tempoBpm: 80 }
 			],
 			attempts: [
-				cycle(true, [], { exerciseId: 'locate-note-string', tempoBpm: 80 }),
-				cycle(false, ['string-aid'], { exerciseId: 'identify-note', tempoBpm: null }),
-				cycle(true, [], { exerciseId: 'locate-note-string', scope: 'x', tempoBpm: 80 })
-			],
-			aided
+				cycle(true, { exerciseId: 'locate-note-string', tempoBpm: 80 }),
+				cycle(false, { exerciseId: 'identify-note', tempoBpm: null }),
+				cycle(true, { exerciseId: 'locate-note-string', scope: 'x', tempoBpm: 80 })
+			]
 		});
 		expect(exercises.map((line) => [line.exerciseId, line.scope, line.tempo])).toEqual([
 			['identify-note', undefined, null],
@@ -351,8 +302,7 @@ describe('summarizePlayed of an exercise no file defines (D2)', () => {
 				change('gesture-unknown', 'p1', 0, 'perfect'),
 				change('gesture-unknown', 'p1', 1, 'wrong'),
 				change('grid-reading', 'p2', 0, 'perfect')
-			],
-			aided
+			]
 		});
 		expect(exercises.map((line) => line.exerciseId)).toEqual(['gesture-unknown', 'grid-reading']);
 		// Its threshold is unknown: its passages are not counted, its changes are.
@@ -400,7 +350,7 @@ describe('summaryMisses', () => {
 		expect(
 			summaryMisses([
 				change('gesture-unknown', 'p1', 0, 'wrong'),
-				cycle(false, [], { id: 3, correct: false } as Partial<Attempt>)
+				cycle(false, { id: 3, correct: false } as Partial<Attempt>)
 			])
 		).toEqual([]);
 	});

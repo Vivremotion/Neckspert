@@ -296,8 +296,35 @@ function slotOf(random: () => number, names: readonly string[]): Slot {
 		: { fr: `joue ${field}`, en: `play ${field}` };
 }
 
-/** A presentation made of the set's fields; now and then a field or a picture it lacks. */
-function randomPresentation(random: () => number, set: string): PromptPresentation | undefined {
+/**
+ * What a level shows beyond its exercise's presentation, written by its `presentation.*` paths:
+ * its detail and its picture (`showAt`).
+ */
+interface Shown {
+	detail?: Slot;
+	picture?: string;
+}
+
+/** `ladder` with what `shown` writes at each of its levels that `shows` marks. */
+function showAt<L extends { params: object }>(levels: L[], shows: boolean[], shown: Shown): L[] {
+	const paths = {
+		...(shown.detail !== undefined && { 'presentation.detail': shown.detail }),
+		...(shown.picture !== undefined && { 'presentation.picture': shown.picture })
+	};
+	return levels.map((level, i) =>
+		shows[i] ? { ...level, params: { ...level.params, ...paths } } : level
+	);
+}
+
+/**
+ * A presentation made of the set's fields, and what its showing levels add (`Shown`); now and
+ * then a field or a picture it lacks. The draws are those of the aided and fading presentation
+ * they replace (issue #19), so every seed draws the exercise it drew.
+ */
+function randomPresentation(
+	random: () => number,
+	set: string
+): { presentation: PromptPresentation; shown: Shown } | undefined {
 	if (chance(random, 0.1)) return undefined;
 	const own = ITEM_FIELDS[set]?.names ?? [];
 	const every = [...new Set(Object.values(ITEM_FIELDS).flatMap((fields) => fields.names))];
@@ -315,30 +342,38 @@ function randomPresentation(random: () => number, set: string): PromptPresentati
 	for (const [key, slot] of Object.entries(slots)) {
 		if (slot !== undefined) (presentation as unknown as Record<string, Slot>)[key] = slot;
 	}
+	const shown: Shown = {};
 	if (chance(random, 0.5)) {
 		const line = optional(0.7);
 		const picture = chance(random, 0.5) ? pick(random, pictures) : undefined;
-		presentation.aided = {
-			...(line !== undefined && { line }),
-			...(picture !== undefined && { picture })
-		};
+		if (line !== undefined) shown.detail = line;
+		if (picture !== undefined) shown.picture = picture;
 	}
-	if (chance(random, 0.2)) presentation.fading = { picture: pick(random, pictures) };
-	return presentation;
+	if (chance(random, 0.2)) {
+		const picture = pick(random, pictures);
+		shown.picture ??= picture;
+	}
+	return { presentation, shown };
 }
 
-/** A ladder of one to three levels; now and then a level in free time. */
-function randomLadder(random: () => number): Ladder {
+/**
+ * A ladder of one to three levels; now and then a level in free time. `shows` marks the levels
+ * that show what the presentation draws for them (`showAt`).
+ */
+function randomLadder(random: () => number): { ladder: Ladder; shows: boolean[] } {
 	const levels = between(random, 1, 3);
-	return Array.from({ length: levels }, (_, index) => ({
-		params: {
-			leadBeats: chance(random, 0.04) ? null : pick(random, LEADS),
-			aided: chance(random, 0.4)
-		},
-		pass: { successes: between(random, 1, 3) },
-		drop: { failures: between(random, 1, 2) },
-		...(index === levels - 1 && chance(random, 0.5) && { success: 'direct-recall' as const })
-	}));
+	const shows: boolean[] = [];
+	const ladder = Array.from({ length: levels }, (_, index) => {
+		const leadBeats = chance(random, 0.04) ? null : pick(random, LEADS);
+		shows.push(chance(random, 0.4));
+		return {
+			params: { leadBeats },
+			pass: { successes: between(random, 1, 3) },
+			drop: { failures: between(random, 1, 2) },
+			...(index === levels - 1 && chance(random, 0.5) && { success: 'direct-recall' as const })
+		};
+	});
+	return { ladder, shows };
 }
 
 /** A place in beats; now and then in bars. */
@@ -518,7 +553,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	const set = skillById(skill).items;
 	const meter = pick(random, METERS);
 	const tempo = between(random, 50, 160);
-	const ladder = randomLadder(random);
+	const { ladder: drawnLadder, shows } = randomLadder(random);
 	const pairingMode = drawMode(random, Object.keys(ROUND_MODES.pairings), 'first-answer', 0.25);
 	const aligned = pairingMode !== 'first-answer';
 	const expectations: ExpectationTemplate[] = randomExpectations(random, set, aligned);
@@ -534,7 +569,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	const leads =
 		writtenLead !== null
 			? [writtenLead]
-			: ladder.flatMap((level) => (level.params.leadBeats ? [level.params.leadBeats] : []));
+			: drawnLadder.flatMap((level) => (level.params.leadBeats ? [level.params.leadBeats] : []));
 	const beatMs = 60_000 / tempo;
 	const earliest = earliestPointBeats(expectations, leads, meter);
 	const opensBy = earliest === null ? 300 : Math.min(300, earliest * beatMs * 0.5);
@@ -583,7 +618,9 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	}
 	if (chance(random, 0.5)) round.countEndsOn = pick(random, ['prompt', 'target'] as const);
 
-	const presentation = randomPresentation(random, set);
+	const written = randomPresentation(random, set);
+	const presentation = written?.presentation;
+	const ladder = showAt([...drawnLadder], shows, written?.shown ?? {});
 	// Its view: the one that draws it, or none (the lane for a presentation); now and then one
 	// that reads another model, or none the screen has.
 	const view = chance(random, 0.05)
@@ -661,7 +698,7 @@ function randomItem(random: () => number, skill: string): unknown {
 	}
 }
 
-/** `count` items of `definition`'s set, free-played at its first level's lead and aid. */
+/** `count` items of `definition`'s set, free-played at its first level's lead. */
 export function listItems(
 	definition: ExerciseDefinition,
 	random: () => number,
@@ -675,7 +712,6 @@ export function listItems(
 		item: randomItem(random, definition.practices),
 		phase: 'free',
 		temperature: 'hot',
-		aid: first.params.aided ? 'show-position' : 'none',
 		leadBeats: first.params.leadBeats ?? null
 	}));
 }
@@ -1108,8 +1144,14 @@ function someOf<T>(random: () => number, values: readonly T[]): T[] {
 	return kept.length > 0 ? kept : [pick(random, values)];
 }
 
-/** A presentation of a passage: the set's fields and the member's; its aid the shapes admitted. */
-function passagePresentation(random: () => number, set: string): PromptPresentation | undefined {
+/**
+ * A presentation of a passage, the set's fields and the member's, and what its first level shows:
+ * the shapes admitted, or a detail. Drawn as the aided presentation it replaces was.
+ */
+function passagePresentation(
+	random: () => number,
+	set: string
+): { presentation: PromptPresentation; shown: Shown } | undefined {
 	if (chance(random, 0.05)) return undefined;
 	const names = [...(ITEM_FIELDS[set]?.names ?? []), ...MEMBER_FIELDS];
 	const optional = (p: number) => (chance(random, p) ? slotOf(random, names) : undefined);
@@ -1118,12 +1160,12 @@ function passagePresentation(random: () => number, set: string): PromptPresentat
 	for (const [key, slot] of Object.entries(slots)) {
 		if (slot !== undefined) (presentation as unknown as Record<string, Slot>)[key] = slot;
 	}
+	const shown: Shown = {};
 	if (chance(random, 0.6)) {
-		presentation.aided = chance(random, 0.8)
-			? { picture: 'admitted' }
-			: { line: slotOf(random, names) };
+		if (chance(random, 0.8)) shown.picture = 'admitted';
+		else shown.detail = slotOf(random, names);
 	}
-	return presentation;
+	return { presentation, shown };
 }
 
 /**
@@ -1138,7 +1180,7 @@ function passagePresentation(random: () => number, set: string): PromptPresentat
  * - its skill one of `BENCH_PASSAGE_SKILLS` on the members' set (now and then on the other set);
  * - its round: a change judged on the chord sensor, a selection of the shapes of the change with
  *   its filters (now and then a bare attack, a second change, free time), handed over at its end;
- * - its levels (an aid level under two tempos) and anti-blocking, now and then;
+ * - its levels (a first level, then two tempos), now and then;
  * - its view one that draws a passage, now and then the lane or a view that cannot draw it, and a
  *   presentation of the set's and the member's fields.
  */
@@ -1260,7 +1302,7 @@ export function randomPassagesExercise(random: () => number, id = 'passages'): E
 
 	const levels = chance(random, 0.4)
 		? [
-				{ aid: true as const, params: { tempo } },
+				{ params: { tempo } },
 				{
 					params: { tempo },
 					pass: { successes: between(random, 2, 4) },
@@ -1293,7 +1335,12 @@ export function randomPassagesExercise(random: () => number, id = 'passages'): E
 			: chance(random, 0.8)
 				? 'link-lane'
 				: 'grid-scroll';
-	const presentation = passagePresentation(random, set);
+	const written = passagePresentation(random, set);
+	const shown = written?.shown ?? {};
+	// What it shows, its first level writes; without levels, its presentation, at every level.
+	const presentation =
+		written && (levels ? written.presentation : { ...written.presentation, ...shown });
+	const shownLevels = levels && showAt(levels, [true], shown);
 	return {
 		id,
 		practices,
@@ -1304,8 +1351,7 @@ export function randomPassagesExercise(random: () => number, id = 'passages'): E
 		round,
 		params,
 		passages,
-		...(levels && { levels }),
-		...(chance(random, 0.5) && { flow: { antiBlocking: true } })
+		...(shownLevels && { levels: shownLevels })
 	};
 }
 
@@ -1496,13 +1542,10 @@ export interface ServicePlay {
 	checked: number;
 	/** Rounds it did not check, by why. */
 	excused: Record<VerdictExcuse, number>;
-	/** The announcements the session made, by kind, and the exercises it told leaving. */
+	/** The announcements the session made, by kind. */
 	announced: Set<string>;
-	leaving: number;
 	/** How the session's series ended, as its trace keeps it; null while it played on. */
 	end: string | null;
-	/** The exercises and scopes that left the series, as its trace keeps them. */
-	left: { exerciseId: string; scope?: string }[];
 }
 
 /**
@@ -1561,8 +1604,6 @@ export async function playService(
 	let lastOpenS = clock.now();
 	let longestGapS = 0;
 	const announced = new Set<string>();
-	let leaving = 0;
-	let wasLeaving = false;
 
 	const emitTo = (sensor: string, payload: unknown, time: number) => {
 		switch (sensor) {
@@ -1652,9 +1693,6 @@ export async function playService(
 		sendDue();
 		const announcement = controller.view.announcement;
 		if (announcement) announced.add(announcement.kind);
-		const isLeaving = controller.view.leaving !== null;
-		if (isLeaving && !wasLeaving) leaving++;
-		wasLeaving = isLeaving;
 		// The status moves under the awaits: read it as the view gives it now.
 		if ((controller.view.status as string) !== 'finished') {
 			longestGapS = Math.max(longestGapS, clock.now() - lastOpenS);
@@ -1725,8 +1763,6 @@ export async function playService(
 		checked,
 		excused,
 		announced,
-		leaving,
-		end: series?.reason ?? null,
-		left: [...(series?.left ?? [])]
+		end: series?.reason ?? null
 	};
 }

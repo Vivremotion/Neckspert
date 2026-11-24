@@ -34,10 +34,12 @@ const EPOCH = Date.UTC(2026, 0, 1);
 /** Epoch ms of bar `bar` of a series that began at clock time 0. */
 const epochOfBar = (bar: number) => EPOCH + (ORIGIN + bar * BAR_S) * 1000;
 
-const series = () => sequenceSeries(ARPEGGIO_EXERCISE, { pattern: ARPEGGIO_PATTERN, met: true });
+/** The arpeggios played before, held at `level`: by default level 2, quarter notes without the tab. */
+const series = (level = 1) =>
+	sequenceSeries(ARPEGGIO_EXERCISE, { pattern: ARPEGGIO_PATTERN, met: true, level });
 
 describe('a sequence of chord shapes on the series', () => {
-	it('is an exercise the engine runs, its unread aid path included', () => {
+	it('is an exercise the engine runs and its screens accept', () => {
 		expect(validateExercise(ARPEGGIO_EXERCISE, { sensors: ['note'] })).toBeNull();
 		expect(presentationProblem(ARPEGGIO_EXERCISE)).toBeNull();
 		expect(
@@ -125,10 +127,10 @@ describe('a sequence of chord shapes on the series', () => {
 		controller.quit();
 	});
 
-	it('fails every chord when nothing is played, the anti-blocking left off', async () => {
-		const { controller, stored, advance, levels } = await series();
+	it('fails every chord when nothing is played at level 1, and nothing comes but the next runs', async () => {
+		const { controller, stored, advance, levels } = await series(0);
 		await controller.start();
-		// Two runs of three, a breath between them: no remedy, no aid level, no change of air.
+		// Two runs of three, a breath between them: nothing announced, nothing imposed.
 		const seen = new Set<string>();
 		for (let to = ORIGIN; to < ORIGIN + 10.5 * BAR_S; to += 0.25) {
 			await advance(to, false);
@@ -140,14 +142,13 @@ describe('a sequence of chord shapes on the series', () => {
 		for (const attempt of attempts) {
 			expect(attempt.success).toBe(false);
 			expect(attempt.correct).toBe(false);
-			expect(attempt.aids).not.toContain('play-along');
+			expect(attempt).not.toHaveProperty('aids');
 			expect((attempt.data as FigureAttemptData).level).toBe(0);
 		}
 		expect(seen).toEqual(new Set());
 		expect(controller.view.status).not.toBe('ended');
 		const state = await levels.get({ exerciseId: ARPEGGIO_EXERCISE.id, scope: '', item: '' });
 		expect(state?.level ?? 0).toBe(0);
-		expect(state?.resumeAfter ?? null).toBeNull();
 		controller.quit();
 	});
 
@@ -155,15 +156,15 @@ describe('a sequence of chord shapes on the series', () => {
 		const { controller, stored, advance } = await series();
 		await controller.start();
 		await advance(ORIGIN + 4.5 * BAR_S);
-		// Three chords right unaided: level 2, told at the breath, played from the next run.
+		// Three chords right: level 3, told at the breath, played from the next run.
 		expect(controller.view.announcement?.kind).toBe('level-up');
 		expect(stageOf(controller).next?.voices[0].elements).toHaveLength(8);
 		await advance(ORIGIN + 12 * BAR_S);
 		const attempts = await stored();
 		const [first, second] = [attempts.slice(0, 3), attempts.slice(3, 6)];
 		expect(second).toHaveLength(3);
-		expect(first.map((a) => (a.data as FigureAttemptData).level)).toEqual([0, 0, 0]);
-		expect(second.map((a) => (a.data as FigureAttemptData).level)).toEqual([1, 1, 1]);
+		expect(first.map((a) => (a.data as FigureAttemptData).level)).toEqual([1, 1, 1]);
+		expect(second.map((a) => (a.data as FigureAttemptData).level)).toEqual([2, 2, 2]);
 		expect(second.map((a) => a.cardKey)).toEqual(
 			ARPEGGIO_ITEMS.map((key) => `test-placed-voicing:${key}`)
 		);

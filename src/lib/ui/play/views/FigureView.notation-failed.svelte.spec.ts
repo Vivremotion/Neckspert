@@ -20,7 +20,7 @@ function model(): FigureStageModel {
 	return {
 		phase: 'listen-in',
 		exerciseLabel: 'Contretemps',
-		level: { shown: 1, of: 4, aid: false },
+		level: { shown: 1, of: 4 },
 		tempo: { bpm: 80, unit: '♩' },
 		figure: RHYTHM_OFFBEATS.figures![0].figure,
 		next: null,
