@@ -203,10 +203,10 @@ describe('FigureView', () => {
 	it('keeps the prompt’s row in the flow when it has nothing to say: the figure never moves', () => {
 		const { container } = render(FigureView, { props: { controller: running(), model: model() } });
 		const row = container.querySelector('.top');
-		expect(row).not.toBeNull();
-		expect(row?.textContent?.trim()).toBe('');
+		if (!row) throw new Error('no prompt row');
+		expect(row.textContent?.trim()).toBe('');
 		expect(
-			row?.compareDocumentPosition(screen.getByTestId('figure-score')) &
+			row.compareDocumentPosition(screen.getByTestId('figure-score')) &
 				Node.DOCUMENT_POSITION_FOLLOWING
 		).toBeTruthy();
 	});
