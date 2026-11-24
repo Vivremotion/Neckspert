@@ -42,11 +42,19 @@ export const ATTACK_NOTICE_S = 0.16;
 /** Readings journaled with their spectrum, besides the final one. */
 export const SPECTRUM_POINTS_MS: readonly number[] = [250, 500, 1000, 2000];
 
-/** MIDI notes a comb is built for. Beyond them a candidate scores 0. */
-export const NOTE_LO = 52;
+/**
+ * MIDI notes a comb is built for: B1, the seventh string, to C6. Beyond them a candidate scores 0
+ * (the verifier journals it, `chord.out-of-range`).
+ */
+export const NOTE_LO = 35;
 export const NOTE_HI = 84;
 
-/** Spectrum range the fit explains. */
+/**
+ * Spectrum range the fit explains. The floor keeps the mains hum (50 or 60 Hz) out and cuts only
+ * the fundamental of B1 (61.7 Hz), whose nine other partials decide it: measured on the corpus
+ * read an octave down (#13), a floor of 55 Hz recognized not one chord more and lost one on the
+ * built-in mic.
+ */
 export const MIN_HZ = 70;
 export const COMB_MAX_HZ = 5000;
 
