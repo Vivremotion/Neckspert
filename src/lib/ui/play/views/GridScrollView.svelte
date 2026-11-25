@@ -214,11 +214,11 @@
 		gap: var(--np-step-2) var(--np-step-5);
 	}
 
-	/* The hero's width is the chord's share of the row: the next chord keeps its place beside it. */
+	/* The chord scales to the centre's width (the prompt reads it in cqi); the next chord stands
+	   beside it, or under it when the row is too narrow for both. No container of its own: an
+	   inline-size container with no width of its own measures 0, and the chord with it. */
 	.current {
-		container-type: inline-size;
 		min-width: 0;
-		max-inline-size: 70cqi;
 	}
 
 	.next {
