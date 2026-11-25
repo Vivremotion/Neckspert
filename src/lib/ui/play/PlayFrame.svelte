@@ -262,7 +262,7 @@
 		display: flex;
 		justify-content: center;
 		padding-block: var(--np-step-2);
-		background: var(--np-field);
+		background: var(--np-ground);
 		pointer-events: none;
 	}
 

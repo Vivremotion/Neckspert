@@ -9,14 +9,10 @@ colors:
   slate-text: '#606566'
   umber-text: '#775a41'
   amber-now: '#d9a13b'
-  on-field: '#ece8e2'
   rule: 'rgba(35, 33, 31, 0.12)'
-  field-light: '#8d908e'
-  field-mid: '#656968'
-  field-deep: '#4a4440'
-  cell: 'rgba(236, 232, 226, 0.14)'
-  cell-downbeat: 'rgba(236, 232, 226, 0.26)'
-  cell-band: 'rgba(236, 232, 226, 0.5)'
+  cell: 'rgba(35, 33, 31, 0.08)'
+  cell-downbeat: 'rgba(35, 33, 31, 0.16)'
+  cell-band: 'rgba(35, 33, 31, 0.3)'
 typography:
   hero:
     fontFamily: 'Atkinson Hyperlegible Next, system-ui, sans-serif'
@@ -176,9 +172,9 @@ components:
 
 **Creative North Star: "Près du silence"**
 
-An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.
+An ECM sleeve: mist and ink, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.
 
-The play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are mist with ink and one amber button.
+The play screen is the first surface built in this world. It is on the same mist ground as every page (the hazy slate field of the first build went on 2026-11-25, at the author's test: a score reads as ink on paper, and what the player learns here must look like what they will read off the app). It holds one enormous prompt in the centre, a lane of cells in thin ink at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are the same ground with the how-to and one amber button.
 
 Off play, the app is a sleeve's back cover: a dark ink spine on the left with the destinations and the word « neckspert » running up it, and a single mist column of text beside it. Each page is named by a light title over a thin ink rule; content is rows parted by faint rules, never cards. Practice (« Pratiquer »), the summary, the settings, the calibration and the neck map live there.
 
@@ -186,15 +182,15 @@ Confirmed rejections (direction contract): the dark neon guitar app with cards a
 
 **Key Characteristics:**
 
-- Five named roles plus a hazy field; amber reserved for « now » and the main action.
+- Five named roles on one mist ground, in play as off play; amber reserved for « now » and the main action.
 - One face, Atkinson Hyperlegible Next, light (300) at the largest sizes; nothing under 16px.
 - States told by form before tint: a verdict is a shape, its cell's tone only confirms it; a neck cell's state is its border weight.
 - One scale from one session to the next; the bar grid is the armature of the lane.
-- Flat: no shadows, no cards; depth only from the field's gradient and a veil in play, from rules and the ink spine off play.
+- Flat: no shadows, no cards, no gradient; depth only from ink laid thin (cells) or solid (the target), from rules and the ink spine off play.
 
 ## Colors
 
-A muted, cool-to-warm sleeve palette: mist and ink for reading, slate and umber for the field and for secondary text, and a single warm amber that means « now ».
+A muted, cool-to-warm sleeve palette: mist and ink for reading, slate and umber for secondary text, and a single warm amber that means « now ».
 
 ### Primary
 
@@ -202,12 +198,10 @@ A muted, cool-to-warm sleeve palette: mist and ink for reading, slate and umber 
 
 ### Neutral
 
-- **Ground Mist** (`ground-mist`): the light pages over the field, the whole off-play shell (`html` and `body` take it whenever the shell is shown), the label of the rail, the text of a pressed choice and of a mastered neck cell.
-- **Ink** (`ink`): text on light grounds, the primary button's label, a missed cell, the black keys, chord-shape grounds on the field; off play the rail's spine, the 1px rule under a page title, the 1px outline of a choice and a select, the borders of learning and acquired neck cells, the fill of a pressed choice and of a mastered cell, the 4px left filet of an alert line, the calibration meter's fill.
-- **On Field** (`on-field`, same value as Ground Mist, separate role): every text and line on the field: prompt, info line, captions, drawn string, target and hit cells, white keys, the learning-aid tile.
-- **The Field** (`field-light` → `field-mid` → `field-deep`): a radial gradient (110% × 80% at 45% 20%), light slate at the top left fading to umber-tinted dark at the bottom. It is the play ground, declared as one token (`--np-field`). The play screen adds a veil of Ink at 40% over its top 160px so the info line reads on the lightest stop.
-- **Cell** (`cell`) and **Cell Downbeat** (`cell-downbeat`): mist at 14% and 26% over the field, for an empty beat and the first beat of a bar. Past cells drop to 45% opacity.
-- **Cell Band** (`cell-band`): mist at 50% over the field, the fill of a held chord's band, under ink names (above 4.5:1).
+- **Ground Mist** (`ground-mist`): the ground of every screen, in play as off play (`html` and `body` take it); the light pages of start, pause and end; the label of the rail; the text of a pressed choice, of a mastered neck cell, of the target and of a hit cell, of the learning-aid tile, of the shape played on the aid's neck; the white keys.
+- **Ink** (`ink`): every text and line in play (prompt, info line, captions, the score, the drawn string, the now note of a neck) and on the light pages; the target and a hit cell, the learning-aid tile, the black keys, the outline of a missed cell and of a band; off play the rail's spine, the 1px rule under a page title, the 1px outline of a choice and a select, the borders of learning and acquired neck cells, the fill of a pressed choice and of a mastered cell, the 4px left filet of an alert line, the calibration meter's fill.
+- **Cell** (`cell`) and **Cell Downbeat** (`cell-downbeat`): ink at 8% and 16% over the ground, for an empty beat and the first beat of a bar. Past cells drop to 45% opacity.
+- **Cell Band** (`cell-band`): ink at 30% over the ground, the half tone: the fill of a held chord's band and of an offbeat cell, the next shape on the aid's neck, under ink names (above 4.5:1).
 - **Umber Text** (`umber-text`): umber darkened for text at body and meta sizes (at least 4.5:1 on the ground): the « why » of a block (« 6 révisions dues »), the trend beside the cold offset, the detail lines of the summary's exercise and miss rows and of the judge's report.
 - **Slate Text** (`slate-text`): slate darkened the same way: labels and hints (« Écart au temps », the settings' hints and storage usage).
 - **Slate** (`slate`) and **Umber** (`umber`): the base tones, kept for rules and large text only (below 4.5:1 at body size on the ground); no migrated component reads them directly yet.
@@ -267,7 +261,7 @@ Spacing follows an 8px base (`step-1` to `step-8`: 8, 16, 24, 32, 40, 48, 64, 96
 
 ## Elevation & Depth
 
-Flat. No shadows anywhere. In play, depth comes only from the field's radial gradient, the 40% ink veil under the info line, and translucent mist cells over the field; light pages sit over the field as a full mist overlay, not a raised card. Off play, the only depth is the ink spine against the mist and the rules between rows. The current block's amber filet is drawn as an inset 4px edge: a line, not an elevation.
+Flat. No shadows and no gradient anywhere. In play, depth comes only from ink laid thin (the cells), half (a band) or solid (the target) on the ground; light pages are the same ground, not a raised card. Off play, the only depth is the ink spine against the mist and the rules between rows. The current block's amber filet is drawn as an inset 4px edge: a line, not an elevation.
 
 **The No Card Rule.** Nothing floats: no shadows, no cards, no bordered containers around the prompt, the lane, a block or a page section. Borders belong to controls (choices, selects) and to data cells (lane cells, neck cells).
 
@@ -321,17 +315,17 @@ A wide page holding a grid of the neck, string by string, in a focusable frame t
 
 ### Info line
 
-The discreet top line: parts joined by « · » (« Apprentissage · ♩ = 80 »), meta size, tabular figures, the first part at 500, the parts at 90% opacity on the field. At its end, « pause » (only while playing) and « quitter » (a link styled like the quiet button). On light pages it turns ink and stays above the overlay.
+The discreet top line: parts joined by « · » (« Apprentissage · ♩ = 80 »), meta size, tabular figures, the first part at 500, the parts at 90% opacity. At its end, « pause » (only while playing) and « quitter » (a link styled like the quiet button). On light pages it stays above the overlay.
 
 ### Prompt
 
-The centre of the screen, in on-field mist, centred. Three sizes: `hero` (the note, string beneath at prompt size), `prompt` (mode 2 and the string preview before the note), `correction` (the right answer in the prompt's place, with the note recalled above at prompt size and 80% opacity). Below it may come the drawn string, a chord shape, a detail line (meta, 85%) or the learning-aid tile, all on the prompt's centre axis. After a hit the verdict's name takes the prompt's place at correction size, its signed offset beside it at prompt size (« En retard · +42 ms »).
+The centre of the screen, in ink, centred. Three sizes: `hero` (the note, string beneath at prompt size), `prompt` (mode 2 and the string preview before the note), `correction` (the right answer in the prompt's place, with the note recalled above at prompt size and 80% opacity). Below it may come the drawn string, a chord shape, a detail line (meta, 85%) or the learning-aid tile, all on the prompt's centre axis. After a hit the verdict's name takes the prompt's place at correction size, its signed offset beside it at prompt size (« En retard · +42 ms »).
 
 ### Lane and cells (signature component)
 
 - **Empty cell:** `cell` ground; the first beat of a bar takes `cell-downbeat`.
-- **Target:** mist ground, ink name at cell size: the note to play, on beat 1 of its bar.
-- **Band:** the window where a held chord may be played (triad anchor), drawn as one joined band: its cells span the gaps between them (their footprint on the lane is unchanged) and share one `cell-band` fill (mist at 50%, clearly lighter than any beat, darker than the target) inside a 2px mist outline, open only at the joints, closed at its first and last beats (a one-beat band is closed on both sides); the chord's name once, in ink, from its left edge; the gap before it keeps it apart from the target.
+- **Target:** solid ink, the name at cell size in the ground's tone: the note to play, on beat 1 of its bar.
+- **Band:** the window where a held chord may be played (triad anchor), drawn as one joined band: its cells span the gaps between them (their footprint on the lane is unchanged) and share one `cell-band` fill (ink at 30%, clearly darker than any beat, lighter than the target) inside a 2px ink outline, open only at the joints, closed at its first and last beats (a one-beat band is closed on both sides); the chord's name once, in ink, from its left edge; the gap before it keeps it apart from the target.
 - **Past:** 45% opacity, except the cell just played, read at full strength.
 - **Played cell:** keeps its name when it has one, the verdict mark below it at the cell's bottom; a single caption line over the lane, above that cell, in meta (« en retard · +42 ms », « F# joué · +30 ms »: the signed offset whenever there is one), clear of the now line's overhang and kept inside the lane's left edge.
 - **Imprint:** the just-played cell scales from 1.12 to 1 in 120ms; removed under `prefers-reduced-motion`.
@@ -340,20 +334,22 @@ The centre of the screen, in on-field mist, centred. Three sizes: `hero` (the no
 
 SVG in current colour, fixed 32px in the lane (never scaled with the cell), with the verdict's name as accessible label.
 
-| Verdict   | Shape                              | Cell tone                                   |
-| --------- | ---------------------------------- | ------------------------------------------- |
-| perfect   | filled dot                         | hit: mist cell, ink mark                    |
-| early     | filled triangle pointing left (◀)  | hit                                         |
-| late      | filled triangle pointing right (▶) | hit                                         |
-| offbeat   | outlined triangle pointing right   | partial: transparent cell, 2px mist outline |
-| corrected | cross with a small filled dot      | miss: ink cell, mist mark                   |
-| wrong     | cross (✕)                          | miss                                        |
+| Verdict   | Shape                              | Cell tone                                      |
+| --------- | ---------------------------------- | ---------------------------------------------- |
+| perfect   | filled dot                         | hit: solid ink cell, mark in the ground's tone |
+| early     | filled triangle pointing left (◀)  | hit                                            |
+| late      | filled triangle pointing right (▶) | hit                                            |
+| offbeat   | outlined triangle pointing right   | partial: half tone (`cell-band`), ink mark     |
+| corrected | cross with a small filled dot      | miss: hollow cell, 2px ink outline, ink mark   |
+| wrong     | cross (✕)                          | miss                                           |
+
+By weight of ink: solid for a hit, half for an offbeat, hollow for a miss. The chart of the changes (`grid-scroll`) tones its cells the same way, its cell on show solid like a target, the next outlined.
 
 A success also says its verdict and offset in the centre, in words, so it reads without colour.
 
 ### Drawn string (learning aid)
 
-Six strings, high E on top, 240px wide at most, in on-field mist: thin 1px lines at 45%, the prompted string 4px at full strength; no letter (the prompt names the string above), so the drawing sits on the prompt's centre axis with the aid tile. A removable aid shown under the prompt; never a neck to answer on.
+Six strings, high E on top, 240px wide at most, in ink: thin 1px lines at 45%, the prompted string 4px at full strength; no letter (the prompt names the string above), so the drawing sits on the prompt's centre axis with the aid tile. A removable aid shown under the prompt; never a neck to answer on.
 
 ### Answer keyboard (mode 2)
 
@@ -361,11 +357,11 @@ One octave of a piano keyboard across the width of the bottom stage, `clamp(160p
 
 ### Light pages (start, pause, end)
 
-A full mist overlay over the field: the how-to in body size (max 36rem, centred) and one primary button. Pause shows the button alone.
+The ground, over the play screen: the how-to in body size (max 36rem, centred) and one primary button. Pause shows the button alone (with « Réécouter » for a session that replays).
 
 ### Chord shapes and terms in the light world
 
-`ChordShape` and `Term` are shared with the old world and themed from outside: a migrated screen sets `--shape-ink`, `--shape-ground`, `--shape-accent` (ink, mist, rule in the settings) and `--term-ground`, `--term-text`, `--term-rule`, `--term-gap`, `--term-pad` (mist, ink, rule, 8px, 16px in the summary).
+`ChordShape` and `Term` read the ground's tones by default (ink, mist, slate; mist, ink, rule) and may be themed from outside through `--shape-ink`, `--shape-ground`, `--shape-accent` and `--term-ground`, `--term-text`, `--term-rule`, `--term-gap`, `--term-pad`; since play is on the ground, no screen sets the colours any more.
 
 ## Do's and Don'ts
 

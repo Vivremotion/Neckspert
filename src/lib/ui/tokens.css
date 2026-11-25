@@ -43,9 +43,7 @@
 	--np-earth-text: #775a41;
 	--np-muted-text: #606566;
 	--np-now: #d9a13b; /* the now line and the main action only */
-	--np-on-field: #ece8e2;
 	--np-rule: rgba(35, 33, 31, 0.12);
-	--np-field: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%);
 
 	/* Type: nothing under 16px */
 	--np-font-text: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
@@ -75,11 +73,12 @@
 	--np-motion-imprint: 120ms;
 	--np-motion-ease: cubic-bezier(0.2, 0, 0, 1);
 
-	/* Lane */
-	--np-cell: rgba(236, 232, 226, 0.14);
-	--np-cell-downbeat: rgba(236, 232, 226, 0.26);
-	/* A held chord's window: clearly lighter than any beat, darker than the target; ink names. */
-	--np-cell-band: rgba(236, 232, 226, 0.5);
+	/* Lane: ink laid thin on the ground (the play screen is on the ground like every page). */
+	--np-cell: rgba(35, 33, 31, 0.08);
+	--np-cell-downbeat: rgba(35, 33, 31, 0.16);
+	/* A held chord's window, and a half tone (an offbeat cell, the next shape on the neck): clearly
+	   darker than any beat, lighter than the ink of the target; ink names stay readable on it. */
+	--np-cell-band: rgba(35, 33, 31, 0.3);
 	--np-cell-past-opacity: 0.45;
 	--np-cell-gap: 6px;
 }

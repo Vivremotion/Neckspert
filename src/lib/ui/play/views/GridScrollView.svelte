@@ -16,7 +16,8 @@
 	 * of bars, the chords in their cells, the cell on show light as a target, the cells played
 	 * carrying the form of their verdict, the bars behind stepped back. The chart moves on bar by
 	 * bar, never slides. The exercise's cue (the way, the zone) under the chord; the chart's title
-	 * in the frame's info line. Aided, the neck under the chart.
+	 * in the frame's info line. A miss takes the chord's place, as on the notes' lane, the chord
+	 * recalled over it. Aided, the neck under the chart.
 	 */
 
 	/** Bars on the line: the one before the current one, with its verdicts, then the next ones. */
@@ -48,6 +49,7 @@
 		placement.current === null ? null : stage.rounds[placement.current].label
 	);
 	const next = $derived(placement.next === null ? null : stage.rounds[placement.next].label);
+	const misses = $derived(stage.verdict?.misses ?? []);
 
 	/** The chart's title (the prompt's secondary) goes to the info line; said here without a frame. */
 	const parts = $derived(stage.prompt.secondary ? [stage.prompt.secondary] : []);
@@ -69,29 +71,35 @@
 	<div class="centre">
 		<!-- The count's row is always there: the chord never moves when the counted bar comes or goes. -->
 		<p class="count" data-testid="grid-countdown" aria-live="polite">{view.countdown ?? ''}</p>
-		<div class="now" aria-live="polite">
-			<!-- The chord on show as a hero prompt: one line whatever its symbol's length. Before the
-			     first change its row is kept at its height, blank, so the next chord does not move. -->
-			<div class="current" data-testid={current !== null ? 'current-chord' : undefined}>
-				<Prompt main={current ?? '\u00a0'} size="hero" />
+		{#if misses.length > 0}
+			<!-- The miss in the chord's place, the chord recalled above it, until the next change;
+			     the chart under it still shows the change on show and the next. -->
+			<div class="missed" data-testid="grid-missed">
+				<!-- The round judged is the one on show (`stage.prompt`), whatever cell the beat is on. -->
+				<p class="recall">{stage.prompt.primary}</p>
+				<div class="misses">
+					{#each misses as miss, i (i)}
+						<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
+					{/each}
+				</div>
 			</div>
-			{#if next !== null}
-				<!-- The next chord, with its arrow: no word for it. Announced a beat ahead, it lights up. -->
-				<p class="next" class:announced={placement.nextAnnounced} data-testid="next-chord">
-					<span class="arrow" aria-hidden="true">→</span>{next}
-				</p>
-			{/if}
-		</div>
+		{:else}
+			<div class="now" aria-live="polite">
+				<!-- The chord on show as a hero prompt: one line whatever its symbol's length. Before the
+				     first change its row is kept at its height, blank, so the next chord does not move. -->
+				<div class="current" data-testid={current !== null ? 'current-chord' : undefined}>
+					<Prompt main={current ?? '\u00a0'} size="hero" />
+				</div>
+				{#if next !== null}
+					<!-- The next chord, with its arrow: no word for it. Announced a beat ahead, it lights up. -->
+					<p class="next" class:announced={placement.nextAnnounced} data-testid="next-chord">
+						<span class="arrow" aria-hidden="true">→</span>{next}
+					</p>
+				{/if}
+			</div>
+		{/if}
 		{#if stage.prompt.detail}
 			<p class="cue">{stage.prompt.detail}</p>
-		{/if}
-		{#if (stage.verdict?.misses ?? []).length > 0}
-			<!-- A miss is laid over the bottom of the centre, out of the flow: the chord stays put. -->
-			<div class="misses">
-				{#each stage.verdict?.misses ?? [] as miss, i (i)}
-					<DrawnMiss {miss} chordDiagram={stage.chordDiagram} />
-				{/each}
-			</div>
 		{/if}
 	</div>
 
@@ -157,7 +165,6 @@
 
 	.centre {
 		container-type: inline-size;
-		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -176,10 +183,22 @@
 		font-variant-numeric: tabular-nums;
 	}
 
+	.missed {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-step-3);
+		min-width: 0;
+	}
+
+	/* The chord recalled over the drawings, at the size of a prompt line. */
+	.recall {
+		font-size: var(--np-size-prompt);
+		line-height: 1.1;
+		opacity: 0.8;
+	}
+
 	.misses {
-		position: absolute;
-		inset-inline: 0;
-		inset-block-end: 0;
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
@@ -257,7 +276,7 @@
 		padding: var(--np-step-1);
 		box-sizing: border-box;
 		background: var(--np-cell);
-		color: var(--np-on-field);
+		color: var(--np-text);
 		font-size: var(--np-size-cell);
 		font-weight: 500;
 		line-height: 1;
@@ -275,32 +294,32 @@
 		opacity: var(--np-cell-past-opacity);
 	}
 
-	/* On show: the target's tile, light, the name in ink. */
+	/* On show: the target's tile, solid ink, the name in the ground's tone. */
 	.cell.current {
-		background: var(--np-on-field);
-		color: var(--np-text);
+		background: var(--np-text);
+		color: var(--np-ground);
 	}
 
-	/* Next: outlined, not yet lit. */
+	/* Next: outlined, not yet filled. */
 	.cell.next {
-		border-color: var(--np-on-field);
+		border-color: var(--np-text);
 	}
 
-	/* A cell played takes the tone of its verdict, as a lane cell does. */
+	/* A cell played takes the tone of its verdict, as a lane cell does: solid, half, hollow. */
 	.cell[data-tone='hit'] {
-		background: var(--np-on-field);
-		color: var(--np-text);
+		background: var(--np-text);
+		color: var(--np-ground);
 	}
 
 	.cell[data-tone='partial'] {
-		background: transparent;
-		border-color: var(--np-on-field);
-		color: var(--np-on-field);
+		background: var(--np-cell-band);
+		color: var(--np-text);
 	}
 
 	.cell[data-tone='miss'] {
-		background: var(--np-text);
-		color: var(--np-on-field);
+		background: transparent;
+		border-color: var(--np-text);
+		color: var(--np-text);
 	}
 
 	.chord {

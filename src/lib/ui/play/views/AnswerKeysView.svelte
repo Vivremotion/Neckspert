@@ -90,8 +90,8 @@
 	.aid {
 		margin-top: var(--np-step-2);
 		padding: var(--np-step-1) var(--np-step-2);
-		background: var(--np-on-field);
-		color: var(--np-text);
+		background: var(--np-text);
+		color: var(--np-ground);
 		font-size: var(--np-size-title);
 		line-height: 1;
 	}

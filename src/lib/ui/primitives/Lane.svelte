@@ -159,7 +159,7 @@
 		translate: max(-50%, calc(-1 * var(--caption-centre))) 0;
 		/* Above the now line's overhang, clear of the cells. */
 		margin: 0 0 var(--np-step-4);
-		color: var(--np-on-field);
+		color: var(--np-text);
 		font-family: var(--np-font-text);
 		font-size: var(--np-size-meta);
 		font-weight: 500;

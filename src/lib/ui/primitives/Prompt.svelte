@@ -35,7 +35,7 @@
 		gap: var(--np-step-2);
 		text-align: center;
 		font-family: var(--np-font-text);
-		color: var(--np-on-field);
+		color: var(--np-text);
 	}
 
 	p {

@@ -14,7 +14,7 @@
 	}: {
 		parts: string[];
 		playing: boolean;
-		/** Over the light page (start, end, pause): in ink, above it. */
+		/** Over the light page (start, end, pause): above it. */
 		light: boolean;
 		onpause: () => void;
 		onleave: (event: MouseEvent) => void;
@@ -35,12 +35,7 @@
 </div>
 
 <style>
-	/* The field's tone, or ink on the light page. */
-	.top:not(.light) {
-		--np-text: var(--np-on-field);
-	}
-
-	/* The info line and « quitter » stay above the light page, in ink. */
+	/* The info line and « quitter » stay above the light page. */
 	.top.light {
 		position: relative;
 		z-index: 2;

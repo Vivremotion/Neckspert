@@ -27,9 +27,7 @@ const ROLE_TOKENS = [
 	'--np-earth-text',
 	'--np-muted-text',
 	'--np-now',
-	'--np-on-field',
 	'--np-rule',
-	'--np-field',
 	'--np-font-text',
 	'--np-size-meta',
 	'--np-size-body',
@@ -43,6 +41,7 @@ const ROLE_TOKENS = [
 	'--np-motion-ease',
 	'--np-cell',
 	'--np-cell-downbeat',
+	'--np-cell-band',
 	'--np-cell-past-opacity',
 	'--np-cell-gap'
 ];
@@ -66,9 +65,10 @@ describe('quiet direction tokens', () => {
 		}
 	});
 
-	it('gives the lane cells fill colours, not sizes', () => {
-		expect(css).toMatch(/--np-cell\s*:\s*rgba\(/);
-		expect(css).toMatch(/--np-cell-downbeat\s*:\s*rgba\(/);
+	it('gives the lane cells fill colours, not sizes: ink laid thin on the ground', () => {
+		expect(css).toMatch(/--np-cell\s*:\s*rgba\(35, 33, 31,/);
+		expect(css).toMatch(/--np-cell-downbeat\s*:\s*rgba\(35, 33, 31,/);
+		expect(css).toMatch(/--np-cell-band\s*:\s*rgba\(35, 33, 31,/);
 	});
 
 	it('declares no custom property twice', () => {
@@ -93,8 +93,9 @@ describe('contrastRatio', () => {
 	it('keeps the ink readable on the ground', () => {
 		expect(contrastRatio('#23211F', '#ECE8E2')).toBeGreaterThanOrEqual(7);
 	});
-	it('keeps text readable on the middle of the field', () => {
-		expect(contrastRatio('#ECE8E2', '#656968')).toBeGreaterThanOrEqual(4.5);
+	it('keeps an ink name readable on a band cell', () => {
+		// Ink at 30% over the ground, as `--np-cell-band` paints it.
+		expect(contrastRatio('#23211F', '#B0ADA7')).toBeGreaterThanOrEqual(4.5);
 	});
 	it('keeps the text variants of umber and slate readable on the ground', () => {
 		for (const name of ['--np-earth-text', '--np-muted-text']) {
@@ -110,6 +111,8 @@ describe('contrastRatio', () => {
 
 /** The Game Boy tokens of the old world, gone with plan 3: no file declares or reads them again. */
 const GAME_BOY_TOKEN = /--np-(?:bg|mid|shade|ink|tile|font-pixel|type-[a-z]+|space-\d+)\b/;
+/** The misty field of the first quiet play screen, gone with the author's test of 2026-11-25. */
+const FIELD_TOKEN = /--np-(?:field|on-field)\b/;
 
 describe('the old world', () => {
 	it('declares no Game Boy token and paints every page in the quiet world', () => {
@@ -121,6 +124,18 @@ describe('the old world', () => {
 	it('is read by no file: a screen never drifts back to it', () => {
 		const readers = Object.entries(sources)
 			.filter(([, text]) => GAME_BOY_TOKEN.test(text))
+			.map(([path]) => path)
+			.sort();
+		expect(readers).toEqual([]);
+	});
+});
+
+describe('the field', () => {
+	it('is the ground: no file declares or reads a field token, and play is on the ground', () => {
+		expect(css).not.toMatch(FIELD_TOKEN);
+		expect(css).not.toMatch(/gradient\(/);
+		const readers = Object.entries(sources)
+			.filter(([, text]) => FIELD_TOKEN.test(text))
 			.map(([path]) => path)
 			.sort();
 		expect(readers).toEqual([]);

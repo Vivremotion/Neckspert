@@ -61,8 +61,13 @@ describe('LinkLaneView', () => {
 		expect(drawn.textContent).not.toMatch(/Joué/);
 		expect(screen.getByText('aucun accord entendu')).toBeTruthy();
 		expect(drawn.querySelectorAll('.chord-shape')).toHaveLength(1);
+		// In the chord's place, as on the notes' lane, the chord recalled above it: nothing is laid
+		// over its quality or its strings.
+		expect(screen.queryByTestId('link-root')).toBeNull();
+		expect(screen.getByTestId('link-missed').querySelector('.recall')?.textContent).toBe('E');
 		await rerender({ controller, model: model(2, false, 8) });
 		expect(screen.queryByTestId('miss')).toBeNull();
+		expect(screen.getByTestId('link-root')).toBeTruthy();
 	});
 
 	it('is the view of the link', () => {

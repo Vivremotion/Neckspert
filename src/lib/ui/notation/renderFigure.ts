@@ -589,7 +589,11 @@ export function renderFigure(
 				room
 			);
 			for (const [r, row] of bar.rows.entries()) {
-				for (const head of row.heads) head.note.setStyle({ fillStyle: INK, strokeStyle: INK });
+				for (const head of row.heads) {
+					head.note.setStyle({ fillStyle: INK, strokeStyle: INK });
+					// A tab note's stem carries a black stroke of its own (its flag does not): ink too.
+					head.note.getStem()?.setStyle({ fillStyle: INK, strokeStyle: INK });
+				}
 				row.voice.draw(ctx, staves[r]);
 				for (const beam of row.beams)
 					beam.setStyle({ fillStyle: INK, strokeStyle: INK }).setContext(ctx).draw();

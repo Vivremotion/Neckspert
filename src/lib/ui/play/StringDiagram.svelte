@@ -51,7 +51,7 @@
 		display: block;
 		flex: 1;
 		block-size: 1px;
-		background: var(--np-on-field);
+		background: var(--np-text);
 		opacity: 0.45;
 	}
 

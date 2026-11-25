@@ -24,7 +24,7 @@
 				"role": "neutral",
 				"displayName": "Ground Mist",
 				"canonical": "#ece8e2",
-				"purpose": "Light pages over the field and the whole off-play shell; the rail's label, a pressed choice's text, a mastered cell's text.",
+				"purpose": "The ground of every screen, in play as off play; the light pages; the rail's label; the text of a pressed choice, of a mastered cell, of the target and of a hit cell, of the learning-aid tile; the white keys.",
 				"tonalRamp": [
 					"#272625",
 					"#41403e",
@@ -40,7 +40,7 @@
 				"role": "neutral",
 				"displayName": "Ink",
 				"canonical": "#23211f",
-				"purpose": "Text on light grounds, primary label, missed cell, black keys; off play the rail's spine, the rule under a page title, choice and select outlines, neck-cell borders and the mastered fill, alert filets, the meter's fill.",
+				"purpose": "Every text and line in play (prompt, info line, captions, the score, the drawn string) and on light grounds; the target and a hit cell, the learning-aid tile, the black keys, the outline of a missed cell and of a band; off play the rail's spine, the rule under a page title, choice and select outlines, neck-cell borders and the mastered fill, alert filets, the meter's fill.",
 				"tonalRamp": [
 					"#282624",
 					"#413f3e",
@@ -50,22 +50,6 @@
 					"#b8b7b7",
 					"#d7d6d6",
 					"#f2f2f2"
-				]
-			},
-			"on-field": {
-				"role": "neutral",
-				"displayName": "On Field",
-				"canonical": "#ece8e2",
-				"purpose": "Every text and line on the field; target and hit cells; white keys.",
-				"tonalRamp": [
-					"#272625",
-					"#41403e",
-					"#5b5957",
-					"#747270",
-					"#9b9995",
-					"#bab7b2",
-					"#d9d6d0",
-					"#f4f2ef"
 				]
 			},
 			"slate": {
@@ -138,85 +122,26 @@
 				"canonical": "rgba(35, 33, 31, 0.12)",
 				"purpose": "Ink at 12%: rules between blocks, summary rows and settings headings; an unseen neck cell's border; the meter's track; a chord shape's accent on the ground."
 			},
-			"field-light": {
-				"role": "neutral",
-				"displayName": "Field, light stop",
-				"canonical": "#8d908e",
-				"purpose": "Top-left stop of the field gradient.",
-				"tonalRamp": [
-					"#262726",
-					"#3f403f",
-					"#585a59",
-					"#717472",
-					"#979a98",
-					"#b6b8b7",
-					"#d6d7d6",
-					"#f2f2f2"
-				]
-			},
-			"field-mid": {
-				"role": "neutral",
-				"displayName": "Field, middle stop",
-				"canonical": "#656968",
-				"purpose": "Middle stop of the field gradient.",
-				"tonalRamp": [
-					"#252726",
-					"#3e4140",
-					"#575a5a",
-					"#707473",
-					"#979a99",
-					"#b6b8b8",
-					"#d5d7d6",
-					"#f2f2f2"
-				]
-			},
-			"field-deep": {
-				"role": "neutral",
-				"displayName": "Field, deep stop",
-				"canonical": "#4a4440",
-				"purpose": "Umber-tinted bottom stop of the field gradient.",
-				"tonalRamp": [
-					"#292623",
-					"#443f3b",
-					"#5d5854",
-					"#76726f",
-					"#9c9896",
-					"#b9b7b6",
-					"#d7d6d5",
-					"#f3f2f2"
-				]
-			},
 			"cell": {
 				"role": "neutral",
 				"displayName": "Cell",
-				"canonical": "rgba(236, 232, 226, 0.14)",
-				"purpose": "An empty beat of the lane over the field."
+				"canonical": "rgba(35, 33, 31, 0.08)",
+				"purpose": "An empty beat of the lane: ink laid thin on the ground."
 			},
 			"cell-downbeat": {
 				"role": "neutral",
 				"displayName": "Cell Downbeat",
-				"canonical": "rgba(236, 232, 226, 0.26)",
-				"purpose": "The first beat of a bar."
+				"canonical": "rgba(35, 33, 31, 0.16)",
+				"purpose": "The first beat of a bar: ink at 16% on the ground."
 			},
 			"cell-band": {
 				"role": "neutral",
 				"displayName": "Cell Band",
-				"canonical": "rgba(236, 232, 226, 0.5)",
-				"purpose": "A held chord's band: one joined fill under a 2px mist outline, ink name."
+				"canonical": "rgba(35, 33, 31, 0.3)",
+				"purpose": "The half tone, ink at 30%: a held chord's band (one joined fill under a 2px ink outline, ink name), an offbeat cell, the next shape on the aid's neck."
 			}
 		},
-		"gradients": [
-			{
-				"name": "field",
-				"value": "radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%)",
-				"purpose": "The play ground (--np-field)."
-			},
-			{
-				"name": "field-veil",
-				"value": "linear-gradient(rgba(35, 33, 31, 0.4), transparent 160px)",
-				"purpose": "Over the field under the info line, play screen only."
-			}
-		],
+		"gradients": [],
 		"typographyMeta": {
 			"hero": {
 				"displayName": "Hero",
@@ -290,7 +215,8 @@
 			"nowLine": "4px amber, overhangs cells by 16px above and below",
 			"verdictMarkPx": 32,
 			"caption": "One line over the cell just played, clear of the now line's overhang, kept inside the lane's left edge; the signed offset whenever there is one.",
-			"band": "One joined band over its beats: cells span the gaps, cell-band fill, 2px mist outline closed at both ends, the chord name once in ink."
+			"band": "One joined band over its beats: cells span the gaps, cell-band fill, 2px ink outline closed at both ends, the chord name once in ink.",
+			"tones": "By weight of ink: the target and a hit solid ink with the name or mark in the ground's tone; an offbeat the half tone (cell-band) with an ink mark; a miss hollow, a 2px ink outline, an ink mark."
 		},
 		"verdictMarks": [
 			{
@@ -384,7 +310,7 @@
 		],
 		"migration": {
 			"oldWorldStill": [],
-			"done": "plan 3 (2026-11-24): the Game Boy world, its tokens, fonts, plates and pixel primitives are deleted; tokens.spec.ts refuses their return"
+			"done": "plan 3 (2026-11-24): the Game Boy world, its tokens, fonts, plates and pixel primitives are deleted; tokens.spec.ts refuses their return; 2026-11-25 (author's test): the hazy field and its veil are gone, play is on the ground, the cells are ink laid thin, tokens.spec.ts refuses a field token"
 		}
 	},
 	"components": [
@@ -402,7 +328,7 @@
 			"refersTo": "button-quiet",
 			"description": "Secondary actions: pause, Joué juste.",
 			"html": "<div class=\"ds-field\"><button class=\"ds-btn-quiet\">pause</button></div>",
-			"css": ".ds-field { background: #656968; color: #ece8e2; padding: 16px; } .ds-btn-quiet { background: none; border: 0; color: inherit; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 18px; letter-spacing: 0.06em; padding: 8px 0; cursor: pointer; } .ds-btn-quiet:hover, .ds-btn-quiet:focus-visible { text-decoration: underline; text-underline-offset: 4px; } .ds-btn-quiet:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }"
+			"css": ".ds-field { background: #ece8e2; color: #23211f; padding: 16px; } .ds-btn-quiet { background: none; border: 0; color: inherit; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 18px; letter-spacing: 0.06em; padding: 8px 0; cursor: pointer; } .ds-btn-quiet:hover, .ds-btn-quiet:focus-visible { text-decoration: underline; text-underline-offset: 4px; } .ds-btn-quiet:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }"
 		},
 		{
 			"name": "Info Line",
@@ -410,7 +336,7 @@
 			"refersTo": null,
 			"description": "Discreet top line of the play screen, with pause and quitter at its end.",
 			"html": "<div class=\"ds-field\"><div class=\"ds-info\"><p class=\"ds-info-parts\"><b>Apprentissage</b> · ♩ = 80</p><span class=\"ds-info-end\"><span>pause</span><span>quitter</span></span></div></div>",
-			"css": ".ds-field { background: #656968; color: #ece8e2; padding: 16px; } .ds-info { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 18px; font-variant-numeric: tabular-nums; } .ds-info-parts { margin: 0; opacity: 0.9; } .ds-info-parts b { font-weight: 500; } .ds-info-end { display: flex; gap: 24px; letter-spacing: 0.06em; }"
+			"css": ".ds-field { background: #ece8e2; color: #23211f; padding: 16px; } .ds-info { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 18px; font-variant-numeric: tabular-nums; } .ds-info-parts { margin: 0; opacity: 0.9; } .ds-info-parts b { font-weight: 500; } .ds-info-end { display: flex; gap: 24px; letter-spacing: 0.06em; }"
 		},
 		{
 			"name": "Prompt",
@@ -418,7 +344,7 @@
 			"refersTo": null,
 			"description": "The note at hero size on one line (scaled to the width), the string under it; after a hit, the verdict and its offset in its place.",
 			"html": "<div class=\"ds-field\"><div class=\"ds-prompt\"><p class=\"ds-hero\">F</p><p class=\"ds-line\">corde de B</p></div></div>",
-			"css": ".ds-field { background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%); color: #ece8e2; padding: 32px; } .ds-prompt { display: flex; flex-direction: column; align-items: center; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-prompt p { margin: 0; } .ds-hero { font-size: 160px; font-weight: 300; line-height: 1; } .ds-line { font-size: 36px; line-height: 1.1; }"
+			"css": ".ds-field { background: #ece8e2; color: #23211f; padding: 32px; } .ds-prompt { display: flex; flex-direction: column; align-items: center; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-prompt p { margin: 0; } .ds-hero { font-size: 160px; font-weight: 300; line-height: 1; } .ds-line { font-size: 36px; line-height: 1.1; }"
 		},
 		{
 			"name": "Lane",
@@ -426,7 +352,7 @@
 			"refersTo": "lane-cell",
 			"description": "One cell per beat, past dimmed, the amber now line, the caption over the cell just played, the target named, then a held chord's joined band.",
 			"html": "<div class=\"ds-field\"><p class=\"ds-cap\">F# joué · +30 ms</p><div class=\"ds-lane\"><div class=\"ds-c ds-past ds-down\"></div><div class=\"ds-c ds-miss\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M6 6 L18 18 M18 6 L6 18\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg></div><span class=\"ds-now\"></span><div class=\"ds-c\"></div><div class=\"ds-c ds-target\">F</div><div class=\"ds-band\">Do</div><div class=\"ds-c ds-down\"></div></div></div>",
-			"css": ".ds-field { background: #565a59; padding: 32px 16px; } .ds-cap { margin: 0 0 32px 72px; color: #ece8e2; font: 500 18px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-lane { display: flex; gap: 6px; height: 96px; } .ds-c { flex: 1; display: flex; align-items: center; justify-content: center; background: rgba(236,232,226,0.14); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-down { background: rgba(236,232,226,0.26); } .ds-past { opacity: 0.45; } .ds-target { background: #ece8e2; } .ds-miss { background: #23211f; color: #ece8e2; } .ds-band { flex: 3.1; display: flex; align-items: center; padding-inline: 16px; box-sizing: border-box; border: 2px solid #ece8e2; background: rgba(236,232,226,0.5); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-now { flex: none; width: 4px; margin: -16px -5px; background: #d9a13b; }"
+			"css": ".ds-field { background: #ece8e2; padding: 32px 16px; } .ds-cap { margin: 0 0 32px 72px; color: #23211f; font: 500 18px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-lane { display: flex; gap: 6px; height: 96px; } .ds-c { flex: 1; display: flex; align-items: center; justify-content: center; background: rgba(35,33,31,0.08); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-down { background: rgba(35,33,31,0.16); } .ds-past { opacity: 0.45; } .ds-target { background: #23211f; color: #ece8e2; } .ds-miss { background: transparent; box-shadow: inset 0 0 0 2px #23211f; color: #23211f; } .ds-band { flex: 3.1; display: flex; align-items: center; padding-inline: 16px; box-sizing: border-box; border: 2px solid #23211f; background: rgba(35,33,31,0.3); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-now { flex: none; width: 4px; margin: -16px -5px; background: #d9a13b; }"
 		},
 		{
 			"name": "Verdict Marks",
@@ -434,7 +360,7 @@
 			"refersTo": null,
 			"description": "Form before tint: hit cells (perfect, early, late), partial (offbeat), miss (wrong).",
 			"html": "<div class=\"ds-row\"><span class=\"ds-c ds-hit\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"5\" fill=\"currentColor\"/></svg></span><span class=\"ds-c ds-hit\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><path d=\"M16 5 L6 12 L16 19 Z\" fill=\"currentColor\"/></svg></span><span class=\"ds-c ds-hit\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><path d=\"M8 5 L18 12 L8 19 Z\" fill=\"currentColor\"/></svg></span><span class=\"ds-c ds-partial\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M8 5 L18 12 L8 19 Z\" stroke-width=\"2\" stroke-linejoin=\"round\"/></svg></span><span class=\"ds-c ds-miss\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M6 6 L18 18 M18 6 L6 18\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg></span></div>",
-			"css": ".ds-row { display: flex; gap: 6px; background: #565a59; padding: 24px; } .ds-c { width: 72px; height: 96px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 2px solid transparent; } .ds-hit { background: #ece8e2; color: #23211f; } .ds-partial { border-color: #ece8e2; color: #ece8e2; } .ds-miss { background: #23211f; color: #ece8e2; }"
+			"css": ".ds-row { display: flex; gap: 6px; background: #565a59; padding: 24px; } .ds-c { width: 72px; height: 96px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 2px solid transparent; } .ds-hit { background: #ece8e2; color: #23211f; } .ds-partial { border-color: #ece8e2; color: #ece8e2; } .ds-miss { background: transparent; box-shadow: inset 0 0 0 2px #23211f; color: #23211f; }"
 		},
 		{
 			"name": "Answer Keyboard",
@@ -450,7 +376,7 @@
 			"refersTo": null,
 			"description": "Learning aid: six strings, the prompted one thicker; no letter, on the prompt's centre axis.",
 			"html": "<div class=\"ds-field\"><div class=\"ds-ds\"><i></i><i class=\"ds-t\"></i><i></i><i></i><i></i><i></i></div></div>",
-			"css": ".ds-field { background: #656968; padding: 24px; display: flex; justify-content: center; } .ds-ds { width: 240px; display: grid; } .ds-ds i { display: block; height: 1px; margin-block: 5.5px; background: #ece8e2; opacity: 0.45; } .ds-ds i.ds-t { height: 4px; margin-block: 4px; opacity: 1; }"
+			"css": ".ds-field { background: #ece8e2; padding: 24px; display: flex; justify-content: center; } .ds-ds { width: 240px; display: grid; } .ds-ds i { display: block; height: 1px; margin-block: 5.5px; background: #23211f; opacity: 0.45; } .ds-ds i.ds-t { height: 4px; margin-block: 4px; opacity: 1; }"
 		},
 		{
 			"name": "Choice Button",
@@ -503,13 +429,13 @@
 	],
 	"narrative": {
 		"northStar": "Près du silence",
-		"overview": "An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are mist with ink and one amber button.\n\nOff play, the app is a sleeve's back cover: a dark ink spine on the left with the destinations and the word « neckspert » running up it, and a single mist column of text beside it. Each page is named by a light title over a thin ink rule; content is rows parted by faint rules, never cards. Practice (« Pratiquer »), the summary, the settings, the calibration and the neck map live there.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
+		"overview": "An ECM sleeve: mist and ink, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It is on the same mist ground as every page (the hazy slate field of the first build went on 2026-11-25, at the author's test). It holds one enormous prompt in the centre, a lane of cells in thin ink at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are the same ground with the how-to and one amber button.\n\nOff play, the app is a sleeve's back cover: a dark ink spine on the left with the destinations and the word « neckspert » running up it, and a single mist column of text beside it. Each page is named by a light title over a thin ink rule; content is rows parted by faint rules, never cards. Practice (« Pratiquer »), the summary, the settings, the calibration and the neck map live there.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
 		"keyCharacteristics": [
-			"Five named roles plus a hazy field; amber reserved for « now » and the main action.",
+			"Five named roles on one mist ground, in play as off play; amber reserved for « now » and the main action.",
 			"One face, Atkinson Hyperlegible Next, light (300) at the largest sizes; nothing under 16px.",
 			"States told by form before tint: a verdict is a shape, its cell's tone only confirms it; a neck cell's state is its border weight.",
 			"One scale from one session to the next; the bar grid is the armature of the lane.",
-			"Flat: no shadows, no cards; depth only from the field's gradient and a veil in play, from rules and the ink spine off play."
+			"Flat: no shadows, no cards, no gradient; depth only from ink laid thin (cells) or solid (the target), from rules and the ink spine off play."
 		],
 		"rules": [
 			{

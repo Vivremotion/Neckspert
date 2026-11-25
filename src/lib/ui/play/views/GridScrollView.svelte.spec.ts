@@ -54,20 +54,22 @@ describe('GridScrollView', () => {
 	it('draws a miss, heard and expected in its style, until the next change', async () => {
 		const controller = new StageController();
 		controller.nowBeat = 12.5;
-		const { rerender } = render(GridScrollView, {
-			props: {
-				controller,
-				model: model({ anchorBeat: 12, verdict: missed(MISS), chordDiagram: 'grid' })
-			}
-		});
+		const judged = model({ anchorBeat: 12, verdict: missed(MISS), chordDiagram: 'grid' });
+		const { rerender } = render(GridScrollView, { props: { controller, model: judged } });
 		const miss = screen.getByTestId('miss');
 		expect(miss.textContent).toMatch(/Joué/);
 		expect(miss.textContent).toMatch(/Attendu/);
 		expect(screen.getByText('pas le bon accord')).toBeTruthy();
 		expect(miss.querySelectorAll('.chord-shape[data-style="grid"]')).toHaveLength(2);
+		// In the chord's place, the chord recalled above it; the chart under it still shows it.
+		expect(screen.queryByTestId('current-chord')).toBeNull();
+		expect(screen.getByTestId('grid-missed').querySelector('.recall')?.textContent).toBe(
+			judged.prompt.primary
+		);
 		// The next change, or a change played right: no miss in its model.
 		await rerender({ controller, model: model({ index: 2, anchorBeat: 16 }) });
 		expect(screen.queryByTestId('miss')).toBeNull();
+		expect(screen.getByTestId('current-chord')).toBeTruthy();
 	});
 
 	it('shows the chord on show large, the next one, and the cue of the exercise', () => {

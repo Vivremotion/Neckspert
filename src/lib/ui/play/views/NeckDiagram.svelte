@@ -36,6 +36,7 @@
 	data-testid="aid-neck"
 	style:grid-template-columns={`auto repeat(${frets.length}, minmax(var(--fret-min), 1fr))`}
 	style:grid-template-rows={`repeat(${strings.length}, var(--row)) auto`}
+	style:--rows={strings.length}
 >
 	{#each strings as s (s.string)}
 		<span class="name" style:grid-row={row(s.string)} style:grid-column="1">{s.name}</span>
@@ -62,9 +63,14 @@
 </div>
 
 <style>
-	/* On the field: mist notes, the strings and the frets stepped back. */
+	/* Ink notes on the ground, the strings and the frets stepped back. A view short of room gives
+	   the neck its height (`--neck-room`): the rows shrink to fit it, never under a note's circle. */
 	.neck {
-		--row: calc(var(--np-step-1) * 6);
+		--row: clamp(
+			var(--np-step-4),
+			calc((var(--neck-room, 100000px) - var(--np-size-meta) - var(--np-step-1)) / var(--rows)),
+			calc(var(--np-step-1) * 6)
+		);
 		/* A fret never narrower than its note and its number (two digits at the meta size): the
 		numbers never run into each other, a wide span takes room instead. */
 		--fret-min: calc(var(--np-step-1) * 4);
@@ -86,7 +92,6 @@
 	}
 
 	.fret {
-		color: var(--np-on-field);
 		padding-block-start: 4px;
 	}
 
@@ -111,8 +116,8 @@
 	}
 
 	.note.now {
-		background: var(--np-on-field);
-		color: var(--np-text);
+		background: var(--np-text);
+		color: var(--np-ground);
 	}
 
 	.note.next {

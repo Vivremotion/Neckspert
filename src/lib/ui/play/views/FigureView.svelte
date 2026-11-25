@@ -230,9 +230,10 @@
 				</p>
 			{/if}
 			{#if view.countdown !== null}
-				<!-- The counted bar, in the prompt's row, as large as a prompt line. -->
+				<!-- The counted bar, centred in the prompt's row as the other views centre theirs. -->
 				<p class="count" data-testid="figure-countdown" aria-live="polite">{view.countdown}</p>
-			{:else if phaseText}
+			{/if}
+			{#if phaseText}
 				<p class="phase">{phaseText}</p>
 			{/if}
 		{/if}
@@ -355,12 +356,8 @@
 </div>
 
 <style>
-	/* The view in the field: mist on the haze, the family of the quiet world. */
+	/* The view on the ground: ink, as a score on paper. */
 	.figure-view {
-		/* The terms' definitions take the field's tones. */
-		--term-ground: var(--np-on-field);
-		--term-text: var(--np-text);
-		--term-rule: var(--np-rule);
 		--term-gap: var(--np-step-1);
 		--term-pad: var(--np-step-2);
 		display: flex;
@@ -373,7 +370,6 @@
 		   height the stage declares): the view starts under that band, so the figure to play is
 		   never covered, and never moves when the announcement comes or goes. */
 		padding-block-start: var(--play-told-band, 0px);
-		color: var(--np-on-field);
 		font-family: var(--np-font-text);
 		font-weight: 400;
 	}
@@ -387,14 +383,26 @@
 		opacity: 0.8;
 	}
 
-	/* Above the figure: the prompt (what to play, not how) on the left, the count or the state. */
+	/* Above the figure: the prompt (what to play, not how) on the left, the count in the middle,
+	   the state on the right; each keeps its column, so the count is where the eye expects it. */
 	.top {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
 		align-items: baseline;
-		justify-content: space-between;
-		gap: var(--np-step-1) var(--np-step-4);
+		column-gap: var(--np-step-4);
 		min-height: calc(var(--np-size-prompt) * 1.1);
+	}
+
+	.top > .prompt {
+		grid-column: 1;
+	}
+
+	.top > .count {
+		grid-column: 2;
+	}
+
+	.top > .phase {
+		grid-column: 3;
 	}
 
 	.prompt {
@@ -421,18 +429,18 @@
 		opacity: 0.7;
 	}
 
-	/* The counted bar: the figure of a prompt line, light, where the eye already is. */
+	/* The counted bar: a prompt line, light, in the middle of the row. */
 	.count {
-		margin-inline-start: auto;
 		font-size: var(--np-size-prompt);
 		font-weight: 300;
 		line-height: 1.1;
+		text-align: center;
 		font-variant-numeric: tabular-nums;
 	}
 
 	.phase {
-		margin-inline-start: auto;
 		font-size: var(--np-size-body);
+		text-align: end;
 		opacity: 0.8;
 	}
 
@@ -464,7 +472,7 @@
 		display: block;
 	}
 
-	/* VexFlow clears the tab's lines behind a fret number in white: the field shows through
+	/* VexFlow clears the tab's lines behind a fret number in white: the ground shows through
 	   instead, the number drawn over the line. */
 	.engraving :global(.vf-tabnote rect) {
 		fill: transparent;

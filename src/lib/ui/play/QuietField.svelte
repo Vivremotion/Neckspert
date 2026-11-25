@@ -3,7 +3,8 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 
 	/**
-	 * The quiet play screen (« Près du silence »): the misty field from edge to edge, the info line
+	 * The quiet play screen (« Près du silence »): the ground from edge to edge, as on every page
+	 * (no field of its own: what is read in play is ink on the ground, as a score is), the info line
 	 * above, the prompt in the middle, the lane or the keys below.
 	 */
 	let {
@@ -23,10 +24,6 @@
 
 <style>
 	.play {
-		/* Chord shapes take the colours of the field. */
-		--shape-ink: var(--np-on-field);
-		--shape-ground: var(--np-text);
-		--shape-accent: var(--np-cell-downbeat);
 		position: relative;
 		display: grid;
 		grid-template-rows: auto 1fr auto;
@@ -36,9 +33,7 @@
 		min-height: 100dvh;
 		padding: var(--np-step-4) clamp(var(--np-step-2), 3vw, var(--np-step-5)) var(--np-step-6);
 		gap: var(--np-step-4);
-		/* A veil over the lightest stop of the field, under the info line. */
-		background: linear-gradient(rgba(35, 33, 31, 0.4), transparent 160px), var(--np-field);
-		color: var(--np-on-field);
-		-webkit-font-smoothing: antialiased;
+		background: var(--np-ground);
+		color: var(--np-text);
 	}
 </style>

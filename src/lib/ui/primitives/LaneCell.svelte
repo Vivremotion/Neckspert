@@ -85,30 +85,32 @@
 		inset-block-end: var(--np-step-1);
 		inset-inline: 0;
 	}
+	/* The tones, by weight of ink: the target and a hit are solid ink, an offbeat a half tone, a
+	   miss a hollow cell outlined in ink; the mark's form tells them apart first. */
 	.cell[data-kind='target'],
 	.cell[data-tone='hit'] {
-		background: var(--np-on-field);
-		color: var(--np-text);
+		background: var(--np-text);
+		color: var(--np-ground);
 	}
 	.cell[data-tone='partial'] {
-		background: transparent;
-		border-color: var(--np-on-field);
-		color: var(--np-on-field);
+		background: var(--np-cell-band);
+		color: var(--np-text);
 	}
 	.cell[data-tone='miss'] {
-		background: var(--np-text);
-		color: var(--np-on-field);
+		background: transparent;
+		border-color: var(--np-text);
+		color: var(--np-text);
 	}
 	/* One held chord, one band: each band cell spans the gap after it (its footprint on the lane
-	   is unchanged), so the fill and its mist outline run unbroken from its first beat to its
-	   last. Lighter than any beat, outlined unlike the target; closed at both ends. */
+	   is unchanged), so the fill and its ink outline run unbroken from its first beat to its
+	   last. Darker than any beat, outlined unlike the target; closed at both ends. */
 	.cell[data-kind='band'] {
 		width: calc(var(--cell-w) + var(--np-cell-gap));
 		margin-inline-end: calc(-1 * var(--np-cell-gap));
 		background: var(--np-cell-band);
 		/* No side borders inside the band: their corners would notch its outline at each joint. */
 		border-inline-width: 0;
-		border-block-color: var(--np-on-field);
+		border-block-color: var(--np-text);
 		color: var(--np-text);
 	}
 	.cell[data-band-edge='end'],
@@ -119,12 +121,12 @@
 	.cell[data-band-edge='start'],
 	.cell[data-band-edge='both'] {
 		border-left-width: 2px;
-		border-left-color: var(--np-on-field);
+		border-left-color: var(--np-text);
 	}
 	.cell[data-band-edge='end'],
 	.cell[data-band-edge='both'] {
 		border-right-width: 2px;
-		border-right-color: var(--np-on-field);
+		border-right-color: var(--np-text);
 	}
 	.cell[data-imprint] {
 		animation: imprint var(--np-motion-imprint) var(--np-motion-ease);

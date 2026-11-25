@@ -87,7 +87,7 @@
 		inline-size: var(--white);
 		inset-inline-start: calc(var(--white) * var(--rank));
 		block-size: 100%;
-		background: var(--np-on-field);
+		background: var(--np-ground);
 		color: var(--np-text);
 	}
 
@@ -96,7 +96,7 @@
 		inset-inline-start: calc(var(--white) * (var(--rank) + 1) - var(--white) * 0.3);
 		block-size: 60%;
 		background: var(--np-text);
-		color: var(--np-on-field);
+		color: var(--np-ground);
 		z-index: 1;
 	}
 
