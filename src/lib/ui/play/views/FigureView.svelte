@@ -232,9 +232,10 @@
 			{#if view.countdown !== null}
 				<!-- The counted bar, centred in the prompt's row as the other views centre theirs. -->
 				<p class="count" data-testid="figure-countdown" aria-live="polite">{view.countdown}</p>
-			{/if}
-			{#if phaseText}
-				<p class="phase">{phaseText}</p>
+			{:else if phaseText}
+				<!-- « Écoute le clic », « On écoute la figure »: the same job as the count (what the
+				     player does now, before playing), in its place and at its size. -->
+				<p class="count phase" data-testid="figure-phase">{phaseText}</p>
 			{/if}
 		{/if}
 	</div>
@@ -383,8 +384,8 @@
 		opacity: 0.8;
 	}
 
-	/* Above the figure: the prompt (what to play, not how) on the left, the count in the middle,
-	   the state on the right; each keeps its column, so the count is where the eye expects it. */
+	/* Above the figure: the prompt (what to play, not how) on the left, the count or the phase in
+	   the middle; each keeps its column, so the count is where the eye expects it. */
 	.top {
 		display: grid;
 		grid-template-columns: 1fr auto 1fr;
@@ -399,10 +400,6 @@
 
 	.top > .count {
 		grid-column: 2;
-	}
-
-	.top > .phase {
-		grid-column: 3;
 	}
 
 	.prompt {
@@ -429,19 +426,13 @@
 		opacity: 0.7;
 	}
 
-	/* The counted bar: a prompt line, light, in the middle of the row. */
+	/* The counted bar, or the phase's words: a prompt line, light, in the middle of the row. */
 	.count {
 		font-size: var(--np-size-prompt);
 		font-weight: 300;
 		line-height: 1.1;
 		text-align: center;
 		font-variant-numeric: tabular-nums;
-	}
-
-	.phase {
-		font-size: var(--np-size-body);
-		text-align: end;
-		opacity: 0.8;
 	}
 
 	.notation-error {
