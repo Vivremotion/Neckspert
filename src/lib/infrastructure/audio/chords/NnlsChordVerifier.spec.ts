@@ -5,6 +5,8 @@ import { WebAudioAttackDetector } from '../attacks';
 import {
 	ARPEGGIO_SPAN_MS,
 	ATTACK_NOTICE_S,
+	NOTE_HI,
+	NOTE_LO,
 	SPECTRUM_KEEP_MAX_HZ,
 	SPECTRUM_KEEP_MIN_HZ
 } from './constants';
@@ -297,6 +299,16 @@ describe('NnlsChordVerifier', () => {
 			verifier.expect(null);
 			expect(reports).toHaveLength(1);
 			expect(diagnostics.events).toEqual([]);
+		});
+
+		it('journals the candidates whose notes leave the range, and only them', () => {
+			const diagnostics = new FakeDiagnosticSink();
+			const { verifier } = setup(48000, D_232, { diagnostics });
+			const low = { id: 'low', kind: 'other', notes: [{ string: 6 as const, fret: 0, midi: 30 }] };
+			verifier.expect({ ...expectation(0.9), candidates: [...dCandidates(), low] });
+			verifier.expect(expectation(0.9));
+			const written = diagnostics.events.filter((e) => e.kind === 'chord.out-of-range');
+			expect(written.map((e) => e.data)).toEqual([{ ids: ['low'], range: [NOTE_LO, NOTE_HI] }]);
 		});
 
 		it('writes each expectation, null included, at the audio time of the last frame', () => {

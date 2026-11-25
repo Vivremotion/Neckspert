@@ -13,6 +13,8 @@ import {
 	FIRST_READING_MS,
 	JUDGE_EVERY_MS,
 	LAST_READING_MS,
+	NOTE_HI,
+	NOTE_LO,
 	NOTHING_FINAL_MS,
 	SPECTRUM_KEEP_MAX_HZ,
 	SPECTRUM_POINTS_MS,
@@ -23,7 +25,7 @@ import {
 	hopSizeFor
 } from './constants';
 import { magnitudeSpectrum } from '../spectral/fft';
-import { judgeWindow } from './judge';
+import { judgeWindow, outOfRange } from './judge';
 import { binHz, hannWindow, maxPool } from './spectrum';
 import { DEFAULT_VARIANT, type JudgeVariant } from './variants';
 
@@ -110,6 +112,15 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		this.expectation = expectation;
 		if (this.diagnostics?.enabled) {
 			this.diagnostics.event('chord.expectation', this.lastFrameEnd, expectation);
+			// A candidate out of the judge's range scores 0 whatever sounds: said here, so that a
+			// chord never recognized is never a mystery in the journal.
+			const ids = expectation ? outOfRange(expectation.candidates) : [];
+			if (ids.length > 0) {
+				this.diagnostics.event('chord.out-of-range', this.lastFrameEnd, {
+					ids,
+					range: [NOTE_LO, NOTE_HI]
+				});
+			}
 		}
 	}
 

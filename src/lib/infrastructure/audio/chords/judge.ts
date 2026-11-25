@@ -11,6 +11,13 @@ function inRange(midi: number): boolean {
 	return midi >= NOTE_LO && midi <= NOTE_HI;
 }
 
+/** Ids of the candidates a note of which leaves [NOTE_LO, NOTE_HI]: they can only score 0. */
+export function outOfRange(candidates: readonly ChordCandidate[]): string[] {
+	return candidates
+		.filter((candidate) => !candidate.notes.every((note) => inRange(note.midi)))
+		.map((candidate) => candidate.id);
+}
+
 function round(value: number): number {
 	const scale = 10 ** SCORE_DECIMALS;
 	return Math.round(value * scale) / scale;

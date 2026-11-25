@@ -97,7 +97,7 @@ Réécriture propre du juge `nnls-abs` du spike ; le code du spike reste jetable
 3. **Fenêtre.** Pour chaque attaque, le maximum de chaque case de fréquence sur les spectres depuis l’attaque : une note compte dès qu’elle a sonné.
 4. **Rapports.** Aux points `REPORT_POINTS_MS = [250, 500, 1000, 2000]` après l’attaque, coupés à l’attente suivante (le dernier rapport couvre alors ce qui a été entendu). Pour chaque variante :
    - blanchiment à la manière de Klapuri (gains par bande ERB, ν = 0,33) ;
-   - un peigne par note de 52 à 84 (MIDI) : `COMB_HARMONICS = 10` partiels gaussiens (largeur 1,6 case, inharmonicité B = 1e‑4, jusqu’à 5 kHz), d’amplitudes données par le profil de la variante ;
+   - un peigne par note de 52 à 84 (MIDI ; de 35 à 84 depuis #13, pour la septième corde) : `COMB_HARMONICS = 10` partiels gaussiens (largeur 1,6 case, inharmonicité B = 1e‑4, jusqu’à 5 kHz), d’amplitudes données par le profil de la variante ;
    - pour chaque candidat, ajustement non négatif (NNLS, Lawson–Hanson) de ses peignes sur le spectre blanchi, de `MIN_HZ = 70` à 5 kHz ;
    - score = énergie expliquée × min(1, présence / `PRESENCE_RATIO`), où la présence est l’énergie de la note la plus faible du candidat rapportée à la plus forte, `PRESENCE_RATIO = 0,15` ;
    - décision : le meilleur candidat, s’il atteint le seuil de la variante et devance le suivant de sa marge ; sinon null.

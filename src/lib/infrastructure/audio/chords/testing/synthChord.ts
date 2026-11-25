@@ -5,6 +5,8 @@ import {
 	qualityById,
 	voicingCandidates,
 	voicingOccurrences,
+	type StringNumber,
+	type StringSet,
 	type VoicingCandidate
 } from '$lib/domain/music';
 import { fftSizeFor, hopSizeFor } from '../constants';
@@ -90,5 +92,30 @@ export function dCandidates(frets = '2,3,2'): ChordCandidate[] {
 		(o) => o.notes.map((n) => n.fret).join(',') === frets
 	);
 	if (!occurrence) throw new Error(`No D occurrence at ${frets}`);
+	return voicingCandidates(occurrence, inversions).map(toCandidate);
+}
+
+/** closeTriadVoicings order: root on the lowest string, on the highest, on the middle one. */
+function inversionIndex(strings: StringSet, rootString: StringNumber): number {
+	return [strings[0], strings[2], strings[1]].indexOf(rootString);
+}
+
+/**
+ * Candidates of a triad whose root is on `rootString` of `strings`, at the occurrence `frets`
+ * (frets joined by commas): what the mechanic would hand the verifier.
+ */
+export function triadCandidates(
+	root: string,
+	quality: 'maj' | 'min',
+	strings: StringSet,
+	rootString: StringNumber,
+	frets: string
+): ChordCandidate[] {
+	const chord = { root: parseSpelledNote(root), quality: qualityById(quality) };
+	const inversions = closeTriadVoicings(chord, strings);
+	const occurrence = voicingOccurrences(inversions[inversionIndex(strings, rootString)]).find(
+		(o) => o.notes.map((n) => n.fret).join(',') === frets
+	);
+	if (!occurrence) throw new Error(`No ${root} occurrence at ${frets} on ${strings.join('-')}`);
 	return voicingCandidates(occurrence, inversions).map(toCandidate);
 }
